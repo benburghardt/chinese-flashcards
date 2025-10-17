@@ -1,0 +1,10 @@
+SUBTLEX-CH: Chinese Word and Character Frequencies
+   
+   License: Free for research and educational purposes
+   
+   Required Citation:
+   Cai, Q., & Brysbaert, M. (2010). SUBTLEX-CH: Chinese Word and Character 
+   Frequencies Based on Film Subtitles. PLoS ONE, 5(6), e10729.
+   https://doi.org/10.1371/journal.pone.0010729
+   
+   For commercial use, contact the authors at Ghent University.
