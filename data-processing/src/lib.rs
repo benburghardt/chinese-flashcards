@@ -1,4 +1,5 @@
 pub mod parsers;
+pub mod database;
 
 use parsers::cedict::CedictEntry;
 use parsers::subtlex::FrequencyData;

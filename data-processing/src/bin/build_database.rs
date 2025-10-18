@@ -1,6 +1,53 @@
-// Placeholder for database builder (Task 1.4)
-// This will be implemented in a future task
+use data_processing::parsers::{cedict, subtlex};
+use data_processing::{merge_cedict_with_frequency, database};
 
-fn main() {
-    println!("Database builder not yet implemented - will be created in Task 1.4");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Navigate to project root to find datasets
+    let project_root = std::env::current_dir()?
+        .parent()
+        .ok_or("Cannot find project root")?
+        .to_path_buf();
+
+    let datasets_dir = project_root.join("datasets");
+    let output_path = project_root.join("chinese.db");
+
+    println!("=== Building Chinese Learning Database ===\n");
+
+    // Step 1: Parse CC-CEDICT
+    println!("📖 Parsing CC-CEDICT...");
+    let cedict_path = datasets_dir.join("cedict_ts.u8");
+    let cedict_entries = cedict::parse_cedict_file(cedict_path.to_str().unwrap())?;
+    println!("  ✓ Loaded {} entries\n", cedict_entries.len());
+
+    // Step 2: Parse SUBTLEX-CH
+    println!("📊 Parsing SUBTLEX-CH...");
+    let char_freq_path = datasets_dir.join("SUBTLEX-CH").join("SUBTLEX-CH-CHR");
+    let char_freq = subtlex::parse_subtlex_character_file(char_freq_path.to_str().unwrap())?;
+
+    let word_freq_path = datasets_dir.join("SUBTLEX-CH").join("SUBTLEX-CH-WF_PoS");
+    let word_freq = subtlex::parse_subtlex_word_file(word_freq_path.to_str().unwrap())?;
+
+    let mut combined_freq = char_freq;
+    combined_freq.extend(word_freq);
+    println!("  ✓ Loaded frequency data for {} items\n", combined_freq.len());
+
+    // Step 3: Merge data
+    println!("🔗 Merging data...");
+    let enriched = merge_cedict_with_frequency(cedict_entries, combined_freq);
+    println!("  ✓ Created {} enriched entries\n", enriched.len());
+
+    // Step 4: Create database
+    println!("💾 Creating SQLite database...");
+    database::create_database(enriched, output_path.to_str().unwrap())?;
+    println!();
+
+    // Step 5: Verify
+    println!("✅ Verifying database...");
+    database::verify_database(output_path.to_str().unwrap())?;
+
+    println!("\n🎉 Database build complete!");
+    println!("   Output: {}", output_path.display());
+    println!("   Ready to use in application");
+
+    Ok(())
 }
