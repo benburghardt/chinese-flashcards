@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+src-tauri/target/
+
+# Downloaded datasets (DO NOT COMMIT)
+datasets/
+*.db
+data-processing/downloads/
+
+# Extracted data files
+cedict*.txt
+cedict*.gz
+SUBTLEX-CH*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*

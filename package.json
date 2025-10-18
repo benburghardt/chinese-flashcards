@@ -1,0 +1,37 @@
+{
+  "name": "chinese-learning-tool",
+  "version": "0.1.0",
+  "description": "A desktop application for learning Mandarin and Cantonese Chinese with integrated dictionary, flashcards, and spaced repetition.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri:dev": "cargo tauri dev",
+    "tauri:build": "cargo tauri build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benburghardt/chinese-learning-tool.git"
+  },
+  "keywords": ["chinese", "mandarin", "cantonese", "learning", "flashcards", "dictionary", "education"],
+  "author": "Ben Burghardt",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/benburghardt/chinese-learning-tool/issues"
+  },
+  "homepage": "https://github.com/benburghardt/chinese-learning-tool#readme",
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "@tauri-apps/plugin-fs": "^2.4.2",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  }
+}

@@ -9,12 +9,12 @@
 
 ## Current Status
 
-**Phase:** 0 - Development Environment Setup
-**Current Task:** 0.1 - Verify Development Environment
-**Overall Progress:** 0/43 tasks complete (0%)
+**Phase:** 1 - Core Mandarin Learning (MVP)
+**Current Task:** 1.1 - Set Up Rust Database Module
+**Overall Progress:** 5/43 tasks complete (12%)
 
 ### Phase Progress
-- **Phase 0 (Setup):** 0/5 complete
+- **Phase 0 (Setup):** 5/5 complete ✅
 - **Phase 1 (Core MVP):** 0/15 complete
 - **Phase 2 (Enhanced):** Not started
 - **Phase 3 (Cantonese):** Not started
@@ -23,7 +23,22 @@
 
 ## Completed Tasks
 
-*None yet - starting fresh!*
+### Phase 0: Development Environment Setup ✅
+- ✅ **Task 0.1:** Verify Development Environment (2025-10-17)
+  - All tools verified and working correctly
+  - Extended-Flashcards builds successfully
+- ✅ **Task 0.2:** Install Additional Dependencies (2025-10-17)
+  - Created code formatting configurations
+  - Verified Rust crate ecosystem access
+- ✅ **Task 0.3:** Create Project Repository Structure (2025-10-17)
+  - Copied Extended-Flashcards base structure
+  - Created project directories and configuration files
+- ✅ **Task 0.4:** Set Up License Compliance (2025-10-17)
+  - Verified all license files in place
+  - Updated README.md with comprehensive documentation
+- ✅ **Task 0.5:** Database Schema Design (2025-10-17)
+  - Created complete SQL schema for all 3 phases
+  - Documented schema design decisions
 
 ---
 
@@ -103,9 +118,11 @@
 ## Environment Info
 
 - **OS:** Windows
-- **Node.js:** TBD (verify in Task 0.1)
-- **Rust:** TBD (verify in Task 0.1)
-- **Tauri:** TBD (verify in Task 0.1)
+- **Node.js:** v22.19.0
+- **npm:** 11.6.0
+- **Rust:** 1.89.0 (stable)
+- **Cargo:** 1.89.0
+- **Tauri CLI:** 2.8.4
 
 ---
 
