@@ -71,12 +71,12 @@ fn insert_characters(conn: &Connection, entries: Vec<EnrichedEntry>) -> Result<(
 }
 
 fn initialize_user_progress(conn: &Connection) -> Result<()> {
-    // Get first 15 characters by frequency
+    // Get first 30 characters by frequency
     let mut stmt = conn.prepare(
         "SELECT id FROM characters
          WHERE is_word = 0
          ORDER BY frequency_rank ASC
-         LIMIT 15"
+         LIMIT 30"
     )?;
 
     let char_ids: Vec<i32> = stmt
@@ -87,15 +87,15 @@ fn initialize_user_progress(conn: &Connection) -> Result<()> {
 
     let mut insert_stmt = conn.prepare(
         "INSERT INTO user_progress (
-            character_id, current_interval_days, next_review_date, introduced
-        ) VALUES (?1, 1.0, datetime('now'), 0)"
+            character_id, current_interval_days, previous_interval_days, next_review_date, introduced
+        ) VALUES (?1, 0.0417, 0.0417, datetime('now'), 0)"
     )?;
 
     for char_id in char_ids {
         insert_stmt.execute([char_id])?;
     }
 
-    println!("  ✓ First 15 characters ready for learning");
+    println!("  ✓ First 30 characters ready for learning");
     Ok(())
 }
 
@@ -125,7 +125,7 @@ pub fn verify_database(path: &str) -> Result<()> {
     println!("Words: {}", word_count);
     println!("Initial progress entries: {}", progress_count);
 
-    // Verify top 15
+    // Verify top 30
     let mut stmt = conn.prepare(
         "SELECT c.simplified, c.mandarin_pinyin, c.frequency_rank
          FROM characters c
@@ -133,7 +133,7 @@ pub fn verify_database(path: &str) -> Result<()> {
          ORDER BY c.frequency_rank ASC"
     )?;
 
-    println!("\n=== First 15 Characters (Ready to Learn) ===");
+    println!("\n=== First 30 Characters (Ready to Learn) ===");
     let rows = stmt.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,

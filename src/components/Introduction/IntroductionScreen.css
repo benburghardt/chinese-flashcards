@@ -1,0 +1,204 @@
+.introduction-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.introduction-container {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 100%;
+  padding: 40px;
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Header */
+.introduction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.progress-indicator {
+  font-size: 14px;
+  color: #666;
+}
+
+.progress-indicator strong {
+  color: #667eea;
+  font-size: 16px;
+}
+
+.learning-stage {
+  background: #667eea;
+  color: white;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Character Display */
+.character-display {
+  text-align: center;
+  margin: 40px 0;
+}
+
+.character-large {
+  font-size: 120px;
+  font-weight: 300;
+  color: #333;
+  line-height: 1.2;
+  margin-bottom: 10px;
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+}
+
+.character-traditional {
+  font-size: 16px;
+  color: #999;
+  margin-top: 10px;
+}
+
+/* Info Cards */
+.info-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  border-left: 4px solid #667eea;
+  transition: all 0.3s ease;
+}
+
+.info-card:hover {
+  background: #f0f2f5;
+  border-left-color: #764ba2;
+}
+
+.card-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #667eea;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.card-content {
+  font-size: 18px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.pinyin {
+  font-size: 24px;
+  font-weight: 500;
+  color: #667eea;
+}
+
+.definition {
+  font-size: 18px;
+  color: #555;
+}
+
+/* Action Button */
+.start-learning-button {
+  width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 18px 32px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 30px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.start-learning-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.start-learning-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.start-learning-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Helper Text */
+.helper-text {
+  text-align: center;
+  font-size: 13px;
+  color: #999;
+  margin-top: 16px;
+  line-height: 1.5;
+}
+
+/* Error Message */
+.error-message {
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 16px;
+  color: #c33;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .introduction-container {
+    padding: 30px 20px;
+  }
+
+  .character-large {
+    font-size: 90px;
+  }
+
+  .pinyin {
+    font-size: 20px;
+  }
+
+  .definition {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .character-large {
+    font-size: 72px;
+  }
+
+  .introduction-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+}

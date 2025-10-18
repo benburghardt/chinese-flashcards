@@ -1,5 +1,5 @@
 use data_processing::parsers::{cedict, subtlex};
-use data_processing::{merge_cedict_with_frequency, database};
+use data_processing::{merge_cedict_with_frequency_separated, database};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Navigate to project root to find datasets
@@ -27,13 +27,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let word_freq_path = datasets_dir.join("SUBTLEX-CH").join("SUBTLEX-CH-WF_PoS");
     let word_freq = subtlex::parse_subtlex_word_file(word_freq_path.to_str().unwrap())?;
 
-    let mut combined_freq = char_freq;
-    combined_freq.extend(word_freq);
-    println!("  ✓ Loaded frequency data for {} items\n", combined_freq.len());
+    println!("  ✓ Loaded {} character frequencies", char_freq.len());
+    println!("  ✓ Loaded {} word frequencies\n", word_freq.len());
 
-    // Step 3: Merge data
+    // Step 3: Merge data (keeping character and word frequencies separate)
     println!("🔗 Merging data...");
-    let enriched = merge_cedict_with_frequency(cedict_entries, combined_freq);
+    let enriched = merge_cedict_with_frequency_separated(cedict_entries, char_freq, word_freq);
     println!("  ✓ Created {} enriched entries\n", enriched.len());
 
     // Step 4: Create database

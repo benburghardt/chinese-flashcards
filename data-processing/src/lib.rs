@@ -29,3 +29,33 @@ pub fn merge_cedict_with_frequency(
         })
         .collect()
 }
+
+/// Merge CEDICT entries with frequency data, keeping character and word frequencies separate.
+/// Single characters use character frequency ranks, multi-character words use word frequency ranks.
+pub fn merge_cedict_with_frequency_separated(
+    cedict_entries: Vec<CedictEntry>,
+    char_freq: HashMap<String, FrequencyData>,
+    word_freq: HashMap<String, FrequencyData>,
+) -> Vec<EnrichedEntry> {
+    cedict_entries
+        .into_iter()
+        .map(|entry| {
+            // For single characters, prioritize character frequency
+            // For multi-character words, use word frequency
+            let freq_rank = if entry.simplified.chars().count() == 1 {
+                char_freq
+                    .get(&entry.simplified)
+                    .map(|f| f.frequency_rank)
+            } else {
+                word_freq
+                    .get(&entry.simplified)
+                    .map(|f| f.frequency_rank)
+            };
+
+            EnrichedEntry {
+                cedict: entry,
+                frequency_rank: freq_rank,
+            }
+        })
+        .collect()
+}
