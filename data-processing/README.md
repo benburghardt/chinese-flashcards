@@ -22,11 +22,13 @@ cargo run --bin download-datasets
 **Output:**
 ```
 datasets/
-├── cedict_ts.u8           # CC-CEDICT dictionary (auto-downloaded)
-└── SUBTLEX-CH/            # Frequency data (manual download required)
+├── cedict_ts.u8           # CC-CEDICT dictionary (UTF-8, auto-downloaded)
+└── SUBTLEX-CH/            # Frequency data (GBK encoding, manual download)
     ├── SUBTLEX-CH-CHR.txt
     └── SUBTLEX-CH-WF_PoS.txt
 ```
+
+**Important:** SUBTLEX-CH files use GBK (Chinese GB2312) encoding, not UTF-8. This is normal and expected. The parsing scripts will handle both encodings correctly.
 
 ### 2. parse-cedict (Coming in Task 1.2)
 Parses CC-CEDICT file into structured JSON format.
