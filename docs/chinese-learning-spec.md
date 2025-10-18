@@ -12,7 +12,7 @@
 Create `LICENSES/` directory with full license texts:
 ```
 LICENSES/
-├── CC-BY-SA-4.0.txt          # Download from creativecommons.org
+├── CC-BY-SA-4.0.txt          # Download from creativecommons.orghttps://github.com/benburghardt/chinese-flashcards.git
 ├── Arphic-Public-License.txt # Copy from Make Me a Hanzi repo
 ├── LGPL-2.1.txt              # Download from gnu.org
 └── SUBTLEX-CH-Citation.txt   # Create with citation requirements

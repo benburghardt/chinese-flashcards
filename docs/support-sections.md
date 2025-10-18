@@ -11,9 +11,25 @@ This document contains supporting materials for the Chinese Learning Tool develo
 
 ---
 
-## EditHistory.md Logging Guidelines
+## EditHistory Logging System
 
-**Purpose:** EditHistory.md serves as a comprehensive development journal tracking all major decisions, bugs, and solutions.
+**Purpose:** Modular edit history system designed to manage token limits while maintaining comprehensive development journal.
+
+### File Structure
+
+```
+docs/EditHistory/
+├── CurrentSprint.md         # ⭐ Last 5-10 entries (always provide to Claude)
+├── Phase0-Setup.md          # Archive of Phase 0 entries
+├── Phase1-CoreMVP.md        # Archive of Phase 1 entries
+├── Phase2-Enhanced.md       # Archive of Phase 2 entries
+└── Phase3-Cantonese.md      # Archive of Phase 3 entries
+```
+
+**Key Files:**
+- **`CurrentSprint.md`**: Rolling log of most recent work (always include in session start)
+- **Phase Archives**: Historical entries moved from CurrentSprint when complete
+- **`DevSummary.md`**: High-level status snapshot (always include in session start)
 
 ### When to Log
 
@@ -26,75 +42,154 @@ This document contains supporting materials for the Chinese Learning Tool develo
 - Completing integration testing
 - Phase completion gates
 
-### Entry Template
+**Update Location:**
+- Add new entries to **`CurrentSprint.md`** (top of file, newest first)
+- Archive entries to phase files when CurrentSprint exceeds 10 entries
+- Update **`DevSummary.md`** after each task completion
+
+### Entry Templates
+
+#### Brief Entry (Use for Most Tasks)
 
 ```markdown
-## [YYYY-MM-DD] - [Task Number] - [Brief Title]
+## [YYYY-MM-DD] - X.X - Task Name
+**Status:** Complete/In Progress/Blocked
+**Key Decisions:** [1-2 sentence summary of main technical decisions]
+**Issues:** [Brief description or "None"]
+**Files:** [Key files created/modified]
+**Tests:** [Pass/Fail with brief result]
+**Next:** Task X.X
+```
+
+**When to use Brief:**
+- Straightforward task implementation
+- No significant blockers encountered
+- Standard approach worked as expected
+- Quick reference is sufficient
+
+**Example Brief Entry:**
+```markdown
+## [2025-10-20] - 1.2 - CC-CEDICT Parser
+**Status:** Complete
+**Key Decisions:** Used regex-free parsing for performance; Vec<String> for definitions
+**Issues:** Spacing variations in some lines → added normalize/trim
+**Files:** data-processing/src/parsers/cedict.rs (created), added 3 unit tests
+**Tests:** Pass - 120k entries parsed successfully, 47 malformed lines logged
+**Next:** Task 1.3 - SUBTLEX-CH Parser
+```
+
+#### Detailed Entry (Use for Complex/Problematic Tasks)
+
+```markdown
+## [YYYY-MM-DD] - X.X - Task Name [DETAILED]
 
 **Task:** [Full task number and name]
 
 **Status:** [Complete / In Progress / Blocked]
 
-**Objective:** 
+**Objective:**
 [What you were trying to accomplish]
 
 **Decisions Made:**
 - [Key technical or design decision 1]
+  - Rationale: [Why this approach]
 - [Key technical or design decision 2]
-- [Rationale for each decision]
+  - Rationale: [Why this approach]
 
 **Issues Encountered:**
-- [Bug 1: Description]
-- [Bug 2: Description]
-- [Challenge 1: Description]
+- [Bug 1: Detailed description]
+- [Challenge 1: What made this difficult]
 
 **Solutions Applied:**
 - [How Bug 1 was resolved]
-- [How Bug 2 was resolved]
-- [Alternative approaches considered]
+  - Attempted: [What didn't work]
+  - Final solution: [What worked and why]
+- [Alternative approaches considered and why rejected]
 
 **Code Changes:**
-- [Files created]
-- [Files modified]
-- [Key functions/components added]
-- [Dependencies added]
+- **Created:**
+  - `path/to/file.rs` - [Purpose]
+  - `path/to/test.rs` - [Test coverage]
+- **Modified:**
+  - `path/to/existing.rs` - [What changed]
+- **Key functions/components:**
+  - `function_name()` - [What it does]
+- **Dependencies added:**
+  - `crate-name = "version"` - [Why needed]
 
 **Testing Results:**
-- [Pass/Fail for each acceptance criterion]
-- [What was tested]
-- [Edge cases discovered]
+- ✅ Unit tests: All 5 passed
+- ✅ Integration test: Database queries working
+- ⚠️ Performance test: Slower than expected (acceptable for now)
+- [Edge cases discovered and how handled]
 
 **Notes for Future:**
-- [Lessons learned]
-- [Technical debt incurred]
+- [Lessons learned - be specific]
+- [Technical debt incurred - document WHY accepted]
 - [Areas for improvement]
 - [Things to remember for similar tasks]
+- [External resources that were helpful]
 
-**Time Spent:** [Optional: Hours or days invested]
+**Time Spent:** [Optional: e.g., "4 hours" or "2 days"]
 
 **Next Steps:**
-[What task comes next]
+[What task comes next and any prep needed]
 ```
+
+**When to use Detailed:**
+- Complex implementation with multiple approaches considered
+- Significant bugs or blockers encountered
+- Architectural decisions with long-term impact
+- Task that future you will want to reference
+- Learning moments worth documenting thoroughly
 
 ### Best Practices
 
 **Do:**
-- ✅ Log immediately after completing task
+- ✅ Log immediately after completing task (while fresh)
+- ✅ Add to **CurrentSprint.md** at the TOP (newest first)
+- ✅ Update **DevSummary.md** after significant tasks
 - ✅ Be specific about bugs and solutions
-- ✅ Include code file paths
+- ✅ Include file paths for code changes
 - ✅ Note time spent (helps estimate future tasks)
 - ✅ Record alternative approaches considered
 - ✅ Document "why" not just "what"
-- ✅ Include lessons learned
-- ✅ Reference external resources used
+- ✅ Use Brief entries for straightforward work
+- ✅ Use Detailed entries for complex/learning moments
 
 **Don't:**
 - ❌ Wait to log multiple tasks at once (details forgotten)
-- ❌ Copy-paste code into log (keep concise)
+- ❌ Copy-paste large code blocks (keep concise, use file paths)
 - ❌ Skip logging small decisions (they add up)
-- ❌ Use vague descriptions ("fixed bug" - what bug?)
-- ❌ Forget to update status if returning to task
-- ❌ Skip logging successful approaches (future reference)
+- ❌ Use vague descriptions ("fixed bug" - what bug? how?)
+- ❌ Forget to update status if returning to task later
+- ❌ Let CurrentSprint.md grow beyond 10 entries (archive old ones)
+- ❌ Skip updating DevSummary.md (Claude needs current status)
+
+### Archiving Process
+
+**When CurrentSprint.md has >10 entries:**
+
+1. Move oldest entries to appropriate phase file
+   - Phase 0 entries → `Phase0-Setup.md`
+   - Phase 1 entries → `Phase1-CoreMVP.md`
+   - etc.
+
+2. Keep most recent 5-10 entries in CurrentSprint.md
+
+3. Update DevSummary.md if any archived entries contained key decisions
+
+**Archive Entry Format:**
+Simply copy the entry from CurrentSprint.md to the phase file. Add entries in chronological order (oldest first) in phase archives.
+
+### Integration with Session Start
+
+**Every session, provide Claude Code with:**
+1. `@DevSummary.md` - Current status and key decisions
+2. `@CurrentSprint.md` - Recent work context
+3. Current task details from development-plan.md
+
+See `docs/SESSION_START_PROMPT.md` for detailed template.
 
 ---
 
