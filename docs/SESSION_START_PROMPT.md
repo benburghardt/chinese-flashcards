@@ -254,6 +254,18 @@ Task X.X: [Name]
 [Your question/status]
 ```
 
+```
+Dev session - Chinese Learning Tool
+
+@DevSummary.md
+@CurrentSprint.md
+
+Task:
+@docs\currentTask.md 
+
+Can you help me start this task, please let me know if you need any other resources.
+```
+
 ---
 
 *This template optimizes for token efficiency while providing comprehensive context.*
