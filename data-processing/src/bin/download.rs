@@ -112,29 +112,30 @@ mod tests {
     fn test_decompress_gz() {
         use flate2::write::GzEncoder;
         use flate2::Compression;
+        use std::path::PathBuf;
 
         // Create test data
         let test_data = b"Hello, this is test data!";
-        let test_gz = "test_data.txt.gz";
-        let test_output = "test_data.txt";
+        let test_gz = PathBuf::from("test_data.txt.gz");
+        let test_output = PathBuf::from("test_data.txt");
 
         // Compress test data
-        let file = File::create(test_gz).unwrap();
+        let file = File::create(&test_gz).unwrap();
         let mut encoder = GzEncoder::new(file, Compression::default());
         encoder.write_all(test_data).unwrap();
         encoder.finish().unwrap();
 
         // Test decompression
-        let result = decompress_gz(test_gz, test_output);
+        let result = decompress_gz(&test_gz, &test_output);
         assert!(result.is_ok());
 
         // Verify decompressed content
-        let content = fs::read_to_string(test_output).unwrap();
+        let content = fs::read_to_string(&test_output).unwrap();
         assert_eq!(content.as_bytes(), test_data);
 
         // Cleanup
-        fs::remove_file(test_gz).unwrap();
-        fs::remove_file(test_output).unwrap();
+        fs::remove_file(&test_gz).unwrap();
+        fs::remove_file(&test_output).unwrap();
     }
 
     #[test]
