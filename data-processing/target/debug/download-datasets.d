@@ -1,0 +1,1 @@
+C:\Users\Ben\Desktop\Coding\Visual\ Studio\ Code\Personal_Projects\chinese-flashcards\data-processing\target\debug\download-datasets.exe: C:\Users\Ben\Desktop\Coding\Visual\ Studio\ Code\Personal_Projects\chinese-flashcards\data-processing\src\bin\download.rs

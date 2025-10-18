@@ -10,12 +10,12 @@
 ## Current Status
 
 **Phase:** 1 - Core Mandarin Learning (MVP)
-**Current Task:** 1.1 - Set Up Rust Database Module
-**Overall Progress:** 5/43 tasks complete (12%)
+**Current Task:** 1.2 - Parse CC-CEDICT Data
+**Overall Progress:** 6/43 tasks complete (14%)
 
 ### Phase Progress
 - **Phase 0 (Setup):** 5/5 complete ✅
-- **Phase 1 (Core MVP):** 0/15 complete
+- **Phase 1 (Core MVP):** 1/15 complete
 - **Phase 2 (Enhanced):** Not started
 - **Phase 3 (Cantonese):** Not started
 
@@ -39,6 +39,11 @@
 - ✅ **Task 0.5:** Database Schema Design (2025-10-17)
   - Created complete SQL schema for all 3 phases
   - Documented schema design decisions
+
+### Phase 1: Core Mandarin Learning (MVP)
+- ✅ **Task 1.1:** Data Processing - Download Scripts (2025-10-17)
+  - Created download script with async HTTP and gzip decompression
+  - 2 passing unit tests
 
 ---
 

@@ -58,6 +58,38 @@
 
 ## Current Sprint Entries
 
+## [2025-10-17] - 1.1 - Data Processing - Download Scripts
+**Status:** Complete
+**Key Decisions:**
+- Used reqwest with async for HTTP downloads
+- Implemented gzip decompression with flate2
+- SUBTLEX-CH requires manual download (academic licensing)
+- Skip download if files already exist (idempotent)
+- Cleanup compressed files after extraction
+**Issues:** None
+**Files Created:**
+- `data-processing/Cargo.toml` (Project manifest with all dependencies)
+- `data-processing/src/bin/download.rs` (Download script with tests)
+- `data-processing/README.md` (Usage documentation)
+**Features:**
+- Automatic CC-CEDICT download and extraction
+- Manual download instructions for SUBTLEX-CH
+- License attribution display during download
+- File integrity via gzip validation
+- 2 passing unit tests (decompress_gz, directory creation)
+**Tests:**
+- ✅ Build successful (20.59s, 194 crates)
+- ✅ All unit tests pass (2/2)
+- ✅ Gzip decompression verified
+**Dependencies Added:**
+- reqwest 0.12 (HTTP client)
+- tokio 1.48 (async runtime)
+- flate2 1.1 (gzip decompression)
+- sha2 0.10 (integrity verification)
+- rusqlite 0.32 (database - for future tasks)
+- serde 1.0, csv 1.3 (parsing - for future tasks)
+**Next:** Task 1.2 - Parse CC-CEDICT Data
+
 ## [2025-10-17] - 0.5 - Database Schema Design
 **Status:** Complete
 **Key Decisions:**

@@ -1,0 +1,109 @@
+# Data Processing Tools
+
+This directory contains Rust binaries for processing Chinese language datasets and building the application database.
+
+## Tools
+
+### 1. download-datasets
+Downloads required datasets from their source repositories.
+
+**Usage:**
+```bash
+cd data-processing
+cargo run --bin download-datasets
+```
+
+**What it does:**
+- Downloads CC-CEDICT dictionary (~4 MB compressed)
+- Extracts to `datasets/cedict_ts.u8`
+- Displays instructions for SUBTLEX-CH manual download
+- Shows license attribution notices
+
+**Output:**
+```
+datasets/
+├── cedict_ts.u8           # CC-CEDICT dictionary (auto-downloaded)
+└── SUBTLEX-CH/            # Frequency data (manual download required)
+    ├── SUBTLEX-CH-CHR.txt
+    └── SUBTLEX-CH-WF_PoS.txt
+```
+
+### 2. parse-cedict (Coming in Task 1.2)
+Parses CC-CEDICT file into structured JSON format.
+
+### 3. build-database (Coming in Task 1.3)
+Builds the SQLite database from parsed data.
+
+## Dependencies
+
+All dependencies are managed in `Cargo.toml`:
+
+- **reqwest**: HTTP client for downloading files
+- **tokio**: Async runtime
+- **flate2**: Gzip decompression
+- **sha2**: File integrity verification
+- **rusqlite**: SQLite database interface
+- **serde**: Serialization/deserialization
+- **csv**: CSV file parsing
+
+## Manual Download: SUBTLEX-CH
+
+SUBTLEX-CH must be downloaded manually due to academic licensing:
+
+1. Visit: https://www.ugent.be/pp/experimentele-psychologie/en/research/documents/subtlexch
+2. Download both files:
+   - `SUBTLEX-CH-CHR.zip` (character frequencies)
+   - `SUBTLEX-CH-WF_PoS.zip` (word frequencies)
+3. Extract to `datasets/SUBTLEX-CH/`
+
+**Required citation:**
+```
+Cai, Q., & Brysbaert, M. (2010). SUBTLEX-CH: Chinese Word and Character
+Frequencies Based on Film Subtitles. PLoS ONE, 5(6), e10729.
+https://doi.org/10.1371/journal.pone.0010729
+```
+
+## License Compliance
+
+The download script displays license information for each dataset:
+
+- **CC-CEDICT**: CC BY-SA 4.0
+- **SUBTLEX-CH**: Free for research/educational use (citation required)
+
+Full license details are in `DATA-LICENSES.md` at the project root.
+
+## Development
+
+**Run tests:**
+```bash
+cargo test --bin download-datasets
+```
+
+**Build release version:**
+```bash
+cargo build --release --bin download-datasets
+```
+
+The release binary will be in `target/release/download-datasets.exe`.
+
+## Troubleshooting
+
+**Issue:** "Connection timeout" when downloading CC-CEDICT
+
+**Solution:**
+- Check internet connection
+- MDBG server may be temporarily down
+- Try again later or download manually from https://www.mdbg.net/chinese/dictionary?page=cedict
+
+**Issue:** SUBTLEX-CH website is unavailable
+
+**Solution:**
+- Dataset may need to be requested via email to the authors
+- Alternative: Use CC-CEDICT frequency data only (lower quality)
+
+## Next Steps
+
+After downloading datasets:
+1. Run `parse-cedict` to convert dictionary to JSON
+2. Run `build-database` to create SQLite database
+3. Database will be bundled with the application in `src-tauri/`
