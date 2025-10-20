@@ -1,0 +1,358 @@
+/**
+ * Unit tests for answer verification utilities
+ */
+
+import {
+  convertToneMarksToNumbers,
+  normalizePinyin,
+  verifyPinyin,
+  extractKeywords,
+  verifyDefinition,
+  verifyAnswer,
+} from './answerVerification';
+
+describe('convertToneMarksToNumbers', () => {
+  test('converts tone mark 1 (ā) to tone number', () => {
+    expect(convertToneMarksToNumbers('mā')).toBe('ma1');
+    expect(convertToneMarksToNumbers('hāo')).toBe('ha1o');
+  });
+
+  test('converts tone mark 2 (á) to tone number', () => {
+    expect(convertToneMarksToNumbers('má')).toBe('ma2');
+    expect(convertToneMarksToNumbers('hǎo')).not.toBe('ha2o'); // This is tone 3
+  });
+
+  test('converts tone mark 3 (ǎ) to tone number', () => {
+    expect(convertToneMarksToNumbers('mǎ')).toBe('ma3');
+    expect(convertToneMarksToNumbers('nǐ')).toBe('ni3');
+  });
+
+  test('converts tone mark 4 (à) to tone number', () => {
+    expect(convertToneMarksToNumbers('mà')).toBe('ma4');
+    expect(convertToneMarksToNumbers('bù')).toBe('bu4');
+  });
+
+  test('handles uppercase tone marks', () => {
+    expect(convertToneMarksToNumbers('MĀ')).toBe('ma1');
+    expect(convertToneMarksToNumbers('Nǐ')).toBe('ni3');
+  });
+
+  test('handles ü -> v conversion', () => {
+    expect(convertToneMarksToNumbers('nü')).toBe('nv5');
+    expect(convertToneMarksToNumbers('lǜ')).toBe('lv4');
+  });
+
+  test('handles multiple syllables', () => {
+    expect(convertToneMarksToNumbers('nǐ hǎo')).toBe('ni3 ha3o');
+  });
+});
+
+describe('normalizePinyin', () => {
+  test('converts to lowercase', () => {
+    expect(normalizePinyin('MA1')).toBe('ma1');
+    expect(normalizePinyin('Ni3')).toBe('ni3');
+  });
+
+  test('trims whitespace', () => {
+    expect(normalizePinyin('  ma1  ')).toBe('ma1');
+  });
+
+  test('converts tone marks to numbers', () => {
+    expect(normalizePinyin('mā')).toBe('ma1');
+    expect(normalizePinyin('nǐ')).toBe('ni3');
+  });
+
+  test('removes spaces between syllables', () => {
+    expect(normalizePinyin('ni3 hao3')).toBe('ni3hao3');
+    expect(normalizePinyin('nǐ hǎo')).toBe('ni3ha3o');
+  });
+
+  test('handles mixed formats', () => {
+    expect(normalizePinyin('  Nǐ Hǎo  ')).toBe('ni3ha3o');
+  });
+});
+
+describe('verifyPinyin', () => {
+  test('accepts exact match with tone numbers', () => {
+    expect(verifyPinyin('ma1', 'ma1')).toBe(true);
+    expect(verifyPinyin('ni3', 'ni3')).toBe(true);
+  });
+
+  test('accepts tone marks as equivalent to tone numbers', () => {
+    expect(verifyPinyin('mā', 'ma1')).toBe(true);
+    expect(verifyPinyin('ma1', 'mā')).toBe(true);
+    expect(verifyPinyin('nǐ', 'ni3')).toBe(true);
+  });
+
+  test('handles case insensitivity', () => {
+    expect(verifyPinyin('MA1', 'ma1')).toBe(true);
+    expect(verifyPinyin('ma1', 'MA1')).toBe(true);
+    expect(verifyPinyin('Nǐ', 'ni3')).toBe(true);
+  });
+
+  test('handles whitespace trimming', () => {
+    expect(verifyPinyin('  ma1  ', 'ma1')).toBe(true);
+    expect(verifyPinyin('ma1', '  ma1  ')).toBe(true);
+  });
+
+  test('handles spaces in multi-syllable pinyin', () => {
+    expect(verifyPinyin('ni3 hao3', 'ni3hao3')).toBe(true);
+    expect(verifyPinyin('ni3hao3', 'ni3 hao3')).toBe(true);
+    expect(verifyPinyin('nǐ hǎo', 'ni3hao3')).toBe(true);
+  });
+
+  test('accepts any valid pronunciation from semicolon-separated list', () => {
+    expect(verifyPinyin('feng2', 'feng2; pang2')).toBe(true);
+    expect(verifyPinyin('pang2', 'feng2; pang2')).toBe(true);
+    expect(verifyPinyin('feng1', 'feng2; pang2')).toBe(false);
+  });
+
+  test('accepts any valid pronunciation from slash-separated list', () => {
+    expect(verifyPinyin('feng2', 'feng2/pang2')).toBe(true);
+    expect(verifyPinyin('pang2', 'feng2/pang2')).toBe(true);
+  });
+
+  test('rejects incorrect pinyin', () => {
+    expect(verifyPinyin('ma2', 'ma1')).toBe(false);
+    expect(verifyPinyin('ni2', 'ni3')).toBe(false);
+    expect(verifyPinyin('ba', 'ma1')).toBe(false);
+  });
+
+  test('rejects empty input', () => {
+    expect(verifyPinyin('', 'ma1')).toBe(false);
+    expect(verifyPinyin('ma1', '')).toBe(false);
+    expect(verifyPinyin('  ', 'ma1')).toBe(false);
+  });
+
+  test('handles real character examples', () => {
+    // 妈 (mother) - mā/ma1
+    expect(verifyPinyin('ma1', 'mā')).toBe(true);
+    expect(verifyPinyin('mā', 'ma1')).toBe(true);
+
+    // 你 (you) - nǐ/ni3
+    expect(verifyPinyin('ni3', 'nǐ')).toBe(true);
+    expect(verifyPinyin('nǐ', 'ni3')).toBe(true);
+
+    // 好 (good) - hǎo/hao3
+    expect(verifyPinyin('hao3', 'hǎo')).toBe(true);
+    expect(verifyPinyin('hǎo', 'hao3')).toBe(true);
+  });
+});
+
+describe('extractKeywords', () => {
+  test('splits on semicolons', () => {
+    const keywords = extractKeywords('to study; to learn');
+    expect(keywords).toContain('to study');
+    expect(keywords).toContain('to learn');
+    expect(keywords).toContain('study');
+    expect(keywords).toContain('learn');
+  });
+
+  test('splits on commas', () => {
+    const keywords = extractKeywords('good, well, fine');
+    expect(keywords).toContain('good');
+    expect(keywords).toContain('well');
+    expect(keywords).toContain('fine');
+  });
+
+  test('splits on "or"', () => {
+    const keywords = extractKeywords('mother or mom');
+    expect(keywords).toContain('mother');
+    expect(keywords).toContain('mom');
+  });
+
+  test('removes common articles and prepositions', () => {
+    const keywords = extractKeywords('to study');
+    expect(keywords).not.toContain('to');
+    expect(keywords).toContain('study');
+  });
+
+  test('removes parenthetical content', () => {
+    const keywords = extractKeywords('to study (formal); to learn');
+    expect(keywords.some(k => k.includes('formal'))).toBe(false);
+  });
+
+  test('handles lowercase conversion', () => {
+    const keywords = extractKeywords('To Study; To LEARN');
+    expect(keywords).toContain('to study');
+    expect(keywords).toContain('study');
+  });
+
+  test('removes duplicates', () => {
+    const keywords = extractKeywords('to study; to study; study');
+    const studyCount = keywords.filter(k => k === 'study').length;
+    expect(studyCount).toBe(1);
+  });
+});
+
+describe('verifyDefinition', () => {
+  test('accepts exact match', () => {
+    expect(verifyDefinition('study', 'study')).toBe(true);
+    expect(verifyDefinition('mother', 'mother')).toBe(true);
+  });
+
+  test('accepts keyword match from semicolon list', () => {
+    expect(verifyDefinition('study', 'to study; to learn')).toBe(true);
+    expect(verifyDefinition('learn', 'to study; to learn')).toBe(true);
+  });
+
+  test('accepts keyword match from comma list', () => {
+    expect(verifyDefinition('good', 'good, well, fine')).toBe(true);
+    expect(verifyDefinition('well', 'good, well, fine')).toBe(true);
+  });
+
+  test('handles case insensitivity', () => {
+    expect(verifyDefinition('STUDY', 'to study')).toBe(true);
+    expect(verifyDefinition('Study', 'to study')).toBe(true);
+    expect(verifyDefinition('study', 'To Study')).toBe(true);
+  });
+
+  test('handles whitespace trimming', () => {
+    expect(verifyDefinition('  study  ', 'to study')).toBe(true);
+  });
+
+  test('accepts partial match (user types less)', () => {
+    expect(verifyDefinition('study', 'to study hard')).toBe(true);
+  });
+
+  test('accepts extended answer (user types more)', () => {
+    expect(verifyDefinition('to study hard', 'to study')).toBe(true);
+  });
+
+  test('rejects clearly wrong answers', () => {
+    expect(verifyDefinition('dog', 'to study')).toBe(false);
+    expect(verifyDefinition('cat', 'mother')).toBe(false);
+  });
+
+  test('rejects empty input', () => {
+    expect(verifyDefinition('', 'to study')).toBe(false);
+    expect(verifyDefinition('  ', 'to study')).toBe(false);
+  });
+
+  test('handles real character examples', () => {
+    // 学 - to study; to learn
+    expect(verifyDefinition('study', 'to study; to learn')).toBe(true);
+    expect(verifyDefinition('learn', 'to study; to learn')).toBe(true);
+    expect(verifyDefinition('studying', 'to study; to learn')).toBe(true);
+
+    // 好 - good; well; proper
+    expect(verifyDefinition('good', 'good; well; proper')).toBe(true);
+    expect(verifyDefinition('well', 'good; well; proper')).toBe(true);
+    expect(verifyDefinition('proper', 'good; well; proper')).toBe(true);
+
+    // 妈 - mother; mom; ma
+    expect(verifyDefinition('mother', 'mother; mom; ma')).toBe(true);
+    expect(verifyDefinition('mom', 'mother; mom; ma')).toBe(true);
+  });
+
+  test('handles complex definitions with classifiers', () => {
+    // Some definitions include classifier markers like (CL:...)
+    const definition = 'book (CL:本[běn],冊|册[cè])';
+    expect(verifyDefinition('book', definition)).toBe(true);
+  });
+});
+
+describe('verifyAnswer', () => {
+  test('routes to pinyin verification for pinyin questions', () => {
+    expect(verifyAnswer('ma1', 'mā', 'pinyin')).toBe(true);
+    expect(verifyAnswer('ma2', 'mā', 'pinyin')).toBe(false);
+  });
+
+  test('routes to definition verification for definition questions', () => {
+    expect(verifyAnswer('study', 'to study; to learn', 'definition')).toBe(true);
+    expect(verifyAnswer('dog', 'to study; to learn', 'definition')).toBe(false);
+  });
+});
+
+describe('Edge Cases', () => {
+  test('handles very long definitions', () => {
+    const longDef = 'this is a very long definition with many words and phrases that should still work correctly when matching';
+    expect(verifyDefinition('long', longDef)).toBe(true);
+    expect(verifyDefinition('definition', longDef)).toBe(true);
+  });
+
+  test('handles special characters in definitions', () => {
+    expect(verifyDefinition('mother', 'mother (formal)')).toBe(true);
+    expect(verifyDefinition('study', 'to study [formal]')).toBe(true);
+  });
+
+  test('handles numbers in pinyin', () => {
+    expect(verifyPinyin('er4', 'er4')).toBe(true);
+    expect(verifyPinyin('yi1', 'yi1')).toBe(true);
+  });
+
+  test('handles neutral tone (tone 5)', () => {
+    // Some characters have neutral tone, sometimes written as tone 5 or no tone
+    expect(verifyPinyin('ma', 'ma5')).toBe(true);
+    expect(verifyPinyin('ma5', 'ma')).toBe(true);
+  });
+});
+
+describe('Real World Acceptance Tests', () => {
+  test('Character: 妈 (mother)', () => {
+    const pinyin = 'mā';
+    const definition = 'mother; mom; ma';
+
+    // Pinyin variations
+    expect(verifyPinyin('ma1', pinyin)).toBe(true);
+    expect(verifyPinyin('mā', pinyin)).toBe(true);
+    expect(verifyPinyin('MA1', pinyin)).toBe(true);
+    expect(verifyPinyin('Mā', pinyin)).toBe(true);
+
+    // Definition variations
+    expect(verifyDefinition('mother', definition)).toBe(true);
+    expect(verifyDefinition('mom', definition)).toBe(true);
+    expect(verifyDefinition('Mother', definition)).toBe(true);
+    expect(verifyDefinition('MOM', definition)).toBe(true);
+  });
+
+  test('Character: 学 (to study)', () => {
+    const pinyin = 'xué';
+    const definition = 'to study; to learn; to imitate';
+
+    // Pinyin variations
+    expect(verifyPinyin('xue2', pinyin)).toBe(true);
+    expect(verifyPinyin('xué', pinyin)).toBe(true);
+    expect(verifyPinyin('XUE2', pinyin)).toBe(true);
+
+    // Definition variations
+    expect(verifyDefinition('study', definition)).toBe(true);
+    expect(verifyDefinition('learn', definition)).toBe(true);
+    expect(verifyDefinition('imitate', definition)).toBe(true);
+    expect(verifyDefinition('to study', definition)).toBe(true);
+  });
+
+  test('Character: 你好 (hello - multi-syllable)', () => {
+    const pinyin = 'nǐ hǎo';
+    const definition = 'hello; hi';
+
+    // Pinyin variations (with and without spaces)
+    expect(verifyPinyin('ni3 hao3', pinyin)).toBe(true);
+    expect(verifyPinyin('ni3hao3', pinyin)).toBe(true);
+    expect(verifyPinyin('nǐ hǎo', pinyin)).toBe(true);
+    expect(verifyPinyin('nǐhǎo', pinyin)).toBe(true);
+
+    // Definition variations
+    expect(verifyDefinition('hello', definition)).toBe(true);
+    expect(verifyDefinition('hi', definition)).toBe(true);
+  });
+
+  test('Character: 逢 (to meet - multiple pronunciations)', () => {
+    const pinyin = 'féng; páng';
+    const definition = 'to meet; to encounter';
+
+    // Accept either pronunciation
+    expect(verifyPinyin('feng2', pinyin)).toBe(true);
+    expect(verifyPinyin('pang2', pinyin)).toBe(true);
+    expect(verifyPinyin('féng', pinyin)).toBe(true);
+    expect(verifyPinyin('páng', pinyin)).toBe(true);
+
+    // But reject wrong ones
+    expect(verifyPinyin('feng1', pinyin)).toBe(false);
+    expect(verifyPinyin('pang3', pinyin)).toBe(false);
+
+    // Definition variations
+    expect(verifyDefinition('meet', definition)).toBe(true);
+    expect(verifyDefinition('encounter', definition)).toBe(true);
+  });
+});

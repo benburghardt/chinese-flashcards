@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { verifyAnswer } from '../../utils/answerVerification';
 import './SpacedRepetition.css';
 
 interface DueCard {
@@ -11,45 +12,86 @@ interface DueCard {
   times_reviewed: number;
 }
 
-interface SessionCard extends DueCard {
-  answeredDefinition?: boolean;
-  answeredPinyin?: boolean;
-  fullyAnswered?: boolean;
+type QuestionType = 'definition' | 'pinyin';
+
+interface Question {
+  id: string; // Unique ID for this question
+  character_id: number;
+  character: string;
+  pinyin: string;
+  definition: string;
+  questionType: QuestionType;
+  answeredCorrectly: boolean | null; // null = not answered, true/false = result
 }
 
-type QuestionType = 'definition' | 'pinyin';
+interface CharacterProgress {
+  character_id: number;
+  character: string;
+  pinyin: string;
+  definition: string;
+  definitionCorrect: boolean;
+  pinyinCorrect: boolean;
+  submitted: boolean; // Has this been submitted to backend?
+  hadIncorrectAnswer: boolean; // Track if this card ever had an incorrect answer
+}
 
 interface SpacedRepetitionProps {
   onComplete: () => void;
-  onNewCharacterUnlocked?: (character: any) => void;
+  isInitialStudy?: boolean;
+  initialStudyCharacterIds?: number[];
 }
 
-function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetitionProps) {
-  const [sessionCards, setSessionCards] = useState<SessionCard[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [questionType, setQuestionType] = useState<QuestionType>('definition');
+function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyCharacterIds = [] }: SpacedRepetitionProps) {
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [characterProgress, setCharacterProgress] = useState<Map<number, CharacterProgress>>(new Map());
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [totalCharacters, setTotalCharacters] = useState(0);
   const [stats, setStats] = useState({
-    totalCards: 0,
-    cardsCorrect: 0,
-    cardsIncorrect: 0,
+    cardsCorrect: 0, // Cards that were fully answered correctly
+    cardsIncorrect: 0, // Cards that received at least one incorrect answer
   });
-  const [unlockedCharacters, setUnlockedCharacters] = useState<any[]>([]);
+  const [completedCharacters, setCompletedCharacters] = useState(0); // Number of characters fully completed
+  const [successfulAnswers, setSuccessfulAnswers] = useState(0); // Number of questions answered correctly (for progress bar)
+  const [totalRequiredAnswers, setTotalRequiredAnswers] = useState(0); // Total answers needed (cards * 2)
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false); // Show exit confirmation modal
+  const [isExiting, setIsExiting] = useState(false); // Track if user is exiting study
 
   // Load due cards on mount
   useEffect(() => {
     loadDueCards();
   }, []);
 
+  // Fisher-Yates shuffle algorithm
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   const loadDueCards = async () => {
     try {
       setLoading(true);
-      const cards = await invoke<DueCard[]>('get_due_cards_for_review');
+
+      let cards: DueCard[];
+      if (isInitialStudy && initialStudyCharacterIds.length > 0) {
+        // For initial study, fetch the specific characters
+        console.log('[SRS] Loading initial study cards:', initialStudyCharacterIds);
+        cards = await invoke<DueCard[]>('get_characters_for_initial_study', {
+          characterIds: initialStudyCharacterIds
+        });
+      } else {
+        // Regular review session
+        cards = await invoke<DueCard[]>('get_due_cards_for_review');
+      }
 
       if (cards.length === 0) {
         setSessionComplete(true);
@@ -57,9 +99,57 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
         return;
       }
 
-      setSessionCards(cards);
-      setStats(prev => ({ ...prev, totalCards: cards.length }));
-      selectRandomQuestionType();
+      console.log('[SRS] Loaded', cards.length, isInitialStudy ? 'initial study cards' : 'due cards');
+      setTotalCharacters(cards.length);
+      setTotalRequiredAnswers(cards.length * 2); // Each card needs 2 answers (definition + pinyin)
+
+      // Initialize character progress tracking
+      const progressMap = new Map<number, CharacterProgress>();
+      cards.forEach(card => {
+        progressMap.set(card.character_id, {
+          character_id: card.character_id,
+          character: card.character,
+          pinyin: card.pinyin,
+          definition: card.definition,
+          definitionCorrect: false,
+          pinyinCorrect: false,
+          submitted: false,
+          hadIncorrectAnswer: false,
+        });
+      });
+      setCharacterProgress(progressMap);
+
+      // Create question pool: 2 questions per card (definition + pinyin)
+      const questionPool: Question[] = [];
+      cards.forEach(card => {
+        // Definition question
+        questionPool.push({
+          id: `${card.character_id}-definition`,
+          character_id: card.character_id,
+          character: card.character,
+          pinyin: card.pinyin,
+          definition: card.definition,
+          questionType: 'definition',
+          answeredCorrectly: null,
+        });
+
+        // Pinyin question
+        questionPool.push({
+          id: `${card.character_id}-pinyin`,
+          character_id: card.character_id,
+          character: card.character,
+          pinyin: card.pinyin,
+          definition: card.definition,
+          questionType: 'pinyin',
+          answeredCorrectly: null,
+        });
+      });
+
+      // Shuffle the question pool for completely random order
+      const shuffledQuestions = shuffleArray(questionPool);
+      console.log('[SRS] Created and shuffled', shuffledQuestions.length, 'questions');
+
+      setQuestions(shuffledQuestions);
       setLoading(false);
     } catch (error) {
       console.error('Failed to load due cards:', error);
@@ -67,167 +157,157 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
     }
   };
 
-  const selectRandomQuestionType = () => {
-    setQuestionType(Math.random() < 0.5 ? 'definition' : 'pinyin');
-  };
+  const getCurrentQuestion = () => questions[currentQuestionIndex];
 
-  const selectNextQuestionType = (card: SessionCard) => {
-    // Check what hasn't been answered yet for this card
-    const needsDefinition = !card.answeredDefinition;
-    const needsPinyin = !card.answeredPinyin;
-
-    if (needsDefinition && needsPinyin) {
-      // Neither answered - pick randomly
-      selectRandomQuestionType();
-    } else if (needsDefinition) {
-      // Only need definition
-      setQuestionType('definition');
-    } else if (needsPinyin) {
-      // Only need pinyin
-      setQuestionType('pinyin');
-    } else {
-      // Both answered (shouldn't happen in normal flow)
-      selectRandomQuestionType();
-    }
-  };
-
-  const getCurrentCard = () => sessionCards[currentIndex];
-
-  const checkAnswer = (answer: string, correctAnswer: string): boolean => {
-    const normalized = answer.toLowerCase().trim();
-    const correct = correctAnswer.toLowerCase().trim();
-
-    // For pinyin: exact match (case insensitive)
-    if (questionType === 'pinyin') {
-      return normalized === correct;
-    }
-
-    // For definition: check if answer contains any keyword or matches any part
-    const keywords = correct.split(/[;,]/).map(k => k.trim());
-    return keywords.some(keyword =>
-      normalized.includes(keyword) || keyword.includes(normalized)
-    );
+  // Use the new robust answer verification system
+  const checkAnswer = (answer: string, correctAnswer: string, questionType: QuestionType): boolean => {
+    return verifyAnswer(answer, correctAnswer, questionType);
   };
 
   const handleSubmit = async () => {
     if (!userAnswer.trim() || submitting) return;
 
-    const currentCard = getCurrentCard();
-    const correctAnswer = questionType === 'definition'
-      ? currentCard.definition
-      : currentCard.pinyin;
+    const currentQuestion = getCurrentQuestion();
+    if (!currentQuestion) return;
 
-    const correct = checkAnswer(userAnswer, correctAnswer);
+    const correctAnswer = currentQuestion.questionType === 'definition'
+      ? currentQuestion.definition
+      : currentQuestion.pinyin;
+
+    const correct = checkAnswer(userAnswer, correctAnswer, currentQuestion.questionType);
     setIsCorrect(correct);
     setShowFeedback(true);
     setSubmitting(true);
 
-    // Update card status locally (don't submit to backend yet)
-    const updatedCards = [...sessionCards];
-    if (questionType === 'definition') {
-      updatedCards[currentIndex].answeredDefinition = correct;
-    } else {
-      updatedCards[currentIndex].answeredPinyin = correct;
+    // Update question status
+    const updatedQuestions = [...questions];
+    updatedQuestions[currentQuestionIndex].answeredCorrectly = correct;
+    setQuestions(updatedQuestions);
+
+    // Update character progress
+    const progress = characterProgress.get(currentQuestion.character_id);
+    if (progress) {
+      const wasAlreadyCorrect = currentQuestion.questionType === 'definition'
+        ? progress.definitionCorrect
+        : progress.pinyinCorrect;
+
+      if (currentQuestion.questionType === 'definition') {
+        progress.definitionCorrect = correct;
+      } else {
+        progress.pinyinCorrect = correct;
+      }
+      setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
+
+      // Track successful answers for progress bar (only increment if newly correct)
+      if (correct && !wasAlreadyCorrect) {
+        setSuccessfulAnswers(prev => prev + 1);
+      }
     }
-    setSessionCards(updatedCards);
 
     setSubmitting(false);
   };
 
   const handleNext = async () => {
-    const currentCard = getCurrentCard();
-    const updatedCards = [...sessionCards];
+    const currentQuestion = getCurrentQuestion();
+    if (!currentQuestion) return;
 
-    // Check if both questions have been answered for this card
-    const bothAnswered = currentCard.answeredDefinition !== undefined &&
-                        currentCard.answeredPinyin !== undefined;
-    const bothCorrect = currentCard.answeredDefinition === true &&
-                       currentCard.answeredPinyin === true;
+    console.log('[SRS] Moving to next question. Current:', currentQuestionIndex, 'Total:', questions.length);
 
+    // Track incorrect answers at the card level
     if (!isCorrect) {
-      // Update stats for incorrect answer
-      setStats(prev => ({
-        ...prev,
-        cardsIncorrect: prev.cardsIncorrect + 1,
-      }));
+      const progress = characterProgress.get(currentQuestion.character_id);
+      if (progress && !progress.hadIncorrectAnswer) {
+        // First time this card has been answered incorrectly
+        progress.hadIncorrectAnswer = true;
+        setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
 
-      // If incorrect answer, reset the current question type and move card to end
-      if (questionType === 'definition') {
-        updatedCards[currentIndex].answeredDefinition = undefined;
-      } else {
-        updatedCards[currentIndex].answeredPinyin = undefined;
+        // Increment incorrect card counter
+        setStats(prev => ({
+          ...prev,
+          cardsIncorrect: prev.cardsIncorrect + 1,
+        }));
       }
-      const incorrectCard = updatedCards.splice(currentIndex, 1)[0];
-      incorrectCard.answeredDefinition = undefined;
-      incorrectCard.answeredPinyin = undefined;
-      updatedCards.push(incorrectCard);
-      setSessionCards(updatedCards);
 
-      // Reset for next question
-      setUserAnswer('');
-      setShowFeedback(false);
-      selectNextQuestionType(updatedCards[currentIndex] || updatedCards[0]);
-    } else if (bothAnswered && bothCorrect) {
-      // Both questions answered correctly - submit to backend and mark as fully answered
+      // If incorrect, add this question back to the end of the queue
+      const updatedQuestions = [...questions];
+      const incorrectQuestion = { ...currentQuestion, answeredCorrectly: null };
+      updatedQuestions.push(incorrectQuestion);
+      setQuestions(updatedQuestions);
+      console.log('[SRS] Added incorrect question back to queue. Total questions:', updatedQuestions.length);
+
+      // Reset character progress for this question type
+      if (progress) {
+        if (currentQuestion.questionType === 'definition') {
+          progress.definitionCorrect = false;
+        } else {
+          progress.pinyinCorrect = false;
+        }
+        setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
+      }
+    }
+
+    // Move to next question
+    const nextIndex = currentQuestionIndex + 1;
+
+    // Check if this character is now fully complete (both questions correct)
+    const progress = characterProgress.get(currentQuestion.character_id);
+    if (progress && progress.definitionCorrect && progress.pinyinCorrect && !progress.submitted) {
+      // Submit to backend
       try {
         setSubmitting(true);
+        console.log('[SRS] Character fully answered. Submitting:', currentQuestion.character_id);
 
         const reachedWeek = await invoke<boolean>('submit_srs_answer', {
-          characterId: currentCard.character_id,
+          characterId: currentQuestion.character_id,
           correct: true,
         });
 
-        // Update stats
-        setStats(prev => ({
-          ...prev,
-          cardsCorrect: prev.cardsCorrect + 1,
-        }));
+        console.log('[SRS] Answer submitted. Reached week:', reachedWeek);
 
-        // If reached week, save for later (after session completes)
-        if (reachedWeek) {
-          const newChar = await invoke('unlock_new_character');
-          if (newChar) {
-            setUnlockedCharacters(prev => [...prev, newChar]);
-          }
+        // Mark as submitted
+        progress.submitted = true;
+        setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
+
+        // Update stats: increment completed characters counter
+        setCompletedCharacters(prev => prev + 1);
+
+        // Update correct card counter only if this card never had an incorrect answer
+        if (!progress.hadIncorrectAnswer) {
+          setStats(prev => ({
+            ...prev,
+            cardsCorrect: prev.cardsCorrect + 1,
+          }));
         }
 
-        updatedCards[currentIndex].fullyAnswered = true;
-        setSessionCards(updatedCards);
-
-        // Move to next card
-        const newIndex = currentIndex + 1;
-        setCurrentIndex(newIndex);
-
-        // Check if session complete
-        const remainingCards = updatedCards.filter((card, idx) =>
-          idx >= newIndex && !card.fullyAnswered
-        );
-
-        if (remainingCards.length === 0) {
-          setSessionComplete(true);
-        } else {
-          // Reset for next card
-          setUserAnswer('');
-          setShowFeedback(false);
-          const nextCard = updatedCards[newIndex];
-          if (nextCard) {
-            selectNextQuestionType(nextCard);
-          } else {
-            // Fallback: session complete if no next card
-            setSessionComplete(true);
-          }
+        // Character reached week milestone (tracked for analytics)
+        if (reachedWeek) {
+          console.log('[SRS] Character reached week milestone (mastery tracked)');
         }
 
         setSubmitting(false);
       } catch (error) {
-        console.error('Failed to submit answer:', error);
+        console.error('[SRS] CRITICAL ERROR during answer submission:', error);
+        alert(`Error submitting answer: ${error}. Please check the console.`);
         setSubmitting(false);
       }
+    }
+
+    // Check if session complete
+    if (nextIndex >= questions.length) {
+      console.log('[SRS] Session complete!');
+
+      // Process all characters for initial study mode
+      if (isInitialStudy) {
+        await processInitialStudyCompletion();
+      }
+
+      setSessionComplete(true);
     } else {
-      // One question answered correctly, ask the other question type
+      // Move to next question
+      setCurrentQuestionIndex(nextIndex);
       setUserAnswer('');
       setShowFeedback(false);
-      selectNextQuestionType(currentCard);
+      console.log('[SRS] Moving to question', nextIndex);
     }
   };
 
@@ -236,6 +316,134 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
       handleSubmit();
     } else if (e.key === 'Enter' && showFeedback) {
       handleNext();
+    }
+  };
+
+  // Helper function to process all characters at end of initial study
+  const processInitialStudyCompletion = async () => {
+    if (!isInitialStudy) return;
+
+    const completedCharactersList: number[] = [];
+    const incompleteCharactersList: number[] = [];
+
+    characterProgress.forEach((progress) => {
+      if (progress.submitted || (progress.definitionCorrect && progress.pinyinCorrect)) {
+        // Fully completed - already submitted during session
+        completedCharactersList.push(progress.character_id);
+      } else {
+        // Incomplete (not answered at all, or only partially answered)
+        incompleteCharactersList.push(progress.character_id);
+      }
+    });
+
+    console.log('[SRS] Initial study completion:', completedCharactersList.length, 'completed,', incompleteCharactersList.length, 'incomplete');
+
+    // Mark completed characters with 1-hour interval (if not already submitted)
+    const notYetSubmitted = completedCharactersList.filter(id => {
+      const progress = characterProgress.get(id);
+      return progress && !progress.submitted;
+    });
+
+    if (notYetSubmitted.length > 0) {
+      try {
+        await invoke('complete_initial_srs_session', {
+          characterIds: notYetSubmitted
+        });
+        console.log('[SRS] Marked', notYetSubmitted.length, 'completed characters (1-hour interval)');
+      } catch (error) {
+        console.error('[SRS] Error marking completed characters:', error);
+      }
+    }
+
+    // Mark incomplete characters as immediately reviewable
+    if (incompleteCharactersList.length > 0) {
+      try {
+        await invoke('mark_incomplete_characters_reviewable', {
+          characterIds: incompleteCharactersList
+        });
+        console.log('[SRS] Marked', incompleteCharactersList.length, 'incomplete characters as immediately reviewable');
+      } catch (error) {
+        console.error('[SRS] Error marking incomplete characters:', error);
+      }
+    }
+  };
+
+  const handleExitStudy = () => {
+    // Show confirmation modal
+    setShowExitConfirmation(true);
+  };
+
+  const handleCancelExit = () => {
+    // Hide confirmation modal
+    setShowExitConfirmation(false);
+  };
+
+  const handleConfirmExit = async () => {
+    setShowExitConfirmation(false);
+    setIsExiting(true);
+
+    try {
+      console.log('[SRS] Exiting study session early. Processing character states...');
+
+      // For initial study mode, process all characters
+      if (isInitialStudy) {
+        await processInitialStudyCompletion();
+      } else {
+        // Regular review session - existing logic
+        const completedCharactersList: number[] = [];
+        const incorrectCharactersList: number[] = [];
+
+        characterProgress.forEach((progress) => {
+          if (progress.submitted) {
+            // Already submitted during session
+            completedCharactersList.push(progress.character_id);
+          } else if (progress.definitionCorrect && progress.pinyinCorrect) {
+            // Fully completed but not yet submitted
+            completedCharactersList.push(progress.character_id);
+          } else if (progress.hadIncorrectAnswer) {
+            // Had at least one incorrect answer
+            incorrectCharactersList.push(progress.character_id);
+          }
+        });
+
+        console.log('[SRS] Submitting', completedCharactersList.length, 'completed characters');
+        console.log('[SRS] Submitting', incorrectCharactersList.length, 'incorrect characters');
+
+        // Submit completed characters
+        for (const characterId of completedCharactersList) {
+          if (!characterProgress.get(characterId)?.submitted) {
+            try {
+              await invoke('submit_srs_answer', {
+                characterId,
+                correct: true,
+              });
+              console.log('[SRS] Submitted completed character:', characterId);
+            } catch (error) {
+              console.error('[SRS] Error submitting completed character:', characterId, error);
+            }
+          }
+        }
+
+        // Submit incorrect characters
+        for (const characterId of incorrectCharactersList) {
+          try {
+            await invoke('submit_srs_answer', {
+              characterId,
+              correct: false,
+            });
+            console.log('[SRS] Submitted incorrect character:', characterId);
+          } catch (error) {
+            console.error('[SRS] Error submitting incorrect character:', characterId, error);
+          }
+        }
+      }
+
+      console.log('[SRS] Exit complete. Returning to dashboard.');
+      onComplete();
+    } catch (error) {
+      console.error('[SRS] Error during exit:', error);
+      alert(`Error saving progress: ${error}`);
+      setIsExiting(false);
     }
   };
 
@@ -253,16 +461,6 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
 
   // Session complete
   if (sessionComplete) {
-    // Handle unlocked characters before returning to dashboard
-    const handleComplete = () => {
-      if (unlockedCharacters.length > 0 && onNewCharacterUnlocked) {
-        // Show first unlocked character
-        onNewCharacterUnlocked(unlockedCharacters[0]);
-      } else {
-        onComplete();
-      }
-    };
-
     return (
       <div className="srs-container">
         <div className="session-complete">
@@ -270,7 +468,7 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
           <h2>Session Complete!</h2>
           <div className="stats-summary">
             <div className="stat-item">
-              <div className="stat-number">{stats.totalCards}</div>
+              <div className="stat-number">{totalCharacters}</div>
               <div className="stat-label">Cards Reviewed</div>
             </div>
             <div className="stat-item">
@@ -283,31 +481,76 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
             </div>
           </div>
           <p className="complete-message">
-            {stats.totalCards === 0
+            {totalCharacters === 0
               ? "No cards due for review. Great job staying on top of your studies!"
               : "Great work! Your next review session will be ready when cards become due."}
           </p>
-          {unlockedCharacters.length > 0 && (
-            <p className="complete-message" style={{ color: '#4CAF50', fontWeight: 'bold' }}>
-              🎊 You unlocked {unlockedCharacters.length} new character{unlockedCharacters.length > 1 ? 's' : ''}!
-            </p>
-          )}
-          <button className="btn-primary" onClick={handleComplete}>
-            {unlockedCharacters.length > 0 ? 'View New Characters' : 'Return to Dashboard'}
+          <button className="btn-primary" onClick={onComplete}>
+            Return to Dashboard
           </button>
         </div>
       </div>
     );
   }
 
-  const currentCard = getCurrentCard();
-  const progress = ((currentIndex + 1) / sessionCards.length) * 100;
+  const currentQuestion = getCurrentQuestion();
+
+  // Safety check: if no current question, session must be complete
+  if (!currentQuestion) {
+    console.log('[SRS] No current question available, marking session complete');
+    if (!sessionComplete) {
+      setSessionComplete(true);
+    }
+    return (
+      <div className="srs-container">
+        <div className="srs-loading">
+          <div className="loading-spinner"></div>
+          <p>Finalizing session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate progress based on successful answers vs total required
+  const progress = totalRequiredAnswers > 0 ? (successfulAnswers / totalRequiredAnswers) * 100 : 0;
 
   return (
     <div className="srs-container">
+      {/* Exit Confirmation Modal */}
+      {showExitConfirmation && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-icon">⚠️</div>
+            <h2 className="modal-title">Exit Study Session?</h2>
+            <p className="modal-message">
+              Your progress on completed characters will be saved.
+            </p>
+            <div className="modal-stats">
+              <div className="modal-stat-item">
+                <span className="modal-stat-label">Completed:</span>
+                <span className="modal-stat-value">{completedCharacters} / {totalCharacters}</span>
+              </div>
+              <div className="modal-stat-item">
+                <span className="modal-stat-label">Successful answers:</span>
+                <span className="modal-stat-value">{successfulAnswers} / {totalRequiredAnswers}</span>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn-modal-cancel" onClick={handleCancelExit}>
+                Continue Studying
+              </button>
+              <button className="btn-modal-confirm" onClick={handleConfirmExit}>
+                Exit Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Progress Bar */}
       <div className="progress-bar">
         <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+        <div className="progress-text">{successfulAnswers} / {totalRequiredAnswers}</div>
       </div>
 
       {/* Session Header */}
@@ -317,18 +560,26 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
           <span className="stat">❌ {stats.cardsIncorrect}</span>
         </div>
         <div className="card-counter">
-          {currentIndex + 1} / {sessionCards.length}
+          {completedCharacters} / {totalCharacters}
         </div>
+        <button
+          className="btn-exit-study"
+          onClick={handleExitStudy}
+          disabled={isExiting}
+          title="Exit study session"
+        >
+          {isExiting ? 'Exiting...' : '🚪 Exit'}
+        </button>
       </div>
 
       {/* Question Card */}
-      <div className="question-card">
+      <div className={`question-card question-type-${currentQuestion.questionType}`}>
         <div className="question-label">
-          {questionType === 'definition' ? 'What does this mean?' : 'How do you pronounce this?'}
+          {currentQuestion.questionType === 'definition' ? '📖 What does this mean?' : '🔊 How do you pronounce this?'}
         </div>
 
         <div className="character-display-large">
-          {currentCard.character}
+          {currentQuestion.character}
         </div>
 
         {!showFeedback ? (
@@ -339,7 +590,7 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
               value={userAnswer}
               onChange={(e) => setUserAnswer(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={questionType === 'definition' ? 'Type the meaning...' : 'Type the pinyin...'}
+              placeholder={currentQuestion.questionType === 'definition' ? 'Type the meaning...' : 'Type the pinyin...'}
               autoFocus
               disabled={submitting}
             />
@@ -362,20 +613,20 @@ function SpacedRepetition({ onComplete, onNewCharacterUnlocked }: SpacedRepetiti
             {!isCorrect && (
               <>
                 <div className="correct-answer">
-                  <strong>Correct answer:</strong> {questionType === 'definition' ? currentCard.definition : currentCard.pinyin}
+                  <strong>Correct answer:</strong> {currentQuestion.questionType === 'definition' ? currentQuestion.definition : currentQuestion.pinyin}
                 </div>
                 <div className="card-info">
                   <div className="info-row">
                     <span className="label">Character:</span>
-                    <span className="value">{currentCard.character}</span>
+                    <span className="value">{currentQuestion.character}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Pinyin:</span>
-                    <span className="value">{currentCard.pinyin}</span>
+                    <span className="value">{currentQuestion.pinyin}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Meaning:</span>
-                    <span className="value">{currentCard.definition}</span>
+                    <span className="value">{currentQuestion.definition}</span>
                   </div>
                 </div>
               </>
