@@ -25,5 +25,7 @@ tauri = { version = "2.8.5", features = [] }
 tauri-plugin-log = "2.0"
 tauri-plugin-dialog = "2.4"
 tauri-plugin-fs = "2.4"
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 chrono = "0.4"
+dirs = "5.0"
+data-processing = { path = "../data-processing" }

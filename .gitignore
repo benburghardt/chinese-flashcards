@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 src-tauri/target/
+data-processing/target/
 
 # Downloaded datasets (DO NOT COMMIT)
 datasets/

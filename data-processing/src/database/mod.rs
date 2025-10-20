@@ -20,7 +20,8 @@ pub fn create_database(entries: Vec<EnrichedEntry>, output_path: &str) -> Result
     let tx = conn.transaction()?;
 
     insert_characters(&tx, entries)?;
-    initialize_user_progress(&tx)?;
+    // Note: Initial user progress (first 30 characters) is now initialized
+    // by the app on first run, not during database build
 
     tx.commit()?;
 
@@ -70,34 +71,38 @@ fn insert_characters(conn: &Connection, entries: Vec<EnrichedEntry>) -> Result<(
     Ok(())
 }
 
-fn initialize_user_progress(conn: &Connection) -> Result<()> {
-    // Get first 30 characters by frequency
-    let mut stmt = conn.prepare(
-        "SELECT id FROM characters
-         WHERE is_word = 0
-         ORDER BY frequency_rank ASC
-         LIMIT 30"
-    )?;
-
-    let char_ids: Vec<i32> = stmt
-        .query_map([], |row| row.get(0))?
-        .collect::<Result<Vec<_>>>()?;
-
-    println!("  Initializing user progress for {} characters", char_ids.len());
-
-    let mut insert_stmt = conn.prepare(
-        "INSERT INTO user_progress (
-            character_id, current_interval_days, previous_interval_days, next_review_date, introduced
-        ) VALUES (?1, 0.0417, 0.0417, datetime('now'), 0)"
-    )?;
-
-    for char_id in char_ids {
-        insert_stmt.execute([char_id])?;
-    }
-
-    println!("  ✓ First 30 characters ready for learning");
-    Ok(())
-}
+// Note: This function is no longer used - initial user progress is now
+// initialized by the app on first run (see src-tauri/src/database/mod.rs)
+// Keeping it here for reference in case it's needed later
+//
+// fn initialize_user_progress(conn: &Connection) -> Result<()> {
+//     // Get first 30 characters by frequency
+//     let mut stmt = conn.prepare(
+//         "SELECT id FROM characters
+//          WHERE is_word = 0
+//          ORDER BY frequency_rank ASC
+//          LIMIT 30"
+//     )?;
+//
+//     let char_ids: Vec<i32> = stmt
+//         .query_map([], |row| row.get(0))?
+//         .collect::<Result<Vec<_>>>()?;
+//
+//     println!("  Initializing user progress for {} characters", char_ids.len());
+//
+//     let mut insert_stmt = conn.prepare(
+//         "INSERT INTO user_progress (
+//             character_id, current_interval_days, previous_interval_days, next_review_date, introduced
+//         ) VALUES (?1, 0.0417, 0.0417, datetime('now'), 0)"
+//     )?;
+//
+//     for char_id in char_ids {
+//         insert_stmt.execute([char_id])?;
+//     }
+//
+//     println!("  ✓ First 30 characters ready for learning");
+//     Ok(())
+// }
 
 pub fn verify_database(path: &str) -> Result<()> {
     let conn = Connection::open(path)?;
@@ -114,26 +119,20 @@ pub fn verify_database(path: &str) -> Result<()> {
         |row| row.get(0)
     )?;
 
-    let progress_count: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress",
-        [],
-        |row| row.get(0)
-    )?;
-
     println!("\n=== Database Verification ===");
     println!("Characters: {}", char_count);
     println!("Words: {}", word_count);
-    println!("Initial progress entries: {}", progress_count);
 
-    // Verify top 30
+    // Show top 30 most common characters (these will be auto-initialized on first app run)
     let mut stmt = conn.prepare(
         "SELECT c.simplified, c.mandarin_pinyin, c.frequency_rank
          FROM characters c
-         JOIN user_progress p ON c.id = p.character_id
-         ORDER BY c.frequency_rank ASC"
+         WHERE c.is_word = 0
+         ORDER BY c.frequency_rank ASC
+         LIMIT 30"
     )?;
 
-    println!("\n=== First 30 Characters (Ready to Learn) ===");
+    println!("\n=== Top 30 Characters (Will be auto-initialized on first run) ===");
     let rows = stmt.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,

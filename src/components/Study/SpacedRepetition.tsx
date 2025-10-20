@@ -190,7 +190,18 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       ? currentQuestion.definition
       : currentQuestion.pinyin;
 
+    // Debug logging
+    if (currentQuestion.questionType === 'pinyin') {
+      console.log('[VERIFY] User answer:', userAnswer);
+      console.log('[VERIFY] Correct answer:', correctAnswer);
+    }
+
     const correct = checkAnswer(userAnswer, correctAnswer, currentQuestion.questionType);
+
+    if (currentQuestion.questionType === 'pinyin') {
+      console.log('[VERIFY] Result:', correct);
+    }
+
     setIsCorrect(correct);
     setShowFeedback(true);
     setSubmitting(true);

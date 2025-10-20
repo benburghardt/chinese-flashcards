@@ -9,7 +9,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .to_path_buf();
 
     let datasets_dir = project_root.join("datasets");
-    let output_path = project_root.join("chinese.db");
+
+    // Output to src-tauri/resources/ directory for Tauri bundling
+    let output_path = project_root.join("src-tauri").join("resources").join("chinese.db");
 
     println!("=== Building Chinese Learning Database ===\n");
 

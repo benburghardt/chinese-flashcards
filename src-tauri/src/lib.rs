@@ -19,7 +19,18 @@ pub fn run() {
       commands::submit_srs_answer,
       commands::unlock_new_character,
       commands::introduce_character,
+      commands::introduce_character_immediately_reviewable,
+      commands::get_available_to_learn_count,
+      commands::get_unlocked_characters_batch,
+      commands::complete_initial_srs_session,
+      commands::mark_incomplete_characters_reviewable,
       commands::introduce_multiple_characters,
+      commands::get_characters_for_initial_study,
+      commands::check_and_unlock_characters,
+      commands::get_unlock_status,
+      commands::mark_all_ready_characters_introduced,
+      commands::get_self_study_cards,
+      commands::record_practice,
     ])
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())

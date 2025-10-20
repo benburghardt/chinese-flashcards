@@ -115,7 +115,9 @@ INSERT OR IGNORE INTO app_settings (key, value) VALUES
     ('daily_review_limit', '100'),
     ('show_traditional', 'true'),
     ('default_study_mode', 'spaced_repetition'),
-    ('audio_enabled', 'true');
+    ('audio_enabled', 'true'),
+    ('last_unlock_date', ''),                     -- Tracks when we last unlocked characters (empty = never)
+    ('initial_unlock_completed', 'false');        -- Whether initial 30 characters have been unlocked
 
 -- =============================================================================
 -- SCHEMA VERSION TABLE
