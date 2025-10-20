@@ -8,6 +8,9 @@ src-tauri/target/
 # Downloaded datasets (DO NOT COMMIT)
 datasets/
 *.db
+*.db-journal
+*.db-shm
+*.db-wal
 data-processing/downloads/
 
 # Extracted data files
@@ -35,3 +38,6 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Test files
+test-*.js
