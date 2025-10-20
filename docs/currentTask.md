@@ -3,10 +3,50 @@
 **Implementation Date:** 2025-10-19
 **Status:** ✅ Complete and Enhanced
 
+**Latest Update:** 2025-10-19 (Evening)
+
 **Enhancements Made:**
 - ✅ Fixed parenthetical-only definitions (characters like 了)
 - ✅ Real-time pinyin tone mark display (ma1 → mā)
 - ✅ Tone 5 (neutral tone) handling
+- ✅ **Fixed middle-accent conversion bug** (jiǎo → jiao3, was jia3o)
+- ✅ **Corrected accent placement priority** (a > o > e > iu/ui > i > u > ü)
+- ✅ **Enhanced feedback display** (shows user answer + correct answer in accent form)
+- ✅ **Fixed double accent mark prevention** (mā1 stays as mā)
+
+**Critical Bug Fixes (2025-10-19 Evening):**
+
+### Bug 1: Middle Accent Conversion
+**Problem:** Accents in the middle of syllables were incorrectly converted
+- Example: jiǎo → jia3o (wrong) instead of jiao3 (correct)
+- Caused verification to fail on correct answers
+
+**Solution:** Rewrote `convertToneMarksToNumbers()` to process character-by-character
+- Now correctly handles: jiǎo → jiao3, nǐ hǎo → ni3hao3
+- Syllable-aware conversion prevents splitting tone number placement
+
+### Bug 2: Accent Placement Priority
+**Problem:** Priority was a > e > o (incorrect)
+**Fixed:** Now follows correct Pinyin rules: a > o > e > iu/ui > i > u > ü
+
+### Bug 3: Feedback Display
+**Problem:**
+- Correct answers shown in number form (ma1) not accent form (mā)
+- User's answer not displayed when incorrect
+
+**Solution:**
+- User answer shown in orange-highlighted box
+- Correct answer shown in green-highlighted box with accent marks
+- All pinyin displays now consistent with accent marks
+
+**Testing Results:**
+```
+✓ jiǎo → jiao3 (middle accent)
+✓ nǐ hǎo → ni3hao3 (multiple syllables)
+✓ xiū → xiu1 (iu combination)
+✓ duì → dui4 (ui combination)
+✓ lǜ → lv4 (ü conversion)
+```
 
 ---
 
