@@ -45,6 +45,9 @@ export function convertToneNumbersToMarks(pinyin: string): string {
     'v': ['ü', 'ǖ', 'ǘ', 'ǚ', 'ǜ'],
   };
 
+  // All accented vowels (to detect if a syllable already has a tone mark)
+  const accentedVowels = /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ]/;
+
   let result = pinyin.toLowerCase();
 
   // Process each syllable (find vowel + tone number pattern)
@@ -58,17 +61,17 @@ export function convertToneNumbersToMarks(pinyin: string): string {
     }
 
     // Find which vowel gets the tone mark (pinyin tone mark rules)
-    // Priority: a > e > o > (last vowel in "iu" or "ui") > other
+    // Priority: a > o > e > (last vowel in "iu" or "ui") > i > u > ü
     let markedVowels = vowels.toLowerCase();
 
     if (markedVowels.includes('a')) {
       markedVowels = markedVowels.replace('a', toneMap['a'][toneNum]);
-    } else if (markedVowels.includes('e')) {
-      markedVowels = markedVowels.replace('e', toneMap['e'][toneNum]);
     } else if (markedVowels.includes('o')) {
       markedVowels = markedVowels.replace('o', toneMap['o'][toneNum]);
+    } else if (markedVowels.includes('e')) {
+      markedVowels = markedVowels.replace('e', toneMap['e'][toneNum]);
     } else if (markedVowels.match(/iu|ui/)) {
-      // For iu/ui, mark the second vowel
+      // For iu/ui, mark the second vowel (latter of the two)
       markedVowels = markedVowels.replace(/([iu])([ui])/, (_m: string, v1: string, v2: string) => {
         const marked = toneMap[v2] && toneMap[v2][toneNum] ? toneMap[v2][toneNum] : v2;
         return v1 + marked;
@@ -84,23 +87,77 @@ export function convertToneNumbersToMarks(pinyin: string): string {
     return prefix + markedVowels + suffix;
   });
 
+  // Additional pass: if user types tone number when syllable already has accent,
+  // don't add another mark - just remove the number
+  // Example: prevent "mā1" from becoming "mā1" or "māˉ"
+  result = result.replace(new RegExp(`(${accentedVowels.source})([1-5])`, 'g'), '$1');
+
   return result;
 }
 
 /**
  * Converts pinyin with tone marks to tone numbers
- * Example: "mā" -> "ma1", "nǐ" -> "ni3"
+ * Example: "mā" -> "ma1", "nǐ" -> "ni3", "jiǎo" -> "jiao3"
+ *
+ * Strategy: Process character by character, building syllables.
+ * When we encounter an accented vowel, track the tone and replace with base vowel.
+ * At syllable boundaries (space, end of string, or consonant after vowel), append the tone number.
  */
 export function convertToneMarksToNumbers(pinyin: string): string {
-  let result = pinyin.toLowerCase();
+  if (!pinyin) return '';
 
-  // Replace each tone mark with base letter + tone number
-  for (const [toneMark, toneNumber] of Object.entries(TONE_MARKS)) {
-    result = result.replace(new RegExp(toneMark, 'g'), toneNumber);
+  let result = '';
+  let currentSyllable = '';
+  let currentTone = '';
+
+  const input = pinyin.toLowerCase();
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    // Check if this character is an accented vowel
+    let foundTone = false;
+    for (const [toneMark, baseAndTone] of Object.entries(TONE_MARKS)) {
+      if (char === toneMark.toLowerCase()) {
+        // Extract base letter and tone number
+        const baseLetter = baseAndTone[0];
+        currentTone = baseAndTone[1];
+        currentSyllable += baseLetter;
+        foundTone = true;
+        break;
+      }
+    }
+
+    if (foundTone) {
+      continue; // Already processed this character
+    }
+
+    // Handle ü -> v conversion
+    if (char === 'ü') {
+      currentSyllable += 'v';
+      continue;
+    }
+
+    // Check for syllable boundary (space or end of string)
+    if (char === ' ' || char === '-') {
+      // End current syllable
+      if (currentSyllable) {
+        result += currentSyllable + currentTone;
+        currentSyllable = '';
+        currentTone = '';
+      }
+      // Don't include the space in output (for normalized comparison)
+      continue;
+    }
+
+    // Regular character - add to current syllable
+    currentSyllable += char;
   }
 
-  // Handle ü -> v conversion (common in pinyin input methods)
-  result = result.replace(/ü/g, 'v');
+  // Don't forget the last syllable
+  if (currentSyllable) {
+    result += currentSyllable + currentTone;
+  }
 
   return result;
 }

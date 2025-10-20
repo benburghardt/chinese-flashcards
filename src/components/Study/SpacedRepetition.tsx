@@ -628,8 +628,15 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
             </div>
             {!isCorrect && (
               <>
+                <div className="user-answer">
+                  <strong>Your answer:</strong> {userAnswer}
+                </div>
                 <div className="correct-answer">
-                  <strong>Correct answer:</strong> {currentQuestion.questionType === 'definition' ? currentQuestion.definition : currentQuestion.pinyin}
+                  <strong>Correct answer:</strong> {
+                    currentQuestion.questionType === 'definition'
+                      ? currentQuestion.definition
+                      : convertToneNumbersToMarks(currentQuestion.pinyin)
+                  }
                 </div>
                 <div className="card-info">
                   <div className="info-row">
@@ -638,7 +645,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
                   </div>
                   <div className="info-row">
                     <span className="label">Pinyin:</span>
-                    <span className="value">{currentQuestion.pinyin}</span>
+                    <span className="value">{convertToneNumbersToMarks(currentQuestion.pinyin)}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">Meaning:</span>
