@@ -52,6 +52,11 @@ export function convertToneNumbersToMarks(pinyin: string): string {
   result = result.replace(/([a-z]*?)([aeiouv]+)([a-z]*?)([1-5])/gi, (_match: string, prefix: string, vowels: string, suffix: string, tone: string) => {
     const toneNum = parseInt(tone);
 
+    // Tone 5 (neutral tone) - don't add any mark, just remove the number
+    if (toneNum === 5) {
+      return prefix + vowels.toLowerCase() + suffix;
+    }
+
     // Find which vowel gets the tone mark (pinyin tone mark rules)
     // Priority: a > e > o > (last vowel in "iu" or "ui") > other
     let markedVowels = vowels.toLowerCase();
@@ -65,7 +70,7 @@ export function convertToneNumbersToMarks(pinyin: string): string {
     } else if (markedVowels.match(/iu|ui/)) {
       // For iu/ui, mark the second vowel
       markedVowels = markedVowels.replace(/([iu])([ui])/, (_m: string, v1: string, v2: string) => {
-        const marked = toneMap[v2] ? toneMap[v2][toneNum] : v2;
+        const marked = toneMap[v2] && toneMap[v2][toneNum] ? toneMap[v2][toneNum] : v2;
         return v1 + marked;
       });
     } else if (markedVowels.includes('i')) {
