@@ -7,32 +7,42 @@
 
 /**
  * Pinyin tone mark to tone number mapping
- * Maps accented characters to their base character + tone number
+ * Maps ONLY accented characters to their base character + tone number
+ * Unaccented vowels are NOT included (they don't get a tone number)
  */
 const TONE_MARKS: Record<string, string> = {
   // Tone 1 (ā)
   'ā': 'a1', 'ē': 'e1', 'ī': 'i1', 'ō': 'o1', 'ū': 'u1', 'ǖ': 'v1',
-  'Ā': 'a1', 'Ē': 'e1', 'Ī': 'i1', 'Ō': 'o1', 'Ū': 'u1', 'Ǖ': 'v1',
+  'Ā': 'A1', 'Ē': 'E1', 'Ī': 'I1', 'Ō': 'O1', 'Ū': 'U1', 'Ǖ': 'V1',
 
   // Tone 2 (á)
   'á': 'a2', 'é': 'e2', 'í': 'i2', 'ó': 'o2', 'ú': 'u2', 'ǘ': 'v2',
-  'Á': 'a2', 'É': 'e2', 'Í': 'i2', 'Ó': 'o2', 'Ú': 'u2', 'Ǘ': 'v2',
+  'Á': 'A2', 'É': 'E2', 'Í': 'I2', 'Ó': 'O2', 'Ú': 'U2', 'Ǘ': 'V2',
 
   // Tone 3 (ǎ)
   'ǎ': 'a3', 'ě': 'e3', 'ǐ': 'i3', 'ǒ': 'o3', 'ǔ': 'u3', 'ǚ': 'v3',
-  'Ǎ': 'a3', 'Ě': 'e3', 'Ǐ': 'i3', 'Ǒ': 'o3', 'Ǔ': 'u3', 'Ǚ': 'v3',
+  'Ǎ': 'A3', 'Ě': 'E3', 'Ǐ': 'I3', 'Ǒ': 'O3', 'Ǔ': 'U3', 'Ǚ': 'V3',
 
   // Tone 4 (à)
   'à': 'a4', 'è': 'e4', 'ì': 'i4', 'ò': 'o4', 'ù': 'u4', 'ǜ': 'v4',
-  'À': 'a4', 'È': 'e4', 'Ì': 'i4', 'Ò': 'o4', 'Ù': 'u4', 'Ǜ': 'v4',
-
-  // Neutral tone / Tone 5 (sometimes written)
-  'a': 'a5', 'e': 'e5', 'i': 'i5', 'o': 'o5', 'u': 'u5', 'ü': 'v5',
+  'À': 'A4', 'È': 'E4', 'Ì': 'I4', 'Ò': 'O4', 'Ù': 'U4', 'Ǜ': 'V4',
 };
 
 /**
  * Converts pinyin with tone numbers to tone marks (for display)
- * Example: "ma1" -> "mā", "ni3" -> "nǐ"
+ * Example: "ma1" -> "mā", "ni3" -> "nǐ", "ni3hao3" -> "nǐhǎo"
+ *
+ * Strategy: Split into syllables, apply tone marks to each syllable independently.
+ * A syllable is identified as: consonant(s) + vowel cluster + optional consonant(s) + tone number
+ *
+ * Important:
+ * - Only the FIRST tone number in each syllable is applied
+ * - If a syllable has an accented vowel, ignore tone numbers for that syllable only
+ * - Syllable boundaries reset the accent flag (allows multi-syllable: yāona1 -> yāonā)
+ * Example: "jiao34" -> "jiǎo" (3 is applied, 4 is ignored)
+ * Example: "yāo2" -> "yāo" (accent exists in this syllable, 2 is ignored)
+ * Example: "yāona1" -> "yāonā" (yāo has accent, but na1 is new syllable)
+ * Example: "yāonā3" -> "yāonā" (both syllables have accents, 3 is ignored)
  */
 export function convertToneNumbersToMarks(pinyin: string): string {
   // Mapping of tone numbers to tone marks for each vowel
@@ -45,119 +55,228 @@ export function convertToneNumbersToMarks(pinyin: string): string {
     'v': ['ü', 'ǖ', 'ǘ', 'ǚ', 'ǜ'],
   };
 
-  // All accented vowels (to detect if a syllable already has a tone mark)
+  // All accented vowels (to detect if already has tone mark)
   const accentedVowels = /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ]/;
 
-  let result = pinyin.toLowerCase();
+  let input = pinyin.toLowerCase().trim();
+  if (!input) return '';
 
-  // Process each syllable (find vowel + tone number pattern)
-  // Match patterns like "ma1", "hao3", etc.
-  result = result.replace(/([a-z]*?)([aeiouv]+)([a-z]*?)([1-5])/gi, (_match: string, prefix: string, vowels: string, suffix: string, tone: string) => {
-    const toneNum = parseInt(tone);
+  // Split by spaces to handle multi-word pinyin (e.g., "ni3 hao3")
+  const words = input.split(/\s+/);
+  const processedWords = words.map(word => {
+    let result = '';
+    let i = 0;
+    let hasAccentInCurrentSyllable = false; // Track if current syllable already has accent
 
-    // Tone 5 (neutral tone) - don't add any mark, just remove the number
-    if (toneNum === 5) {
-      return prefix + vowels.toLowerCase() + suffix;
+    while (i < word.length) {
+      // Try to match a syllable with tone number(s)
+      // Pattern: optional consonants + vowel cluster + optional consonants + tone number(s)
+      // Note: We capture ALL tone numbers but only use the first one
+      const syllableMatch = word.slice(i).match(/^([bcdfghjklmnpqrstwxyz]*)([aeiouv]+)([bcdfghjklmnpqrstwxyzng]*)([1-5]+)/i);
+
+      if (syllableMatch && !hasAccentInCurrentSyllable) {
+        const [fullMatch, consonantPrefix, vowelCluster, consonantSuffix, toneStr] = syllableMatch;
+        const toneNum = parseInt(toneStr[0]); // Only take the FIRST tone number!
+
+        // Tone 5 (neutral tone) - don't add mark, just remove the number
+        if (toneNum === 5) {
+          result += consonantPrefix + vowelCluster + consonantSuffix;
+        } else {
+          // Apply tone mark to the vowel cluster according to pinyin rules
+          // Priority: a > o > e > (second vowel in "iu" or "ui") > i > u > ü
+          let markedVowels = vowelCluster.toLowerCase();
+
+          if (markedVowels.includes('a')) {
+            // Mark 'a' - always takes precedence
+            markedVowels = markedVowels.replace('a', toneMap['a'][toneNum]);
+          } else if (markedVowels.includes('o')) {
+            // Mark 'o' - second priority
+            markedVowels = markedVowels.replace('o', toneMap['o'][toneNum]);
+          } else if (markedVowels.includes('e')) {
+            // Mark 'e' - third priority
+            markedVowels = markedVowels.replace('e', toneMap['e'][toneNum]);
+          } else if (markedVowels === 'iu') {
+            // Special case: 'iu' - mark the 'u'
+            markedVowels = 'i' + toneMap['u'][toneNum];
+          } else if (markedVowels === 'ui') {
+            // Special case: 'ui' - mark the 'i'
+            markedVowels = 'u' + toneMap['i'][toneNum];
+          } else if (markedVowels.includes('i')) {
+            // Mark 'i' when it appears alone or as first vowel
+            markedVowels = markedVowels.replace('i', toneMap['i'][toneNum]);
+          } else if (markedVowels.includes('u')) {
+            // Mark 'u'
+            markedVowels = markedVowels.replace('u', toneMap['u'][toneNum]);
+          } else if (markedVowels.includes('v')) {
+            // Mark 'v' (ü)
+            markedVowels = markedVowels.replace('v', toneMap['v'][toneNum]);
+          }
+
+          result += consonantPrefix + markedVowels + consonantSuffix;
+        }
+
+        // Reset flag for next syllable
+        hasAccentInCurrentSyllable = false;
+        i += fullMatch.length;
+      } else {
+        // No tone number found - just copy character as-is
+        // But check if it's already an accented vowel (don't add tone number)
+        const char = word[i];
+        if (accentedVowels.test(char)) {
+          // Already has tone mark - set flag and skip ALL following tone numbers
+          hasAccentInCurrentSyllable = true;
+          result += char;
+          let j = i + 1;
+          while (j < word.length && /[1-5]/.test(word[j])) {
+            j++; // Skip all tone numbers after accented vowel
+          }
+          i = j - 1; // -1 because the loop will increment
+        } else if (/[1-5]/.test(char)) {
+          // Stray tone number without a vowel OR after an accented vowel - ignore it
+          // This handles cases where user types multiple tone numbers
+        } else {
+          // Regular character (consonant or unaccented vowel)
+          result += char;
+
+          // Check if this character marks a syllable boundary
+          // Reset accent flag when we encounter a consonant after vowels
+          const prevChar = i > 0 ? word[i - 1] : '';
+          const isVowel = /[aeiouv]/i.test(char);
+          const isPrevVowel = /[aeiouv]/i.test(prevChar) || accentedVowels.test(prevChar);
+
+          // If we're at a consonant after vowels, we're starting a new syllable
+          if (!isVowel && isPrevVowel) {
+            hasAccentInCurrentSyllable = false;
+          }
+        }
+        i++;
+      }
     }
 
-    // Find which vowel gets the tone mark (pinyin tone mark rules)
-    // Priority: a > o > e > (last vowel in "iu" or "ui") > i > u > ü
-    let markedVowels = vowels.toLowerCase();
-
-    if (markedVowels.includes('a')) {
-      markedVowels = markedVowels.replace('a', toneMap['a'][toneNum]);
-    } else if (markedVowels.includes('o')) {
-      markedVowels = markedVowels.replace('o', toneMap['o'][toneNum]);
-    } else if (markedVowels.includes('e')) {
-      markedVowels = markedVowels.replace('e', toneMap['e'][toneNum]);
-    } else if (markedVowels.match(/iu|ui/)) {
-      // For iu/ui, mark the second vowel (latter of the two)
-      markedVowels = markedVowels.replace(/([iu])([ui])/, (_m: string, v1: string, v2: string) => {
-        const marked = toneMap[v2] && toneMap[v2][toneNum] ? toneMap[v2][toneNum] : v2;
-        return v1 + marked;
-      });
-    } else if (markedVowels.includes('i')) {
-      markedVowels = markedVowels.replace('i', toneMap['i'][toneNum]);
-    } else if (markedVowels.includes('u')) {
-      markedVowels = markedVowels.replace('u', toneMap['u'][toneNum]);
-    } else if (markedVowels.includes('v')) {
-      markedVowels = markedVowels.replace('v', toneMap['v'][toneNum]);
-    }
-
-    return prefix + markedVowels + suffix;
+    return result;
   });
 
-  // Additional pass: if user types tone number when syllable already has accent,
-  // don't add another mark - just remove the number
-  // Example: prevent "mā1" from becoming "mā1" or "māˉ"
-  result = result.replace(new RegExp(`(${accentedVowels.source})([1-5])`, 'g'), '$1');
-
-  return result;
+  return processedWords.join('');
 }
 
 /**
  * Converts pinyin with tone marks to tone numbers
- * Example: "mā" -> "ma1", "nǐ" -> "ni3", "jiǎo" -> "jiao3"
+ * Example: "mā" -> "ma1", "nǐ" -> "ni3", "jiǎo" -> "jiao3", "ma" -> "ma5"
  *
- * Strategy: Process character by character, building syllables.
- * When we encounter an accented vowel, track the tone and replace with base vowel.
- * At syllable boundaries (space, end of string, or consonant after vowel), append the tone number.
+ * Strategy: Scan through the string looking for accented vowels.
+ * When found, replace with base vowel and track the tone.
+ * Append the tone number at the end of the vowel cluster.
+ * If a syllable has no accent AND no existing tone number, append tone 5 (neutral tone).
+ *
+ * Key: Syllables with accents get their tone number, unaccented syllables get tone 5!
+ * IMPORTANT: If input already has tone numbers (e.g., "ren2"), leave them unchanged!
  */
 export function convertToneMarksToNumbers(pinyin: string): string {
   if (!pinyin) return '';
 
   let result = '';
+  const input = pinyin.trim();
+  const vowels = new Set(['a', 'e', 'i', 'o', 'u', 'v', 'ü', 'A', 'E', 'I', 'O', 'U', 'V', 'Ü']);
+  const consonants = new Set(['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'w', 'x', 'y', 'z']);
+
+  let i = 0;
   let currentSyllable = '';
-  let currentTone = '';
+  let currentTone = ''; // Store tone to be appended at syllable end
 
-  const input = pinyin.toLowerCase();
+  const finishSyllable = () => {
+    if (currentSyllable) {
+      result += currentSyllable;
+      // Append the tone number if we have one
+      if (currentTone) {
+        result += currentTone;
+      } else {
+        // If syllable has vowels but no tone mark AND no existing tone number, it's tone 5 (neutral)
+        const hasVowel = [...currentSyllable].some(c => vowels.has(c));
+        const hasToneNumber = /[1-5]$/.test(currentSyllable);
+        if (hasVowel && !hasToneNumber) {
+          result += '5';
+        }
+      }
+      currentSyllable = '';
+      currentTone = '';
+    }
+  };
 
-  for (let i = 0; i < input.length; i++) {
+  while (i < input.length) {
     const char = input[i];
 
-    // Check if this character is an accented vowel
-    let foundTone = false;
-    for (const [toneMark, baseAndTone] of Object.entries(TONE_MARKS)) {
-      if (char === toneMark.toLowerCase()) {
-        // Extract base letter and tone number
-        const baseLetter = baseAndTone[0];
-        currentTone = baseAndTone[1];
-        currentSyllable += baseLetter;
-        foundTone = true;
-        break;
-      }
-    }
-
-    if (foundTone) {
-      continue; // Already processed this character
-    }
-
-    // Handle ü -> v conversion
-    if (char === 'ü') {
-      currentSyllable += 'v';
-      continue;
-    }
-
-    // Check for syllable boundary (space or end of string)
+    // Space or dash = syllable boundary
     if (char === ' ' || char === '-') {
-      // End current syllable
-      if (currentSyllable) {
-        result += currentSyllable + currentTone;
-        currentSyllable = '';
-        currentTone = '';
-      }
-      // Don't include the space in output (for normalized comparison)
+      finishSyllable();
+      i++;
       continue;
     }
 
-    // Regular character - add to current syllable
-    currentSyllable += char;
+    // Check if this is an accented vowel
+    const toneInfo = TONE_MARKS[char];
+    if (toneInfo) {
+      // This is an accented vowel
+      const baseLetter = toneInfo[0].toLowerCase();
+      const toneNumber = toneInfo[1];
+
+      // Store the tone number to be added at the end of the syllable
+      currentTone = toneNumber;
+
+      // Add the base letter
+      currentSyllable += baseLetter;
+
+      // Look ahead: collect any remaining vowels in this cluster
+      let j = i + 1;
+      while (j < input.length && vowels.has(input[j]) && input[j] !== ' ' && input[j] !== '-') {
+        const nextChar = input[j];
+
+        // Check if next vowel is also accented
+        const nextToneInfo = TONE_MARKS[nextChar];
+        if (nextToneInfo) {
+          // Another accented vowel - just add the base letter
+          currentSyllable += nextToneInfo[0].toLowerCase();
+        } else if (nextChar === 'ü' || nextChar === 'Ü') {
+          currentSyllable += 'v';
+        } else {
+          currentSyllable += nextChar.toLowerCase();
+        }
+        j++;
+      }
+
+      i = j;
+    } else if (char === 'ü' || char === 'Ü') {
+      // Handle unaccented ü -> v conversion
+      currentSyllable += 'v';
+      i++;
+    } else if (/[1-5]/.test(char)) {
+      // Tone number found - store it to be added at syllable end
+      currentTone = char;
+      // Tone number typically ends a syllable (unless followed by more tone numbers)
+      // Peek ahead to see if we should finish
+      if (i + 1 >= input.length || (input[i + 1] !== ' ' && input[i + 1] !== '-' && /[bcdfghjklmnpqrstwxyz]/i.test(input[i + 1]))) {
+        // Next is a consonant (start of new syllable) or end of string
+        finishSyllable();
+      }
+      i++;
+    } else {
+      // Regular character (consonant or unaccented vowel)
+      const lowerChar = char.toLowerCase();
+
+      // Check if we're starting a new syllable (consonant after vowels)
+      if (currentSyllable && vowels.has(currentSyllable[currentSyllable.length - 1]) && consonants.has(lowerChar)) {
+        // Special case: 'ng' and 'n' at end of syllable are part of the same syllable
+        if (!(lowerChar === 'n' || lowerChar === 'g')) {
+          finishSyllable();
+        }
+      }
+
+      currentSyllable += lowerChar;
+      i++;
+    }
   }
 
   // Don't forget the last syllable
-  if (currentSyllable) {
-    result += currentSyllable + currentTone;
-  }
+  finishSyllable();
 
   return result;
 }
@@ -200,8 +319,15 @@ export function verifyPinyin(userAnswer: string, correctAnswer: string): boolean
     .split(/[;/]/)
     .map(p => normalizePinyin(p.trim()));
 
+  // Debug logging
+  console.log('[verifyPinyin] User:', userAnswer, '→', normalizedUser);
+  console.log('[verifyPinyin] Correct:', correctAnswer, '→', validPronunciations);
+
   // Check if user's answer matches any valid pronunciation
-  return validPronunciations.some(valid => normalizedUser === valid);
+  const result = validPronunciations.some(valid => normalizedUser === valid);
+  console.log('[verifyPinyin] Match:', result);
+
+  return result;
 }
 
 /**
