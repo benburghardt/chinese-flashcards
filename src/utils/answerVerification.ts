@@ -31,6 +31,58 @@ const TONE_MARKS: Record<string, string> = {
 };
 
 /**
+ * Converts pinyin with tone numbers to tone marks (for display)
+ * Example: "ma1" -> "mā", "ni3" -> "nǐ"
+ */
+export function convertToneNumbersToMarks(pinyin: string): string {
+  // Mapping of tone numbers to tone marks for each vowel
+  const toneMap: Record<string, string[]> = {
+    'a': ['a', 'ā', 'á', 'ǎ', 'à'],
+    'e': ['e', 'ē', 'é', 'ě', 'è'],
+    'i': ['i', 'ī', 'í', 'ǐ', 'ì'],
+    'o': ['o', 'ō', 'ó', 'ǒ', 'ò'],
+    'u': ['u', 'ū', 'ú', 'ǔ', 'ù'],
+    'v': ['ü', 'ǖ', 'ǘ', 'ǚ', 'ǜ'],
+  };
+
+  let result = pinyin.toLowerCase();
+
+  // Process each syllable (find vowel + tone number pattern)
+  // Match patterns like "ma1", "hao3", etc.
+  result = result.replace(/([a-z]*?)([aeiouv]+)([a-z]*?)([1-5])/gi, (_match: string, prefix: string, vowels: string, suffix: string, tone: string) => {
+    const toneNum = parseInt(tone);
+
+    // Find which vowel gets the tone mark (pinyin tone mark rules)
+    // Priority: a > e > o > (last vowel in "iu" or "ui") > other
+    let markedVowels = vowels.toLowerCase();
+
+    if (markedVowels.includes('a')) {
+      markedVowels = markedVowels.replace('a', toneMap['a'][toneNum]);
+    } else if (markedVowels.includes('e')) {
+      markedVowels = markedVowels.replace('e', toneMap['e'][toneNum]);
+    } else if (markedVowels.includes('o')) {
+      markedVowels = markedVowels.replace('o', toneMap['o'][toneNum]);
+    } else if (markedVowels.match(/iu|ui/)) {
+      // For iu/ui, mark the second vowel
+      markedVowels = markedVowels.replace(/([iu])([ui])/, (_m: string, v1: string, v2: string) => {
+        const marked = toneMap[v2] ? toneMap[v2][toneNum] : v2;
+        return v1 + marked;
+      });
+    } else if (markedVowels.includes('i')) {
+      markedVowels = markedVowels.replace('i', toneMap['i'][toneNum]);
+    } else if (markedVowels.includes('u')) {
+      markedVowels = markedVowels.replace('u', toneMap['u'][toneNum]);
+    } else if (markedVowels.includes('v')) {
+      markedVowels = markedVowels.replace('v', toneMap['v'][toneNum]);
+    }
+
+    return prefix + markedVowels + suffix;
+  });
+
+  return result;
+}
+
+/**
  * Converts pinyin with tone marks to tone numbers
  * Example: "mā" -> "ma1", "nǐ" -> "ni3"
  */
@@ -111,6 +163,25 @@ export function extractKeywords(definition: string): string[] {
   for (const part of parts) {
     // Remove parenthetical content
     const cleaned = part.replace(/\([^)]*\)/g, '').trim();
+
+    // If nothing remains after removing parentheses, extract from inside parentheses
+    // This handles characters like 了 that only have parenthetical definitions
+    if (cleaned.length === 0) {
+      const parentheticalMatch = part.match(/\(([^)]*)\)/);
+      if (parentheticalMatch) {
+        const insideParens = parentheticalMatch[1].trim();
+        // Remove any classifier markers or pinyin inside brackets
+        const cleanedParens = insideParens.replace(/\[[^\]]*\]/g, '').trim();
+        if (cleanedParens.length > 0) {
+          keywords.push(cleanedParens);
+          const parenWords = cleanedParens
+            .split(/\s+/)
+            .filter(word => word.length > 0 && !commonWords.has(word));
+          keywords.push(...parenWords);
+        }
+      }
+      continue; // Skip to next part
+    }
 
     // Split into words and filter out common words
     const words = cleaned

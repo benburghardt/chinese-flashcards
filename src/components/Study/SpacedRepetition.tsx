@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { verifyAnswer } from '../../utils/answerVerification';
+import { verifyAnswer, convertToneNumbersToMarks } from '../../utils/answerVerification';
 import './SpacedRepetition.css';
 
 interface DueCard {
@@ -162,6 +162,22 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
   // Use the new robust answer verification system
   const checkAnswer = (answer: string, correctAnswer: string, questionType: QuestionType): boolean => {
     return verifyAnswer(answer, correctAnswer, questionType);
+  };
+
+  // Handle input changes with real-time pinyin tone mark conversion
+  const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const currentQuestion = getCurrentQuestion();
+
+    // For pinyin questions, convert tone numbers to marks in real-time
+    if (currentQuestion && currentQuestion.questionType === 'pinyin') {
+      // Convert tone numbers to marks (ma1 -> mā)
+      const withMarks = convertToneNumbersToMarks(value);
+      setUserAnswer(withMarks);
+    } else {
+      // For definition questions, use value as-is
+      setUserAnswer(value);
+    }
   };
 
   const handleSubmit = async () => {
@@ -588,7 +604,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
               type="text"
               className="answer-input"
               value={userAnswer}
-              onChange={(e) => setUserAnswer(e.target.value)}
+              onChange={handleAnswerChange}
               onKeyPress={handleKeyPress}
               placeholder={currentQuestion.questionType === 'definition' ? 'Type the meaning...' : 'Type the pinyin...'}
               autoFocus
