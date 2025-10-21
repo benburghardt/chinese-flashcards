@@ -19,6 +19,14 @@ path = "src/bin/build_database.rs"
 name = "test-integration"
 path = "src/bin/test_integration.rs"
 
+[[bin]]
+name = "check-db-state"
+path = "src/bin/check-db-state.rs"
+
+[[bin]]
+name = "test-init"
+path = "src/bin/test-init.rs"
+
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking"] }
 tokio = { version = "1", features = ["full"] }
