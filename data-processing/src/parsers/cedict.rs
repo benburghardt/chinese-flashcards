@@ -59,6 +59,9 @@ fn parse_cedict_line(line: &str) -> Option<CedictEntry> {
     let definitions: Vec<String> = defs_part
         .split('/')
         .filter(|s| !s.is_empty())
+        .filter(|s| !s.starts_with("variant"))
+        .filter(|s| !s.starts_with("used in"))
+        .filter(|s| !s.starts_with("surname"))
         .map(|s| s.trim().to_string())
         .collect();
 
