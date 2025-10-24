@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import IntroductionScreen from './components/Introduction/IntroductionScreen';
 import SpacedRepetition from './components/Study/SpacedRepetition';
 import SelfStudy from './components/Study/SelfStudy';
+import Dictionary from './components/Dictionary/Dictionary';
 import './App.css'
 
 interface Character {
@@ -57,8 +58,9 @@ function App() {
 
   const handleBrowseDictionary = () => {
     setViewMode('dictionary');
-    // Dictionary view will be implemented in later tasks
-    alert('Dictionary view coming soon in Task 1.13!');
+  };
+
+  const handleDictionaryClose = () => {
     setViewMode('dashboard');
   };
 
@@ -170,6 +172,15 @@ function App() {
     return (
       <SelfStudy
         onComplete={handleSelfStudyComplete}
+      />
+    );
+  }
+
+  // Show dictionary
+  if (viewMode === 'dictionary') {
+    return (
+      <Dictionary
+        onClose={handleDictionaryClose}
       />
     );
   }

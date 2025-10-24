@@ -29,7 +29,10 @@ pub fn calculate_next_review(
         calculate_interval_incorrect(card)
     };
 
-    let next_review_date = Utc::now() + Duration::days(new_interval.ceil() as i64);
+    // Convert interval from days to minutes for precise calculation
+    // This ensures sub-day intervals (like 1 hour = 0.0417 days) work correctly
+    let interval_minutes = (new_interval * 24.0 * 60.0) as i64;
+    let next_review_date = Utc::now() + Duration::minutes(interval_minutes);
 
     // Check if reaching 1 week for first time
     let reached_week_for_first_time =

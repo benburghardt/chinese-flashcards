@@ -22,6 +22,7 @@ interface Question {
   definition: string;
   questionType: QuestionType;
   answeredCorrectly: boolean | null;
+  attemptCount: number; // Track how many times this question has been attempted
 }
 
 interface SelfStudyProps {
@@ -40,7 +41,10 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   const [totalCards, setTotalCards] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [incorrectAnswers, setIncorrectAnswers] = useState(0);
+  const [firstAttemptCorrect, setFirstAttemptCorrect] = useState(0); // Correct on first try
+  const [totalQuestions, setTotalQuestions] = useState(0); // Total questions asked
   const [completedCards, setCompletedCards] = useState(0);
+  const [sessionId, setSessionId] = useState<number | null>(null);
 
   // Track which cards have been answered correctly (both questions)
   const [cardProgress, setCardProgress] = useState<Map<number, { definition: boolean; pinyin: boolean }>>(new Map());
@@ -61,11 +65,26 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   const loadSelfStudyCards = async () => {
     try {
       setLoading(true);
+
+      // Start session recording
+      const newSessionId = await invoke<number>('start_session', { mode: 'self-study' });
+      setSessionId(newSessionId);
+      console.log('[SELF-STUDY] Started session:', newSessionId);
+
       const cards = await invoke<DueCard[]>('get_self_study_cards', { limit: 20 });
 
       if (cards.length === 0) {
         setSessionComplete(true);
         setLoading(false);
+        // End session with 0 cards
+        if (newSessionId) {
+          await invoke('end_session', {
+            sessionId: newSessionId,
+            cardsStudied: 0,
+            cardsCorrect: 0,
+            cardsIncorrect: 0
+          });
+        }
         return;
       }
 
@@ -90,6 +109,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
           definition: card.definition,
           questionType: 'definition',
           answeredCorrectly: null,
+          attemptCount: 0,
         });
 
         questionPool.push({
@@ -100,6 +120,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
           definition: card.definition,
           questionType: 'pinyin',
           answeredCorrectly: null,
+          attemptCount: 0,
         });
       });
 
@@ -162,6 +183,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     // Update question status
     const updatedQuestions = [...questions];
     updatedQuestions[currentQuestionIndex].answeredCorrectly = correct;
+    updatedQuestions[currentQuestionIndex].attemptCount += 1;
     setQuestions(updatedQuestions);
 
     // Update card progress
@@ -176,6 +198,13 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     }
 
     // Track statistics
+    setTotalQuestions(prev => prev + 1); // Increment total questions asked
+
+    if (correct && updatedQuestions[currentQuestionIndex].attemptCount === 1) {
+      // Correct on first attempt
+      setFirstAttemptCorrect(prev => prev + 1);
+    }
+
     if (correct) {
       setCorrectAnswers(prev => prev + 1);
     } else {
@@ -274,7 +303,23 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
               <p>You've completed this practice session! Remember, self-study doesn't affect your SRS schedule - you can practice as much as you want!</p>
             )}
           </div>
-          <button className="btn-primary" onClick={onComplete}>
+          <button className="btn-primary" onClick={async () => {
+            // End session recording
+            if (sessionId) {
+              try {
+                await invoke('end_session', {
+                  sessionId,
+                  cardsStudied: totalQuestions,
+                  cardsCorrect: firstAttemptCorrect,
+                  cardsIncorrect: totalQuestions - firstAttemptCorrect
+                });
+                console.log('[SELF-STUDY] Session ended:', sessionId);
+              } catch (error) {
+                console.error('[SELF-STUDY] Error ending session:', error);
+              }
+            }
+            onComplete();
+          }}>
             Return to Dashboard
           </button>
         </div>

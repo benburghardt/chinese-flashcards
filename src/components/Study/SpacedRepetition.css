@@ -145,6 +145,7 @@
   left: 0;
   top: 0;
   height: 100%;
+  /* width: 100%; */
   background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
   transition: width 0.4s ease;
   border-radius: 15px;
@@ -188,6 +189,8 @@
   background: rgba(255, 255, 255, 0.2);
   padding: 8px 16px;
   border-radius: 20px;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .btn-exit-study {

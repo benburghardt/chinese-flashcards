@@ -83,15 +83,26 @@ pub fn initialize_database() -> Result<DbConnection> {
     run_migrations(&conn)?;
 
     // Initialize new user with first 30 characters if this is a new database
+    println!("[DB] Checking if initial unlock completed...");
     let initial_unlock_completed = get_setting(&conn, "initial_unlock_completed")
-        .unwrap_or_else(|_| "false".to_string());
+        .unwrap_or_else(|e| {
+            println!("[DB] Error getting initial_unlock_completed setting: {}", e);
+            "false".to_string()
+        });
+
+    println!("[DB] initial_unlock_completed = {}", initial_unlock_completed);
 
     if initial_unlock_completed == "false" {
-        println!("[DB] New user detected. Initializing with first 30 characters...");
+        println!("[DB] New user detected. Initializing with first 100 characters...");
         match initialize_new_user_characters(&conn) {
             Ok(count) => println!("[DB] Successfully initialized {} characters for new user", count),
-            Err(e) => eprintln!("[DB] Warning: Failed to initialize new user characters: {}", e),
+            Err(e) => {
+                eprintln!("[DB] ERROR: Failed to initialize new user characters: {}", e);
+                eprintln!("[DB] This means no characters will be available to learn!");
+            }
         }
+    } else {
+        println!("[DB] User already initialized (initial_unlock_completed = true)");
     }
 
     Ok(DbConnection(Mutex::new(conn)))
@@ -101,7 +112,10 @@ fn run_migrations(conn: &Connection) -> Result<()> {
     // Get current schema version
     let version: i32 = conn
         .query_row("SELECT MAX(version) FROM schema_version", [], |row| row.get(0))
-        .unwrap_or(0);
+        .unwrap_or_else(|e| {
+            println!("[DB] Warning: Could not read schema_version, assuming version 0: {}", e);
+            0
+        });
 
     println!("[DB] Current schema version: {}", version);
 
@@ -109,12 +123,17 @@ fn run_migrations(conn: &Connection) -> Result<()> {
     if version < 2 {
         println!("[DB] Running migration 2: Time-based character introduction");
 
-        conn.execute(
+        let result = conn.execute(
             "INSERT OR IGNORE INTO app_settings (key, value) VALUES
              ('last_unlock_date', ''),
              ('initial_unlock_completed', 'false')",
             []
-        )?;
+        );
+
+        match result {
+            Ok(rows) => println!("[DB] Migration 2: Inserted {} app_settings rows", rows),
+            Err(e) => println!("[DB] Migration 2 warning: Error inserting app_settings: {}", e),
+        }
 
         conn.execute(
             "INSERT INTO schema_version (version, description) VALUES (2, 'Time-based character introduction')",
@@ -255,6 +274,10 @@ pub fn record_srs_answer(
     // Calculate new values
     let update = calculate_next_review(&card, correct);
 
+    // Convert to SQLite datetime format (YYYY-MM-DD HH:MM:SS)
+    // SQLite's datetime() function uses this format, and we need to match it for comparisons
+    let next_review_sqlite = update.next_review_date.format("%Y-%m-%d %H:%M:%S").to_string();
+
     // Update database
     conn.execute(
         "UPDATE user_progress
@@ -272,7 +295,7 @@ pub fn record_srs_answer(
         rusqlite::params![
             update.new_interval_days,
             update.new_ease_factor,
-            update.next_review_date.to_rfc3339(),
+            next_review_sqlite,
             if correct { 1 } else { 0 },
             if correct { 0 } else { 1 },
             update.reached_week_for_first_time,
@@ -462,7 +485,7 @@ pub fn initialize_new_user_characters(conn: &Connection) -> Result<usize> {
                WHERE p.character_id = c.id
            )
          ORDER BY c.frequency_rank ASC
-         LIMIT 30"
+         LIMIT 100"
     )?;
 
     let character_ids: Vec<i32> = stmt.query_map([], |row| row.get(0))?
@@ -517,10 +540,12 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
         // First unlock after initial batch - allow it
         true
     } else {
-        // Parse last unlock date
-        if let Ok(last_unlock) = DateTime::parse_from_rfc3339(&last_unlock_str) {
+        // Parse last unlock date from SQLite datetime format (YYYY-MM-DD HH:MM:SS)
+        use chrono::NaiveDateTime;
+        if let Ok(naive_dt) = NaiveDateTime::parse_from_str(&last_unlock_str, "%Y-%m-%d %H:%M:%S") {
+            let last_unlock = DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc);
             let now = Utc::now();
-            let elapsed = now.signed_duration_since(last_unlock.with_timezone(&Utc));
+            let elapsed = now.signed_duration_since(last_unlock);
 
             println!("[DB] Last unlock was {} hours ago", elapsed.num_hours());
 
@@ -528,6 +553,7 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
             elapsed >= Duration::hours(48)
         } else {
             // Invalid date format, allow unlock
+            println!("[DB] Invalid last_unlock_date format: {}", last_unlock_str);
             true
         }
     };
@@ -572,9 +598,10 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
         )?;
     }
 
-    // Update last unlock date
+    // Update last unlock date (use SQLite datetime format)
     let now = Utc::now();
-    set_setting(conn, "last_unlock_date", &now.to_rfc3339())?;
+    let now_sqlite = now.format("%Y-%m-%d %H:%M:%S").to_string();
+    set_setting(conn, "last_unlock_date", &now_sqlite)?;
 
     println!("[DB] Unlocked {} characters", count);
     Ok((count, true))
@@ -599,9 +626,12 @@ pub fn get_hours_until_next_unlock(conn: &Connection) -> Result<Option<i64>> {
         return Ok(Some(0)); // Can unlock now
     }
 
-    if let Ok(last_unlock) = DateTime::parse_from_rfc3339(&last_unlock_str) {
+    // Parse from SQLite datetime format (YYYY-MM-DD HH:MM:SS)
+    use chrono::NaiveDateTime;
+    if let Ok(naive_dt) = NaiveDateTime::parse_from_str(&last_unlock_str, "%Y-%m-%d %H:%M:%S") {
+        let last_unlock = DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc);
         let now = Utc::now();
-        let elapsed = now.signed_duration_since(last_unlock.with_timezone(&Utc));
+        let elapsed = now.signed_duration_since(last_unlock);
         let hours_elapsed = elapsed.num_hours();
 
         if hours_elapsed >= 48 {
@@ -612,6 +642,91 @@ pub fn get_hours_until_next_unlock(conn: &Connection) -> Result<Option<i64>> {
     } else {
         Ok(Some(0)) // Invalid date, can unlock now
     }
+}
+
+/// Start a new study session and return the session ID
+pub fn start_study_session(conn: &Connection, mode: &str) -> Result<i32> {
+    conn.execute(
+        "INSERT INTO study_sessions (mode, started_at)
+         VALUES (?1, datetime('now'))",
+        [mode]
+    )?;
+
+    let session_id = conn.last_insert_rowid() as i32;
+    Ok(session_id)
+}
+
+/// End a study session with final statistics
+pub fn end_study_session(
+    conn: &Connection,
+    session_id: i32,
+    cards_studied: i32,
+    cards_correct: i32,
+    cards_incorrect: i32,
+) -> Result<()> {
+    conn.execute(
+        "UPDATE study_sessions
+         SET ended_at = datetime('now'),
+             cards_studied = ?1,
+             cards_correct = ?2,
+             cards_incorrect = ?3,
+             duration_seconds = CAST((julianday(datetime('now')) - julianday(started_at)) * 86400 AS INTEGER)
+         WHERE id = ?4",
+        rusqlite::params![cards_studied, cards_correct, cards_incorrect, session_id]
+    )?;
+    Ok(())
+}
+
+/// Calculate study streak (consecutive days with study sessions)
+pub fn calculate_study_streak(conn: &Connection) -> Result<i32> {
+    use chrono::{NaiveDate, Utc, Duration};
+
+    // Get all unique study dates, ordered by date descending
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT DATE(started_at) as study_date
+         FROM study_sessions
+         WHERE started_at IS NOT NULL
+         ORDER BY study_date DESC"
+    )?;
+
+    let dates: Vec<NaiveDate> = stmt.query_map([], |row| {
+        let date_str: String = row.get(0)?;
+        // Parse SQLite date format (YYYY-MM-DD)
+        NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    })?
+    .collect::<Result<Vec<_>>>()?;
+
+    if dates.is_empty() {
+        return Ok(0);
+    }
+
+    // Check if user studied today or yesterday (streak is still active)
+    let today = Utc::now().date_naive();
+    let yesterday = today - Duration::days(1);
+
+    let most_recent_date = dates[0];
+
+    // Streak is broken if last study was more than 1 day ago
+    if most_recent_date < yesterday {
+        return Ok(0);
+    }
+
+    // Count consecutive days
+    let mut streak = 1;
+    let mut expected_date = most_recent_date - Duration::days(1);
+
+    for date in dates.iter().skip(1) {
+        if *date == expected_date {
+            streak += 1;
+            expected_date = expected_date - Duration::days(1);
+        } else {
+            // Gap found, streak broken
+            break;
+        }
+    }
+
+    Ok(streak)
 }
 
 /// Build the database automatically from dataset files

@@ -61,11 +61,34 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
   const [totalRequiredAnswers, setTotalRequiredAnswers] = useState(0); // Total answers needed (cards * 2)
   const [showExitConfirmation, setShowExitConfirmation] = useState(false); // Show exit confirmation modal
   const [isExiting, setIsExiting] = useState(false); // Track if user is exiting study
+  const [sessionId, setSessionId] = useState<number | null>(null); // Session ID for recording
+  const [sessionEnded, setSessionEnded] = useState(false); // Track if session has been ended
 
   // Load due cards on mount
   useEffect(() => {
     loadDueCards();
   }, []);
+
+  // End session when naturally completed
+  useEffect(() => {
+    if (sessionComplete && sessionId && !isExiting && !sessionEnded) {
+      const endSession = async () => {
+        try {
+          await invoke('end_session', {
+            sessionId,
+            cardsStudied: totalCharacters,
+            cardsCorrect: stats.cardsCorrect,
+            cardsIncorrect: stats.cardsIncorrect
+          });
+          console.log('[SRS] Session naturally completed and ended:', sessionId);
+          setSessionEnded(true); // Mark as ended to prevent duplicate calls
+        } catch (error) {
+          console.error('[SRS] Error ending completed session:', error);
+        }
+      };
+      endSession();
+    }
+  }, [sessionComplete, sessionId, isExiting, sessionEnded, stats, totalCharacters]);
 
   // Fisher-Yates shuffle algorithm
   const shuffleArray = <T,>(array: T[]): T[] => {
@@ -80,6 +103,12 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
   const loadDueCards = async () => {
     try {
       setLoading(true);
+
+      // Start session recording
+      const mode = isInitialStudy ? 'initial_study' : 'spaced_repetition';
+      const newSessionId = await invoke<number>('start_session', { mode });
+      setSessionId(newSessionId);
+      console.log('[SRS] Started session:', newSessionId);
 
       let cards: DueCard[];
       if (isInitialStudy && initialStudyCharacterIds.length > 0) {
@@ -96,6 +125,15 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       if (cards.length === 0) {
         setSessionComplete(true);
         setLoading(false);
+        // End session with 0 cards
+        if (newSessionId) {
+          await invoke('end_session', {
+            sessionId: newSessionId,
+            cardsStudied: 0,
+            cardsCorrect: 0,
+            cardsIncorrect: 0
+          });
+        }
         return;
       }
 
@@ -462,6 +500,22 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           } catch (error) {
             console.error('[SRS] Error submitting incorrect character:', characterId, error);
           }
+        }
+      }
+
+      // End session recording
+      if (sessionId && !sessionEnded) {
+        try {
+          await invoke('end_session', {
+            sessionId,
+            cardsStudied: totalCharacters,
+            cardsCorrect: stats.cardsCorrect,
+            cardsIncorrect: stats.cardsIncorrect
+          });
+          console.log('[SRS] Session ended:', sessionId);
+          setSessionEnded(true); // Mark as ended to prevent duplicate calls
+        } catch (error) {
+          console.error('[SRS] Error ending session:', error);
         }
       }
 

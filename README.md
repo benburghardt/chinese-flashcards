@@ -70,30 +70,22 @@ For Windows specifically:
    npm install
    ```
 
-3. **Build the database** (Required for first-time setup)
+3. **Download datasets** (Required for first-time setup)
 
-   The application requires a SQLite database with Chinese character data. You have two options:
+   The application automatically builds the database when you run it, but you need to download the source datasets first:
 
-   **Option A: Build from source** (Recommended for development)
    ```bash
    cd data-processing
-
-   # Download source datasets (CC-CEDICT + SUBTLEX-CH)
    cargo run --bin download-datasets
-
-   # Build the SQLite database
-   cargo run --bin build-database
-
    cd ..
    ```
 
-   This creates `resources/chinese.db` (~27MB) with 120,273 characters/words.
+   **Note:** SUBTLEX-CH requires manual download:
+   1. Visit: https://www.ugent.be/pp/experimentele-psychologie/en/research/documents/subtlexch
+   2. Download both files: `SUBTLEX-CH-CHR.zip` and `SUBTLEX-CH-WF_PoS.zip`
+   3. Extract to `datasets/SUBTLEX-CH/` directory
 
-   **Option B: Use pre-built database** (If available)
-   ```bash
-   # Download pre-built chinese.db from releases
-   # Place in: resources/chinese.db
-   ```
+   The database will be automatically built when you run `npm run tauri:dev` for the first time.
 
 4. **Verify setup**
    ```bash

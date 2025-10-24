@@ -31,6 +31,14 @@ pub fn run() {
       commands::mark_all_ready_characters_introduced,
       commands::get_self_study_cards,
       commands::record_practice,
+      commands::get_dashboard_stats,
+      commands::get_recent_sessions,
+      commands::start_session,
+      commands::end_session,
+      commands::browse_characters,
+      commands::get_total_characters_count,
+      commands::get_review_calendar,
+      commands::get_database_debug_info,
     ])
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
