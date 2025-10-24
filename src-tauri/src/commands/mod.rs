@@ -379,10 +379,12 @@ pub fn mark_all_ready_characters_introduced(db: State<DbConnection>) -> Result<S
         // All characters have been introduced, set the timer
         use chrono::Utc;
         let now = Utc::now();
-        crate::database::set_setting(&conn, "last_unlock_date", &now.to_rfc3339())
+        // Use SQLite datetime format
+        let now_sqlite = now.format("%Y-%m-%d %H:%M:%S").to_string();
+        crate::database::set_setting(&conn, "last_unlock_date", &now_sqlite)
             .map_err(|e| e.to_string())?;
 
-        println!("[RUST] All characters introduced. Timer set to: {}", now.to_rfc3339());
+        println!("[RUST] All characters introduced. Timer set to: {}", now_sqlite);
         Ok(format!("Timer set. Next unlock in 48 hours."))
     } else {
         Ok(format!("Still {} characters to introduce", ready_count))
@@ -421,4 +423,281 @@ pub fn record_practice(
         is_correct,
     )
     .map_err(|e| e.to_string())
+}
+
+// === Dashboard Statistics Commands ===
+
+#[derive(serde::Serialize)]
+pub struct DashboardStats {
+    pub total_characters_learned: usize,
+    pub characters_in_srs: usize,
+    pub cards_due_today: usize,
+    pub study_streak_days: i32,
+}
+
+#[derive(serde::Serialize)]
+pub struct StudySession {
+    pub id: i32,
+    pub mode: String,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub cards_studied: i32,
+    pub cards_correct: i32,
+    pub cards_incorrect: i32,
+    pub duration_seconds: Option<i32>,
+}
+
+#[tauri::command]
+pub fn get_dashboard_stats(db: State<DbConnection>) -> Result<DashboardStats, String> {
+    let conn = db.0.lock().unwrap();
+
+    let total_characters_learned = crate::database::get_introduced_count(&conn)
+        .map_err(|e| e.to_string())?;
+
+    let characters_in_srs: usize = conn.query_row(
+        "SELECT COUNT(*) FROM user_progress",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let cards_due_today: usize = conn.query_row(
+        "SELECT COUNT(*) FROM user_progress
+         WHERE introduced = 1 AND next_review_date <= datetime('now')",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    // Calculate study streak (consecutive days with sessions)
+    let study_streak_days = crate::database::calculate_study_streak(&conn)
+        .map_err(|e| e.to_string())?;
+
+    Ok(DashboardStats {
+        total_characters_learned,
+        characters_in_srs,
+        cards_due_today,
+        study_streak_days,
+    })
+}
+
+#[tauri::command]
+pub fn get_recent_sessions(db: State<DbConnection>, limit: usize) -> Result<Vec<StudySession>, String> {
+    let conn = db.0.lock().unwrap();
+
+    let mut stmt = conn.prepare(
+        "SELECT id, mode, started_at, ended_at, cards_studied, cards_correct, cards_incorrect, duration_seconds
+         FROM study_sessions
+         ORDER BY started_at DESC
+         LIMIT ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let sessions = stmt.query_map([limit], |row| {
+        Ok(StudySession {
+            id: row.get(0)?,
+            mode: row.get(1)?,
+            started_at: row.get(2)?,
+            ended_at: row.get(3)?,
+            cards_studied: row.get(4)?,
+            cards_correct: row.get(5)?,
+            cards_incorrect: row.get(6)?,
+            duration_seconds: row.get(7)?,
+        })
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+
+    Ok(sessions)
+}
+
+#[tauri::command]
+pub fn start_session(db: State<DbConnection>, mode: String) -> Result<i32, String> {
+    let conn = db.0.lock().unwrap();
+    crate::database::start_study_session(&conn, &mode)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn end_session(
+    db: State<DbConnection>,
+    session_id: i32,
+    cards_studied: i32,
+    cards_correct: i32,
+    cards_incorrect: i32,
+) -> Result<(), String> {
+    let conn = db.0.lock().unwrap();
+    crate::database::end_study_session(&conn, session_id, cards_studied, cards_correct, cards_incorrect)
+        .map_err(|e| e.to_string())
+}
+
+// === Dictionary/Browse Commands ===
+
+#[derive(serde::Serialize)]
+pub struct CharacterWithProgress {
+    pub id: i32,
+    pub character: String,
+    pub simplified: String,
+    pub traditional: Option<String>,
+    pub mandarin_pinyin: String,
+    pub definition: String,
+    pub frequency_rank: i32,
+    pub is_word: bool,
+    // Progress fields (null if not in user_progress)
+    pub introduced: Option<bool>,
+    pub times_reviewed: Option<i32>,
+    pub times_correct: Option<i32>,
+    pub times_incorrect: Option<i32>,
+    pub current_interval_days: Option<f32>,
+    pub next_review_date: Option<String>,
+}
+
+#[tauri::command]
+pub fn browse_characters(
+    db: State<DbConnection>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<CharacterWithProgress>, String> {
+    let conn = db.0.lock().unwrap();
+
+    let mut stmt = conn.prepare(
+        "SELECT c.id, c.character, c.simplified, c.traditional, c.mandarin_pinyin,
+                c.definition, c.frequency_rank, c.is_word,
+                p.introduced, p.times_reviewed, p.times_correct, p.times_incorrect,
+                p.current_interval_days, p.next_review_date
+         FROM characters c
+         LEFT JOIN user_progress p ON c.id = p.character_id
+         WHERE c.is_word = 0
+         ORDER BY c.frequency_rank ASC
+         LIMIT ?1 OFFSET ?2"
+    ).map_err(|e| e.to_string())?;
+
+    let characters = stmt.query_map([limit, offset], |row| {
+        Ok(CharacterWithProgress {
+            id: row.get(0)?,
+            character: row.get(1)?,
+            simplified: row.get(2)?,
+            traditional: row.get(3)?,
+            mandarin_pinyin: row.get(4)?,
+            definition: row.get(5)?,
+            frequency_rank: row.get(6)?,
+            is_word: row.get(7)?,
+            introduced: row.get(8)?,
+            times_reviewed: row.get(9)?,
+            times_correct: row.get(10)?,
+            times_incorrect: row.get(11)?,
+            current_interval_days: row.get(12)?,
+            next_review_date: row.get(13)?,
+        })
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+
+    Ok(characters)
+}
+
+#[tauri::command]
+pub fn get_total_characters_count(db: State<DbConnection>) -> Result<i32, String> {
+    let conn = db.0.lock().unwrap();
+    let count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM characters WHERE is_word = 0",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
+// === Debug Commands ===
+
+#[derive(serde::Serialize)]
+pub struct DatabaseDebugInfo {
+    pub total_characters: i32,
+    pub characters_in_progress: i32,
+    pub ready_to_learn: i32,
+    pub introduced: i32,
+    pub initial_unlock_completed: String,
+    pub last_unlock_date: String,
+}
+
+#[tauri::command]
+pub fn get_database_debug_info(db: State<DbConnection>) -> Result<DatabaseDebugInfo, String> {
+    let conn = db.0.lock().unwrap();
+
+    let total_characters: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM characters WHERE is_word = 0",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let characters_in_progress: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM user_progress",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let ready_to_learn: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM user_progress WHERE introduced = 0",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let introduced: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM user_progress WHERE introduced = 1",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let initial_unlock_completed = crate::database::get_setting(&conn, "initial_unlock_completed")
+        .unwrap_or_else(|_| "ERROR".to_string());
+
+    let last_unlock_date = crate::database::get_setting(&conn, "last_unlock_date")
+        .unwrap_or_else(|_| "ERROR".to_string());
+
+    Ok(DatabaseDebugInfo {
+        total_characters,
+        characters_in_progress,
+        ready_to_learn,
+        introduced,
+        initial_unlock_completed,
+        last_unlock_date,
+    })
+}
+
+// === Review Calendar Commands ===
+
+#[derive(serde::Serialize)]
+pub struct ReviewCalendarEntry {
+    pub date: String,
+    pub cards_due: i32,
+    pub earliest_review_time: String,  // Full datetime of earliest review
+}
+
+#[tauri::command]
+pub fn get_review_calendar(db: State<DbConnection>, days: i32) -> Result<Vec<ReviewCalendarEntry>, String> {
+    let conn = db.0.lock().unwrap();
+
+    let mut stmt = conn.prepare(
+        "SELECT DATE(next_review_date) as review_date,
+                COUNT(*) as cards_due,
+                MIN(next_review_date) as earliest_time
+         FROM user_progress
+         WHERE introduced = 1
+           AND next_review_date IS NOT NULL
+           AND next_review_date > datetime('now')
+           AND DATE(next_review_date) <= DATE('now', '+' || ?1 || ' days')
+         GROUP BY review_date
+         ORDER BY review_date ASC"
+    ).map_err(|e| e.to_string())?;
+
+    let entries = stmt.query_map([days], |row| {
+        Ok(ReviewCalendarEntry {
+            date: row.get(0)?,
+            cards_due: row.get(1)?,
+            earliest_review_time: row.get(2)?,
+        })
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+
+    Ok(entries)
 }

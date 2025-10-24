@@ -3,13 +3,29 @@ import { invoke } from '@tauri-apps/api/core';
 import './Dashboard.css';
 
 interface DashboardStats {
-  total_characters: number;
-  introduced_characters: number;
-  mastered_characters: number;
-  due_for_review: number;
-  available_to_learn: number;
-  hours_until_next_unlock: number | null;
+  total_characters_learned: number;
+  characters_in_srs: number;
+  cards_due_today: number;
+  study_streak_days: number;
 }
+
+interface StudySession {
+  id: number;
+  mode: string;
+  started_at: string;
+  ended_at: string | null;
+  cards_studied: number;
+  cards_correct: number;
+  cards_incorrect: number;
+  duration_seconds: number | null;
+}
+
+interface ReviewCalendarEntry {
+  date: string;
+  cards_due: number;
+  earliest_review_time: string;
+}
+
 
 interface DashboardProps {
   onStartLearnNew: () => void;
@@ -20,6 +36,12 @@ interface DashboardProps {
 
 function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBrowseDictionary }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [unlockStatus, setUnlockStatus] = useState<{
+    ready_to_learn_count: number;
+    hours_until_next_unlock: number | null;
+  } | null>(null);
+  const [recentSessions, setRecentSessions] = useState<StudySession[]>([]);
+  const [calendar, setCalendar] = useState<ReviewCalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
@@ -39,23 +61,24 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
         hours_until_next_unlock: number | null;
       }>('check_and_unlock_characters');
 
-      // Get SRS statistics
-      const dueCards = await invoke<any[]>('get_due_cards_for_review');
+      // Get dashboard statistics
+      const dashboardStats = await invoke<DashboardStats>('get_dashboard_stats');
 
+      // Get recent study sessions
+      const sessions = await invoke<StudySession[]>('get_recent_sessions', { limit: 10 });
+
+      // Get review calendar (next 7 days)
+      const calendarData = await invoke<ReviewCalendarEntry[]>('get_review_calendar', { days: 7 });
+
+      console.log('Dashboard stats:', dashboardStats);
+      console.log('Recent sessions:', sessions);
+      console.log('Review calendar:', calendarData);
       console.log('Unlock status:', unlockStatus);
 
-      // For now, we'll use placeholder data for other stats
-      // These will be implemented in Task 1.13
-      const stats: DashboardStats = {
-        total_characters: 11008,
-        introduced_characters: 0, // Will be fetched from DB
-        mastered_characters: 0, // Will be calculated based on SRS data
-        due_for_review: dueCards.length,
-        available_to_learn: unlockStatus.ready_to_learn_count,
-        hours_until_next_unlock: unlockStatus.hours_until_next_unlock,
-      };
-
-      setStats(stats);
+      setStats(dashboardStats);
+      setUnlockStatus(unlockStatus);
+      setRecentSessions(sessions);
+      setCalendar(calendarData);
       setLoading(false);
     } catch (error) {
       console.error('Failed to load stats:', error);
@@ -101,17 +124,17 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
 
       {/* Primary Action Cards */}
       <div className="primary-actions">
-        <div className="action-card learn-new" onClick={stats?.available_to_learn && stats.available_to_learn > 0 ? onStartLearnNew : undefined}>
+        <div className="action-card learn-new" onClick={unlockStatus?.ready_to_learn_count && unlockStatus.ready_to_learn_count > 0 ? onStartLearnNew : undefined}>
           <div className="action-icon">📚</div>
           <h2 className="action-title">Learn New</h2>
           <p className="action-description">
             Introduce new characters and words
           </p>
           <div className="action-stat">
-            <span className="stat-number">{stats?.available_to_learn || 0}</span>
+            <span className="stat-number">{unlockStatus?.ready_to_learn_count || 0}</span>
             <span className="stat-label">available</span>
           </div>
-          {stats?.hours_until_next_unlock !== null && stats?.hours_until_next_unlock !== undefined && stats.available_to_learn === 0 && (
+          {unlockStatus?.hours_until_next_unlock !== null && unlockStatus?.hours_until_next_unlock !== undefined && unlockStatus.ready_to_learn_count === 0 && (
             <div style={{
               marginTop: '12px',
               padding: '8px 12px',
@@ -120,24 +143,24 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
               fontSize: '14px',
               color: '#667eea'
             }}>
-              {stats.hours_until_next_unlock === 0 ? (
+              {unlockStatus.hours_until_next_unlock === 0 ? (
                 '✨ New characters available soon!'
               ) : (
-                `⏰ Next unlock in ${stats.hours_until_next_unlock}h`
+                `⏰ Next unlock in ${unlockStatus.hours_until_next_unlock}h`
               )}
             </div>
           )}
           <button
             className="action-button"
-            disabled={stats?.available_to_learn === 0}
+            disabled={unlockStatus?.ready_to_learn_count === 0}
           >
-            {stats?.available_to_learn === 0 ? 'No Characters Ready' : 'Start Learning'}
+            {unlockStatus?.ready_to_learn_count === 0 ? 'No Characters Ready' : 'Start Learning'}
           </button>
         </div>
 
         <div
-          className={`action-card review-srs ${stats?.due_for_review === 0 ? 'disabled' : ''}`}
-          onClick={stats?.due_for_review && stats.due_for_review > 0 ? onStartSrsSession : undefined}
+          className={`action-card review-srs ${stats?.cards_due_today === 0 ? 'disabled' : ''}`}
+          onClick={stats?.cards_due_today && stats.cards_due_today > 0 ? onStartSrsSession : undefined}
         >
           <div className="action-icon">🔄</div>
           <h2 className="action-title">Review</h2>
@@ -145,14 +168,14 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
             Practice due cards with SRS
           </p>
           <div className="action-stat">
-            <span className="stat-number">{stats?.due_for_review || 0}</span>
+            <span className="stat-number">{stats?.cards_due_today || 0}</span>
             <span className="stat-label">due cards</span>
           </div>
           <button
             className="action-button"
-            disabled={stats?.due_for_review === 0}
+            disabled={stats?.cards_due_today === 0}
           >
-            {stats?.due_for_review === 0 ? 'All Caught Up!' : 'Start Review'}
+            {stats?.cards_due_today === 0 ? 'All Caught Up!' : 'Start Review'}
           </button>
         </div>
       </div>
@@ -186,40 +209,108 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
           <div className="stat-card">
             <div className="stat-icon">📚</div>
             <div className="stat-content">
-              <div className="stat-value">{stats?.introduced_characters || 0}</div>
-              <div className="stat-name">Characters Introduced</div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon">⭐</div>
-            <div className="stat-content">
-              <div className="stat-value">{stats?.mastered_characters || 0}</div>
-              <div className="stat-name">Mastered</div>
+              <div className="stat-value">{stats?.total_characters_learned || 0}</div>
+              <div className="stat-name">Characters Learned</div>
             </div>
           </div>
 
           <div className="stat-card">
             <div className="stat-icon">🎯</div>
             <div className="stat-content">
-              <div className="stat-value">{stats?.total_characters.toLocaleString()}</div>
-              <div className="stat-name">Total Available</div>
+              <div className="stat-value">{stats?.characters_in_srs || 0}</div>
+              <div className="stat-name">In SRS Pool</div>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon">📅</div>
+            <div className="stat-content">
+              <div className="stat-value">{stats?.cards_due_today || 0}</div>
+              <div className="stat-name">Due Today</div>
             </div>
           </div>
 
           <div className="stat-card">
             <div className="stat-icon">🔥</div>
             <div className="stat-content">
-              <div className="stat-value">0</div>
+              <div className="stat-value">{stats?.study_streak_days || 0}</div>
               <div className="stat-name">Day Streak</div>
             </div>
           </div>
         </div>
-
-        <div className="progress-note">
-          <p>📈 Detailed statistics will be available in Task 1.13</p>
-        </div>
       </div>
+
+      {/* Review Calendar */}
+      {calendar.length > 0 && (
+        <div className="calendar-section">
+          <h3 className="section-title">📅 Upcoming Reviews (Next 7 Days)</h3>
+          <div className="calendar-grid">
+            {calendar.map((entry) => {
+              const date = new Date(entry.date);
+              // Parse SQLite UTC datetime as UTC, then convert to local time
+              // SQLite format: "YYYY-MM-DD HH:MM:SS" (stored in UTC)
+              const reviewTime = new Date(entry.earliest_review_time + ' UTC');
+              const isToday = date.toDateString() === new Date().toDateString();
+
+              // Format time in 12-hour format with AM/PM in user's local timezone
+              const timeString = reviewTime.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              });
+
+              return (
+                <div key={entry.date} className={`calendar-day ${isToday ? 'today' : ''}`}>
+                  <div className="calendar-date">
+                    {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </div>
+                  <div className="calendar-time">{timeString}</div>
+                  <div className="calendar-count">{entry.cards_due}</div>
+                  <div className="calendar-label">cards</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Study Sessions */}
+      {recentSessions.length > 0 && (
+        <div className="sessions-section">
+          <h3 className="section-title">📖 Recent Study Sessions</h3>
+          <div className="sessions-list">
+            {recentSessions.map((session) => (
+              <div key={session.id} className="session-card">
+                <div className="session-header">
+                  <span className="session-mode">
+                    {session.mode === 'spaced_repetition' ? '🔄 SRS Review' :
+                     session.mode === 'self-study' ? '📖 Self-Study' :
+                     `📚 ${session.mode}`}
+                  </span>
+                  <span className="session-date">
+                    {new Date(session.started_at).toLocaleDateString()} {new Date(session.started_at).toLocaleTimeString()}
+                  </span>
+                </div>
+                <div className="session-stats">
+                  <span className="session-stat">
+                    {session.cards_studied} cards
+                  </span>
+                  <span className="session-stat session-accuracy">
+                    {session.cards_studied > 0
+                      ? Math.round((session.cards_correct / session.cards_studied) * 100)
+                      : 0}% accuracy
+                  </span>
+                  {session.duration_seconds && (
+                    <span className="session-stat">
+                      {Math.round(session.duration_seconds / 60)} min
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
