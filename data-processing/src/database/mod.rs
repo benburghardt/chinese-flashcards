@@ -40,7 +40,11 @@ fn insert_characters(conn: &Connection, entries: Vec<EnrichedEntry>) -> Result<(
     )?;
 
     let mut inserted = 0;
+    let mut duplicates = 0;
     let total = entries.len();
+
+    // Group entries by simplified character to detect duplicates
+    let mut seen_characters: HashMap<String, usize> = HashMap::new();
 
     for (i, entry) in entries.iter().enumerate() {
         if i % 10000 == 0 {
@@ -65,10 +69,17 @@ fn insert_characters(conn: &Connection, entries: Vec<EnrichedEntry>) -> Result<(
 
         if rows_affected > 0 {
             inserted += 1;
+            seen_characters.insert(cedict.simplified.clone(), 1);
+        } else {
+            // Character already exists - this is a duplicate entry
+            *seen_characters.entry(cedict.simplified.clone()).or_insert(0) += 1;
+            duplicates += 1;
         }
     }
 
-    println!("  Inserted {} unique characters/words (out of {} total entries)", inserted, total);
+    println!("  Inserted {} unique characters/words", inserted);
+    println!("  Skipped {} duplicate entries (multiple CEDICT entries for same character)", duplicates);
+
     Ok(())
 }
 

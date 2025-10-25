@@ -1,14 +1,73 @@
 use rusqlite::{Connection, Result};
 use std::fs::File;
 use std::io::Write;
+use std::collections::{HashMap, HashSet};
+
+/// Remove parenthetical content from a definition for comparison
+fn strip_parentheses(s: &str) -> String {
+    let mut result = String::new();
+    let mut depth: i32 = 0;
+
+    for c in s.chars() {
+        match c {
+            '(' | '（' => depth += 1,
+            ')' | '）' => depth = depth.saturating_sub(1),
+            _ => {
+                if depth == 0 {
+                    result.push(c);
+                }
+            }
+        }
+    }
+
+    result.trim().to_string()
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("=== Generating Definition Review Report ===\n");
+
+    // Step 1: Parse CEDICT to find duplicates
+    println!("📖 Parsing CEDICT to detect duplicates...");
+    let cedict_path = "../datasets/cedict_ts.u8";
+    let cedict_entries = data_processing::parsers::cedict::parse_cedict_file(cedict_path)?;
+
+    // Group by simplified character to detect duplicates
+    // Use a map of character -> (original_def, stripped_def)
+    let mut character_entries: HashMap<String, Vec<(String, String)>> = HashMap::new();
+    for entry in &cedict_entries {
+        let def = entry.definitions.join("; ");
+        let stripped = strip_parentheses(&def);
+        character_entries
+            .entry(entry.simplified.clone())
+            .or_insert_with(Vec::new)
+            .push((def, stripped));
+    }
+
+    // Find characters with multiple DISTINCT entries (ignoring parenthetical differences)
+    let mut duplicates: HashMap<String, Vec<String>> = HashMap::new();
+    for (character, defs) in character_entries {
+        // Get unique stripped definitions
+        let mut seen_stripped = HashSet::new();
+        let mut unique_defs = Vec::new();
+
+        for (original, stripped) in defs {
+            if !stripped.is_empty() && seen_stripped.insert(stripped) {
+                unique_defs.push(original);
+            }
+        }
+
+        // Only flag if there are multiple DISTINCT definitions
+        if unique_defs.len() > 1 {
+            duplicates.insert(character, unique_defs);
+        }
+    }
+
+    println!("  ✓ Found {} characters with multiple CEDICT entries\n", duplicates.len());
+
+    // Step 2: Query database
     let db_path = "../src-tauri/chinese.db";
     let conn = Connection::open(db_path)?;
 
-    println!("=== Generating Definition Review Report ===\n");
-
-    // Query all characters and words
     let mut stmt = conn.prepare(
         "SELECT id, character, simplified, mandarin_pinyin, definition, is_word, frequency_rank
          FROM characters
@@ -29,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })?
         .collect::<Result<Vec<_>>>()?;
 
-    println!("Analyzing {} items...\n", items.len());
+    println!("Analyzing {} items from database...\n", items.len());
 
     // Collect items needing review
     let mut review_items = Vec::new();
@@ -37,33 +96,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (id, character, _simplified, pinyin, definition, is_word, freq_rank) in items {
         let item_type = if is_word { "word" } else { "char" };
         let mut flags = Vec::new();
+        let mut all_definitions = definition.clone();
 
-        // Check for multiple definitions (separated by / or ;)
-        let def_count = definition.matches('/').count() + definition.matches(';').count() + 1;
-
-        // Flag: Multiple definitions
-        if def_count > 1 {
-            flags.push(format!("{} definitions", def_count));
+        // Flag: Multiple CEDICT entries (true duplicates)
+        if let Some(defs) = duplicates.get(&character) {
+            flags.push(format!("Multiple CEDICT entries ({})", defs.len()));
+            // Include all definitions for review
+            all_definitions = defs.join(" | ");
         }
 
         // Flag: Very long definition
         if definition.len() > 100 {
             flags.push("Very long".to_string());
-        }
-
-        // Flag: Contains surname
-        if definition.to_lowercase().contains("surname") {
-            flags.push("Contains 'surname'".to_string());
-        }
-
-        // Flag: Contains "variant of"
-        if definition.to_lowercase().contains("variant of") {
-            flags.push("Variant".to_string());
-        }
-
-        // Flag: Contains "used in"
-        if definition.to_lowercase().contains("used in") {
-            flags.push("'Used in' phrase".to_string());
         }
 
         // Flag: Contains historical terms
@@ -88,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 pinyin,
                 item_type.to_string(),
                 freq_rank,
-                definition,
+                all_definitions,
                 flags.join(", "),
             ));
         }

@@ -59,13 +59,24 @@ fn parse_cedict_line(line: &str) -> Option<CedictEntry> {
     let definitions: Vec<String> = defs_part
         .split('/')
         .filter(|s| !s.is_empty())
-        .filter(|s| !s.starts_with("variant"))
-        .filter(|s| !s.starts_with("used in"))
-        .filter(|s| !s.starts_with("surname"))
+        .filter(|s| {
+            let lower = s.to_lowercase();
+            // Filter out unwanted definition types
+            !lower.starts_with("variant") &&
+            !lower.starts_with("erhua variant") &&
+            !lower.starts_with("old variant") &&
+            !lower.starts_with("used in") &&
+            !lower.starts_with("surname") &&
+            !lower.starts_with("abbr.") &&
+            !lower.starts_with("abbr. for") &&
+            !lower.starts_with("abbreviation")
+        })
         .map(|s| s.trim().to_string())
+        .take(3)  // Keep only first 3 definitions
         .collect();
 
     if definitions.is_empty() {
+        // All definitions were filtered out - skip this entry entirely
         return None;
     }
 
