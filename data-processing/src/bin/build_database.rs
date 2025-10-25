@@ -42,7 +42,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     database::create_database(enriched, output_path.to_str().unwrap())?;
     println!();
 
-    // Step 5: Verify
+    // Step 5: Populate component characters
+    println!("🔗 Populating component characters...");
+    database::populate_component_characters(output_path.to_str().unwrap())?;
+    println!();
+
+    // Step 6: Calculate and populate introduction ranks
+    println!("📊 Calculating introduction ranks...");
+    database::populate_introduction_ranks(output_path.to_str().unwrap())?;
+    println!();
+
+    // Step 7: Verify
     println!("✅ Verifying database...");
     database::verify_database(output_path.to_str().unwrap())?;
 

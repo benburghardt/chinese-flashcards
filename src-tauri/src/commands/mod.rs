@@ -1,5 +1,6 @@
 use crate::database::{DbConnection, Character, DueCard};
 use tauri::State;
+use chrono::{Utc, Duration};
 
 #[tauri::command]
 pub fn get_character(db: State<DbConnection>, id: i32) -> Result<Character, String> {
@@ -86,10 +87,12 @@ pub fn introduce_character_immediately_reviewable(
 
     // Mark character as introduced and set next review to now (immediately reviewable)
     // Use '-1 second' to ensure the review date is definitely in the past
+    // Explicitly set ease_factor to 2.25 (mastery system cap)
     conn.execute(
         "UPDATE user_progress
          SET introduced = 1,
              current_interval_days = 0.04167,
+             ease_factor = 2.25,
              next_review_date = datetime('now', '-1 second'),
              updated_at = datetime('now')
          WHERE character_id = ?1",
@@ -163,22 +166,38 @@ pub fn complete_initial_srs_session(
     println!("[RUST] complete_initial_srs_session called with {} characters", character_ids.len());
     let conn = db.0.lock().unwrap();
 
+    // Calculate next review time: 30 minutes from now, rounded to half-hour
+    // Timezone handling:
+    // - Utc::now() gets current UTC time
+    // - We store in SQLite as UTC (format: "YYYY-MM-DD HH:MM:SS")
+    // - Frontend appends 'Z' to parse as UTC, then JS converts to user's local timezone for display
+    let next_review_unrounded = Utc::now() + Duration::minutes(30);
+    let next_review = crate::database::round_down_to_half_hour(next_review_unrounded);
+    let next_review_sqlite = next_review.format("%Y-%m-%d %H:%M:%S").to_string();
+
+    println!("[RUST] Scheduling reviews for {} at {} UTC (rounded from {})",
+             next_review_sqlite,
+             next_review.format("%H:%M"),
+             next_review_unrounded.format("%H:%M"));
+
     for char_id in &character_ids {
-        // Mark character as introduced and set next review to 1 hour from now
+        // Mark character as introduced and set next review to rounded half-hour
+        // Explicitly set ease_factor to 2.25 (mastery system cap)
         conn.execute(
             "UPDATE user_progress
              SET introduced = 1,
                  current_interval_days = 0.04167,
-                 next_review_date = datetime('now', '+1 hour'),
+                 ease_factor = 2.25,
+                 next_review_date = ?1,
                  updated_at = datetime('now')
-             WHERE character_id = ?1",
-            [char_id]
+             WHERE character_id = ?2",
+            rusqlite::params![&next_review_sqlite, char_id]
         ).map_err(|e| {
             eprintln!("[RUST] Error updating character {}: {}", char_id, e);
             e.to_string()
         })?;
 
-        println!("[RUST] Marked character {} as introduced with 1-hour interval", char_id);
+        println!("[RUST] Marked character {} as introduced, review at {}", char_id, next_review_sqlite);
     }
 
     let result = format!("Completed initial SRS for {} characters", character_ids.len());
@@ -197,10 +216,12 @@ pub fn mark_incomplete_characters_reviewable(
     for char_id in &character_ids {
         // Mark character as introduced and immediately reviewable
         // Use '-1 second' to ensure the review date is definitely in the past
+        // Explicitly set ease_factor to 2.25 (mastery system cap)
         conn.execute(
             "UPDATE user_progress
              SET introduced = 1,
                  current_interval_days = 0.04167,
+                 ease_factor = 2.25,
                  next_review_date = datetime('now', '-1 second'),
                  updated_at = datetime('now')
              WHERE character_id = ?1",
@@ -432,6 +453,7 @@ pub struct DashboardStats {
     pub total_characters_learned: usize,
     pub characters_in_srs: usize,
     pub cards_due_today: usize,
+    pub mastered_characters: usize,
     pub study_streak_days: i32,
 }
 
@@ -462,7 +484,15 @@ pub fn get_dashboard_stats(db: State<DbConnection>) -> Result<DashboardStats, St
 
     let cards_due_today: usize = conn.query_row(
         "SELECT COUNT(*) FROM user_progress
-         WHERE introduced = 1 AND next_review_date <= datetime('now')",
+         WHERE introduced = 1
+           AND is_mastered = 0
+           AND next_review_date <= datetime('now')",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let mastered_characters: usize = conn.query_row(
+        "SELECT COUNT(*) FROM user_progress WHERE is_mastered = 1",
         [],
         |row| row.get(0)
     ).map_err(|e| e.to_string())?;
@@ -475,6 +505,7 @@ pub fn get_dashboard_stats(db: State<DbConnection>) -> Result<DashboardStats, St
         total_characters_learned,
         characters_in_srs,
         cards_due_today,
+        mastered_characters,
         study_streak_days,
     })
 }
@@ -606,6 +637,86 @@ pub fn get_total_characters_count(db: State<DbConnection>) -> Result<i32, String
     Ok(count)
 }
 
+#[derive(serde::Serialize)]
+pub struct CharacterWithProgressAndScore {
+    pub id: i32,
+    pub character: String,
+    pub simplified: String,
+    pub traditional: Option<String>,
+    pub mandarin_pinyin: String,
+    pub definition: String,
+    pub frequency_rank: i32,
+    pub is_word: bool,
+    pub component_characters: Option<String>,
+    pub introduction_score: f64,
+    // Progress fields (null if not in user_progress)
+    pub introduced: Option<bool>,
+    pub times_reviewed: Option<i32>,
+    pub times_correct: Option<i32>,
+    pub times_incorrect: Option<i32>,
+    pub current_interval_days: Option<f32>,
+    pub next_review_date: Option<String>,
+}
+
+#[tauri::command]
+pub fn browse_introduction_order(
+    db: State<DbConnection>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<CharacterWithProgressAndScore>, String> {
+    let conn = db.0.lock().unwrap();
+
+    // Query items sorted by introduction_rank (pre-calculated)
+    let mut stmt = conn.prepare(
+        "SELECT c.id, c.character, c.simplified, c.traditional, c.mandarin_pinyin,
+                c.definition, c.frequency_rank, c.is_word, c.component_characters,
+                c.introduction_rank,
+                p.introduced, p.times_reviewed, p.times_correct, p.times_incorrect,
+                p.current_interval_days, p.next_review_date
+         FROM characters c
+         LEFT JOIN user_progress p ON c.id = p.character_id
+         ORDER BY c.introduction_rank ASC
+         LIMIT ?1 OFFSET ?2"
+    ).map_err(|e| e.to_string())?;
+
+    let results = stmt.query_map([limit, offset], |row| {
+        Ok(CharacterWithProgressAndScore {
+            id: row.get(0)?,
+            character: row.get(1)?,
+            simplified: row.get(2)?,
+            traditional: row.get(3)?,
+            mandarin_pinyin: row.get(4)?,
+            definition: row.get(5)?,
+            frequency_rank: row.get(6)?,
+            is_word: row.get(7)?,
+            component_characters: row.get(8)?,
+            introduction_score: row.get::<_, Option<i32>>(9)?.unwrap_or(999999) as f64,
+            introduced: row.get(10)?,
+            times_reviewed: row.get(11)?,
+            times_correct: row.get(12)?,
+            times_incorrect: row.get(13)?,
+            current_interval_days: row.get(14)?,
+            next_review_date: row.get(15)?,
+        })
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+
+    Ok(results)
+}
+
+#[tauri::command]
+pub fn get_total_items_count(db: State<DbConnection>) -> Result<i32, String> {
+    let conn = db.0.lock().unwrap();
+    let count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM characters",
+        [],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
 // === Debug Commands ===
 
 #[derive(serde::Serialize)]
@@ -666,9 +777,8 @@ pub fn get_database_debug_info(db: State<DbConnection>) -> Result<DatabaseDebugI
 
 #[derive(serde::Serialize)]
 pub struct ReviewCalendarEntry {
-    pub date: String,
+    pub review_time: String,  // Full datetime in half-hour blocks (YYYY-MM-DD HH:MM:SS)
     pub cards_due: i32,
-    pub earliest_review_time: String,  // Full datetime of earliest review
 }
 
 #[tauri::command]
@@ -676,23 +786,22 @@ pub fn get_review_calendar(db: State<DbConnection>, days: i32) -> Result<Vec<Rev
     let conn = db.0.lock().unwrap();
 
     let mut stmt = conn.prepare(
-        "SELECT DATE(next_review_date) as review_date,
-                COUNT(*) as cards_due,
-                MIN(next_review_date) as earliest_time
+        "SELECT next_review_date,
+                COUNT(*) as cards_due
          FROM user_progress
          WHERE introduced = 1
+           AND is_mastered = 0
            AND next_review_date IS NOT NULL
            AND next_review_date > datetime('now')
            AND DATE(next_review_date) <= DATE('now', '+' || ?1 || ' days')
-         GROUP BY review_date
-         ORDER BY review_date ASC"
+         GROUP BY next_review_date
+         ORDER BY next_review_date ASC"
     ).map_err(|e| e.to_string())?;
 
     let entries = stmt.query_map([days], |row| {
         Ok(ReviewCalendarEntry {
-            date: row.get(0)?,
+            review_time: row.get(0)?,
             cards_due: row.get(1)?,
-            earliest_review_time: row.get(2)?,
         })
     })
     .map_err(|e| e.to_string())?

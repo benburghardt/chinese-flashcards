@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS characters (
     stroke_data_path TEXT,                        -- Path to stroke order SVG (Phase 2)
     is_word BOOLEAN DEFAULT 0,                    -- 0 = single character, 1 = word (multiple chars)
     component_characters TEXT,                    -- For words: comma-separated character IDs
+    introduction_rank INTEGER,                    -- Pre-calculated rank for learning order (lower = earlier)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,6 +33,7 @@ CREATE INDEX idx_frequency ON characters(frequency_rank);
 CREATE INDEX idx_is_word ON characters(is_word);
 CREATE INDEX idx_character ON characters(character);
 CREATE INDEX idx_simplified ON characters(simplified);
+CREATE INDEX idx_introduction_rank ON characters(introduction_rank);
 
 -- =============================================================================
 -- USER PROGRESS TABLE (SPACED REPETITION)

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::fs;
 use crate::srs::{SrsCard, calculate_next_review};
 use std::collections::HashMap;
+use chrono::{DateTime, Utc, Timelike};
 
 pub struct DbConnection(pub Mutex<Connection>);
 
@@ -143,6 +144,25 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         println!("[DB] Migration 2 completed");
     }
 
+    // Migration 3: Add mastery tracking
+    if version < 3 {
+        println!("[DB] Running migration 3: Add mastery tracking");
+
+        conn.execute(
+            "ALTER TABLE user_progress ADD COLUMN is_mastered BOOLEAN DEFAULT 0",
+            []
+        )?;
+
+        println!("[DB] Migration 3: Added is_mastered column");
+
+        conn.execute(
+            "INSERT INTO schema_version (version, description) VALUES (3, 'Add mastery tracking')",
+            []
+        )?;
+
+        println!("[DB] Migration 3 completed");
+    }
+
     Ok(())
 }
 
@@ -218,12 +238,27 @@ pub struct DueCard {
 }
 
 pub fn get_due_cards(conn: &Connection) -> Result<Vec<DueCard>> {
+    // Debug: Log current time and due cards
+    let now: String = conn.query_row("SELECT datetime('now')", [], |row| row.get(0))?;
+    println!("[DB] Current time (UTC): {}", now);
+
+    let due_count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM user_progress
+         WHERE introduced = 1
+           AND is_mastered = 0
+           AND next_review_date <= datetime('now')",
+        [],
+        |row| row.get(0)
+    )?;
+    println!("[DB] Cards due for review: {}", due_count);
+
     let mut stmt = conn.prepare(
         "SELECT c.id, c.character, c.mandarin_pinyin, c.definition,
                 p.current_interval_days, p.times_reviewed
          FROM characters c
          JOIN user_progress p ON c.id = p.character_id
          WHERE p.introduced = 1
+           AND p.is_mastered = 0
            AND p.next_review_date <= datetime('now')
          ORDER BY p.next_review_date ASC"
     )?;
@@ -263,6 +298,16 @@ pub fn get_srs_card_state(conn: &Connection, character_id: i32) -> Result<SrsCar
     )
 }
 
+/// Round a datetime down to the nearest half-hour (0 or 30 minutes)
+pub fn round_down_to_half_hour(dt: DateTime<Utc>) -> DateTime<Utc> {
+    let minute = dt.minute();
+    let rounded_minute = if minute < 30 { 0 } else { 30 };
+
+    dt.with_minute(rounded_minute).unwrap()
+      .with_second(0).unwrap()
+      .with_nanosecond(0).unwrap()
+}
+
 pub fn record_srs_answer(
     conn: &Connection,
     character_id: i32,
@@ -271,12 +316,22 @@ pub fn record_srs_answer(
     // Get current card state
     let card = get_srs_card_state(conn, character_id)?;
 
+    println!("[DB] record_srs_answer: char_id={}, correct={}", character_id, correct);
+    println!("[DB] Before: current_interval={}, previous_interval={}",
+             card.current_interval_days, card.previous_interval_days);
+
     // Calculate new values
     let update = calculate_next_review(&card, correct);
 
+    // Round next review date to nearest half hour for cleaner scheduling
+    let next_review_rounded = round_down_to_half_hour(update.next_review_date);
+
+    println!("[DB] After calculation: new_interval={}, next_review={}, rounded={}",
+             update.new_interval_days, update.next_review_date, next_review_rounded);
+
     // Convert to SQLite datetime format (YYYY-MM-DD HH:MM:SS)
     // SQLite's datetime() function uses this format, and we need to match it for comparisons
-    let next_review_sqlite = update.next_review_date.format("%Y-%m-%d %H:%M:%S").to_string();
+    let next_review_sqlite = next_review_rounded.format("%Y-%m-%d %H:%M:%S").to_string();
 
     // Update database
     conn.execute(
@@ -302,6 +357,24 @@ pub fn record_srs_answer(
             character_id,
         ]
     )?;
+
+    // Check for mastery (9 correct reviews total)
+    if correct {
+        let new_times_correct = card.times_correct + 1;
+
+        if new_times_correct >= 9 {
+            println!("[SRS] Character {} has reached MASTERY after {} correct reviews!",
+                     character_id, new_times_correct);
+
+            conn.execute(
+                "UPDATE user_progress
+                 SET is_mastered = 1,
+                     next_review_date = NULL
+                 WHERE character_id = ?1",
+                [character_id]
+            )?;
+        }
+    }
 
     Ok(update.reached_week_for_first_time)
 }
@@ -349,6 +422,302 @@ pub fn unlock_next_character(conn: &Connection) -> Result<Option<Character>> {
         }
         Err(_) => Ok(None), // No more characters to unlock
     }
+}
+
+/// Get words that are eligible for introduction
+/// (all component characters have been introduced)
+pub fn get_eligible_words(conn: &Connection, limit: usize) -> Result<Vec<Character>> {
+    // Get all words not yet in user_progress
+    let mut stmt = conn.prepare(
+        "SELECT c.id, c.character, c.simplified, c.traditional,
+                c.mandarin_pinyin, c.definition, c.frequency_rank,
+                c.is_word, c.component_characters
+         FROM characters c
+         WHERE c.is_word = 1
+           AND c.component_characters IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM user_progress p WHERE p.character_id = c.id
+           )
+         ORDER BY c.frequency_rank ASC"
+    )?;
+
+    let words: Vec<(Character, Option<String>)> = stmt.query_map([], |row| {
+        Ok((
+            Character {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                simplified: row.get(2)?,
+                traditional: row.get(3)?,
+                mandarin_pinyin: row.get(4)?,
+                definition: row.get(5)?,
+                frequency_rank: row.get(6)?,
+                is_word: row.get(7)?,
+            },
+            row.get(8)? // component_characters
+        ))
+    })?
+    .collect::<Result<Vec<_>>>()?;
+
+    // Filter words where all components are introduced
+    let mut eligible_words = Vec::new();
+
+    for (word, component_chars) in words {
+        if let Some(components) = component_chars {
+            let comp_ids: Vec<i32> = components
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
+
+            if comp_ids.is_empty() {
+                continue; // Skip if no valid component IDs
+            }
+
+            // Check if all components are introduced
+            let all_introduced = comp_ids.iter().all(|comp_id| {
+                conn.query_row(
+                    "SELECT introduced FROM user_progress WHERE character_id = ?1",
+                    [comp_id],
+                    |row| row.get::<_, bool>(0)
+                ).unwrap_or(false)
+            });
+
+            if all_introduced {
+                eligible_words.push(word);
+                if eligible_words.len() >= limit {
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(eligible_words)
+}
+
+/// Calculate introduction score for a character or word
+/// Lower score = higher priority (more common/frequent)
+/// For words: Ensures word always comes AFTER all component characters
+fn calculate_introduction_score(
+    character: &Character,
+    component_chars: &Option<String>,
+    conn: &Connection
+) -> f64 {
+    if character.is_word {
+        // Word scoring: max(component ranks) + small word frequency adjustment
+        // This ensures the word can NEVER appear before its least-frequent component
+        let word_freq = character.frequency_rank as f64;
+
+        if let Some(components) = component_chars {
+            let comp_ids: Vec<i32> = components
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
+
+            if !comp_ids.is_empty() {
+                // Get component frequency ranks
+                let component_ranks: Vec<i32> = comp_ids.iter()
+                    .filter_map(|comp_id| {
+                        conn.query_row(
+                            "SELECT frequency_rank FROM characters WHERE id = ?1",
+                            [comp_id],
+                            |row| row.get::<_, i32>(0)
+                        ).ok()
+                    })
+                    .collect();
+
+                if !component_ranks.is_empty() {
+                    // Use the WORST (highest rank) component as baseline
+                    // This ensures word comes after ALL components
+                    let max_component_rank = *component_ranks.iter().max().unwrap() as f64;
+
+                    // Add small adjustment based on word frequency (0.01 factor)
+                    // This maintains frequency ordering among words with same max component
+                    return max_component_rank + (word_freq * 0.01);
+                }
+            }
+        }
+
+        // Fallback: if no components found, place word very late
+        // (this shouldn't happen for properly populated data)
+        100000.0 + word_freq
+    } else {
+        // Character scoring: Just use frequency rank (lower = more common)
+        character.frequency_rank as f64
+    }
+}
+
+/// Get characters and words for browsing in introduction order
+/// Returns items sorted by introduction score (same as introduction algorithm)
+pub fn get_browse_items_introduction_order(
+    conn: &Connection,
+    offset: usize,
+    limit: usize
+) -> Result<Vec<(Character, Option<String>, f64)>> {
+    // Fetch a window of items around the requested page
+    // For characters, we can use a reasonable window
+    // For words, we need a MUCH larger window because word scores depend on
+    // max(component_ranks), so we need to check many words to find ones with
+    // common components
+    let char_window_size = (offset + limit) * 2;
+    let word_window_size = (offset + limit) * 50;  // Much larger for words
+
+    // Get characters up to window size
+    let all_chars: Vec<(Character, Option<String>)> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, character, simplified, traditional,
+                    mandarin_pinyin, definition, frequency_rank, is_word
+             FROM characters
+             WHERE is_word = 0
+             ORDER BY frequency_rank ASC
+             LIMIT ?1"
+        )?;
+        let result = stmt.query_map([char_window_size], |row| {
+            Ok((
+                Character {
+                    id: row.get(0)?,
+                    character: row.get(1)?,
+                    simplified: row.get(2)?,
+                    traditional: row.get(3)?,
+                    mandarin_pinyin: row.get(4)?,
+                    definition: row.get(5)?,
+                    frequency_rank: row.get(6)?,
+                    is_word: row.get(7)?,
+                },
+                None
+            ))
+        })?
+        .collect::<Result<Vec<_>>>()?;
+        result
+    };
+
+    // Get words with component_characters - fetch many more
+    let all_words: Vec<(Character, Option<String>)> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, character, simplified, traditional,
+                    mandarin_pinyin, definition, frequency_rank, is_word,
+                    component_characters
+             FROM characters
+             WHERE is_word = 1
+             ORDER BY frequency_rank ASC
+             LIMIT ?1"
+        )?;
+        let result = stmt.query_map([word_window_size], |row| {
+            Ok((
+                Character {
+                    id: row.get(0)?,
+                    character: row.get(1)?,
+                    simplified: row.get(2)?,
+                    traditional: row.get(3)?,
+                    mandarin_pinyin: row.get(4)?,
+                    definition: row.get(5)?,
+                    frequency_rank: row.get(6)?,
+                    is_word: row.get(7)?,
+                },
+                row.get(8)?
+            ))
+        })?
+        .collect::<Result<Vec<_>>>()?;
+        result
+    };
+
+    // Combine and score all items
+    let mut scored_items: Vec<(Character, Option<String>, f64)> = all_chars
+        .into_iter()
+        .chain(all_words.into_iter())
+        .map(|(character, component_chars)| {
+            let score = calculate_introduction_score(&character, &component_chars, conn);
+            (character, component_chars, score)
+        })
+        .collect();
+
+    // Sort by score (lower = higher priority)
+    scored_items.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Apply pagination
+    let paginated: Vec<(Character, Option<String>, f64)> = scored_items
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect();
+
+    Ok(paginated)
+}
+
+/// Get next batch of items (characters and words) for introduction
+/// Uses mixed scoring to balance character learning with word learning
+pub fn get_next_introduction_batch_mixed(
+    conn: &Connection,
+    batch_size: usize
+) -> Result<Vec<Character>> {
+    // Get eligible characters (not in user_progress)
+    let eligible_chars_query = conn.prepare(
+        "SELECT c.id, c.character, c.simplified, c.traditional,
+                c.mandarin_pinyin, c.definition, c.frequency_rank, c.is_word
+         FROM characters c
+         WHERE c.is_word = 0
+           AND NOT EXISTS (
+               SELECT 1 FROM user_progress p WHERE p.character_id = c.id
+           )
+         ORDER BY c.frequency_rank ASC
+         LIMIT ?1"
+    );
+
+    let eligible_chars: Vec<(Character, Option<String>)> = {
+        let mut stmt = eligible_chars_query?;
+        let result = stmt.query_map([batch_size * 2], |row| {
+            Ok((
+                Character {
+                    id: row.get(0)?,
+                    character: row.get(1)?,
+                    simplified: row.get(2)?,
+                    traditional: row.get(3)?,
+                    mandarin_pinyin: row.get(4)?,
+                    definition: row.get(5)?,
+                    frequency_rank: row.get(6)?,
+                    is_word: row.get(7)?,
+                },
+                None // Characters don't have component_characters
+            ))
+        })?
+        .collect::<Result<Vec<_>>>()?;
+        result
+    };
+
+    // Get eligible words (all components introduced)
+    let eligible_words = get_eligible_words(conn, batch_size * 2)?;
+    let eligible_words_with_components: Vec<(Character, Option<String>)> = {
+        eligible_words.into_iter()
+            .filter_map(|word| {
+                let components: Option<String> = conn.query_row(
+                    "SELECT component_characters FROM characters WHERE id = ?1",
+                    [word.id],
+                    |row| row.get(0)
+                ).ok().flatten();
+                Some((word, components))
+            })
+            .collect()
+    };
+
+    // Combine and score all eligible items
+    let mut all_eligible: Vec<(Character, f64)> = eligible_chars
+        .into_iter()
+        .chain(eligible_words_with_components.into_iter())
+        .map(|(item, components)| {
+            let score = calculate_introduction_score(&item, &components, conn);
+            (item, score)
+        })
+        .collect();
+
+    // Sort by score (lower is better = more frequent/important)
+    all_eligible.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Take top N and return
+    let selected: Vec<Character> = all_eligible
+        .into_iter()
+        .take(batch_size)
+        .map(|(item, _score)| item)
+        .collect();
+
+    Ok(selected)
 }
 
 pub fn mark_character_introduced(conn: &Connection, character_id: i32) -> Result<()> {

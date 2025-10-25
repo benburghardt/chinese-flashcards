@@ -129,11 +129,12 @@
 /* Progress Bar */
 .progress-bar {
   width: 100%;
+  max-width: 700px;
   height: 30px;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 15px;
   overflow: visible;
-  margin-bottom: 20px;
+  margin: 0 auto 20px auto;
   position: relative;
   display: flex;
   align-items: center;
@@ -166,8 +167,10 @@
   justify-content: space-between;
   align-items: center;
   color: white;
-  margin-bottom: 30px;
+  margin: 0 auto 30px auto;
   gap: 20px;
+  width: 100%;
+  max-width: 700px;
 }
 
 .session-stats {
@@ -375,6 +378,11 @@
   border: 3px solid #f44336;
 }
 
+.feedback-section.partial {
+  background: #fff8e1;
+  border: 3px solid #ff9800;
+}
+
 .feedback-icon {
   font-size: 60px;
   margin-bottom: 16px;
@@ -475,6 +483,44 @@
 .btn-next:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.partial-feedback {
+  text-align: center;
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(255, 152, 0, 0.1);
+  border-radius: 8px;
+}
+
+.partial-feedback p {
+  margin: 8px 0;
+  font-size: 16px;
+  color: #e65100;
+  line-height: 1.6;
+}
+
+.partial-feedback strong {
+  color: #ff6f00;
+}
+
+.btn-retry {
+  padding: 16px 40px;
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+}
+
+.btn-retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 152, 0, 0.6);
 }
 
 /* Loading State */

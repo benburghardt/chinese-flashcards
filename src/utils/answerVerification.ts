@@ -427,6 +427,51 @@ export function verifyDefinition(userAnswer: string, correctDefinition: string):
  * @param questionType - Type of question ('pinyin' or 'definition')
  * @returns true if answer is correct
  */
+/**
+ * Removes tone marks and tone numbers from pinyin
+ * Used to check if syllables match regardless of tones
+ */
+function removeTones(pinyin: string): string {
+  let result = pinyin.trim().toLowerCase();
+
+  // Convert tone marks to base letters
+  result = convertToneMarksToNumbers(result);
+
+  // Remove all tone numbers (1-5)
+  result = result.replace(/[12345]/g, '');
+
+  // Remove spaces
+  result = result.replace(/\s+/g, '');
+
+  return result;
+}
+
+/**
+ * Checks if user has correct syllables but wrong tones
+ * Returns true if syllables match but tones are different
+ */
+export function hasCorrectSyllablesButWrongTones(
+  userAnswer: string,
+  correctAnswer: string
+): boolean {
+  if (!userAnswer || !correctAnswer) return false;
+
+  const userNoTones = removeTones(userAnswer);
+
+  // Handle multiple valid pronunciations
+  const validPronunciations = correctAnswer
+    .split(/[;/]/)
+    .map(p => removeTones(p.trim()));
+
+  // Check if syllables match any valid pronunciation
+  const syllablesMatch = validPronunciations.some(valid => userNoTones === valid);
+
+  // Only return true if syllables match but the full answer (with tones) doesn't
+  const fullMatch = verifyPinyin(userAnswer, correctAnswer);
+
+  return syllablesMatch && !fullMatch;
+}
+
 export function verifyAnswer(
   userAnswer: string,
   correctAnswer: string,

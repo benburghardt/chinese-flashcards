@@ -30,10 +30,39 @@ datasets/
 
 **Important:** SUBTLEX-CH files use GBK (Chinese GB2312) encoding, not UTF-8. This is normal and expected. The parsing scripts will handle both encodings correctly.
 
-### 2. parse-cedict (Coming in Task 1.2)
-Parses CC-CEDICT file into structured JSON format.
+### 2. populate-component-characters
+Populates the `component_characters` field for all words in the database.
 
-### 3. build-database (Coming in Task 1.3)
+**Usage:**
+```bash
+cd data-processing
+cargo run --bin populate-component-characters
+```
+
+**What it does:**
+- Reads all single characters from the database
+- For each word, extracts its component characters
+- Looks up the ID of each component character
+- Stores component IDs as comma-separated values
+- Updates 106,000+ words with component relationships
+
+**Example:**
+- Word: "好" (good) = 女 (woman) + 子 (child)
+- Component IDs: "123,456" (IDs of 女 and 子)
+- Used for smart word introduction (only after learning components)
+
+**Output:**
+```
+=== Populating Component Characters ===
+Building character lookup map...
+  ✓ Loaded 10173 single characters
+
+Processing words...
+  ✓ Updated: 106284 words
+  ⊗ Skipped: 2017 words (missing components like English letters)
+```
+
+### 3. build-database
 Builds the SQLite database from parsed data.
 
 ## Dependencies

@@ -27,6 +27,18 @@ path = "src/bin/check-db-state.rs"
 name = "test-init"
 path = "src/bin/test-init.rs"
 
+[[bin]]
+name = "populate-component-characters"
+path = "src/bin/populate_component_characters.rs"
+
+[[bin]]
+name = "test-introduction-scores"
+path = "src/bin/test_introduction_scores.rs"
+
+[[bin]]
+name = "generate-definition-review"
+path = "src/bin/generate_definition_review.rs"
+
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking"] }
 tokio = { version = "1", features = ["full"] }

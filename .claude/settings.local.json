@@ -12,7 +12,10 @@
       "Bash(cargo run --bin test-integration)",
       "Bash(cargo test --quiet)",
       "Bash(dir \"C:\\Users\\Ben\\Desktop\\Coding\\Visual Studio Code\\Personal_Projects\\chinese-flashcards\\datasets\\SUBTLEX-CH\")",
-      "Bash(git add data-processing/Cargo.toml data-processing/Cargo.lock data-processing/src data-processing/README.md docs/currentTask.md .claude/settings.local.json)"
+      "Bash(git add data-processing/Cargo.toml data-processing/Cargo.lock data-processing/src data-processing/README.md docs/currentTask.md .claude/settings.local.json)",
+      "Bash(cargo build:*)",
+      "Bash(npm run build:*)",
+      "Bash(cargo run:*)"
     ],
     "deny": [],
     "ask": []

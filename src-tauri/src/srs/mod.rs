@@ -54,15 +54,27 @@ fn calculate_interval_correct(card: &SrsCard) -> (f32, f32) {
     let new_interval = if current < 0.0417 {
         // Less than 1 hour → 1 hour
         0.0417 // 1 hour = 1/24 days
+    } else if current <= 0.0417 {
+        // At 1 hour → 12 hours
+        0.5 // 12 hours = 0.5 days
     } else if current < 0.5 {
         // Less than 12 hours → 12 hours
         0.5 // 12 hours = 0.5 days
+    } else if current <= 0.5 {
+        // At 12 hours → 1 day
+        1.0
     } else if current < 1.0 {
         // Less than 1 day → 1 day
         1.0
+    } else if current <= 1.0 {
+        // At 1 day → 3 days
+        3.0
     } else if current < 3.0 {
         // Less than 3 days → 3 days
         3.0
+    } else if current <= 3.0 {
+        // At 3 days → 7 days
+        7.0
     } else if current < 7.0 {
         // Less than 7 days → 7 days
         7.0
@@ -71,7 +83,10 @@ fn calculate_interval_correct(card: &SrsCard) -> (f32, f32) {
         current * ease
     };
 
-    (new_interval, ease) // Ease factor unchanged on correct
+    // Cap ease factor at 2.25 to prevent runaway intervals
+    let new_ease = ease.min(2.25);
+
+    (new_interval, new_ease)
 }
 
 fn calculate_interval_incorrect(card: &SrsCard) -> (f32, f32) {
@@ -92,15 +107,15 @@ mod tests {
             character_id: 1,
             current_interval_days: 0.0417, // Start at 1 hour
             previous_interval_days: 0.0417,
-            ease_factor: 2.5,
+            ease_factor: 2.25,
             times_correct: 0,
             times_incorrect: 0,
             has_reached_week: false,
         };
 
         let update = calculate_next_review(&card, true);
-        assert_eq!(update.new_interval_days, 0.5); // 1 hour → 12 hours
-        assert_eq!(update.new_ease_factor, 2.5);
+        assert_eq!(update.new_interval_days, 0.5); // 1 hour (at 0.0417) → 12 hours
+        assert_eq!(update.new_ease_factor, 2.25); // Capped at 2.25
         assert!(!update.reached_week_for_first_time);
     }
 
@@ -110,7 +125,7 @@ mod tests {
             character_id: 1,
             current_interval_days: 3.0,
             previous_interval_days: 1.0,
-            ease_factor: 2.5,
+            ease_factor: 2.25,
             times_correct: 1,
             times_incorrect: 0,
             has_reached_week: false,
@@ -127,7 +142,7 @@ mod tests {
             character_id: 1,
             current_interval_days: 7.0,
             previous_interval_days: 3.0,
-            ease_factor: 2.5,
+            ease_factor: 2.25,
             times_correct: 2,
             times_incorrect: 0,
             has_reached_week: true,
@@ -135,7 +150,7 @@ mod tests {
 
         let update = calculate_next_review(&card, false);
         assert_eq!(update.new_interval_days, 3.0); // Back to previous
-        assert_eq!(update.new_ease_factor, 2.3); // Decreased by 0.2
+        assert_eq!(update.new_ease_factor, 2.05); // Decreased by 0.2 from 2.25
         assert!(!update.reached_week_for_first_time); // Already reached
     }
 
@@ -146,7 +161,7 @@ mod tests {
             character_id: 1,
             current_interval_days: 0.5, // 12 hours
             previous_interval_days: 0.0417, // 1 hour
-            ease_factor: 2.5,
+            ease_factor: 2.25,
             times_correct: 1,
             times_incorrect: 0,
             has_reached_week: false,
@@ -154,7 +169,7 @@ mod tests {
 
         let update = calculate_next_review(&card, false);
         assert_eq!(update.new_interval_days, 0.0417); // Back to 1 hour
-        assert_eq!(update.new_ease_factor, 2.3);
+        assert_eq!(update.new_ease_factor, 2.05); // Decreased by 0.2 from 2.25
     }
 
     #[test]
@@ -179,7 +194,7 @@ mod tests {
             character_id: 1,
             current_interval_days: 0.0417, // 1 hour
             previous_interval_days: 0.0417,
-            ease_factor: 2.5,
+            ease_factor: 2.25,
             times_correct: 0,
             times_incorrect: 0,
             has_reached_week: false,
@@ -191,6 +206,7 @@ mod tests {
 
         card.previous_interval_days = card.current_interval_days;
         card.current_interval_days = update.new_interval_days;
+        card.ease_factor = update.new_ease_factor;
 
         // 12 hours -> 1 day
         let update = calculate_next_review(&card, true);
@@ -198,6 +214,7 @@ mod tests {
 
         card.previous_interval_days = card.current_interval_days;
         card.current_interval_days = update.new_interval_days;
+        card.ease_factor = update.new_ease_factor;
 
         // 1 day -> 3 days
         let update = calculate_next_review(&card, true);
@@ -205,6 +222,7 @@ mod tests {
 
         card.previous_interval_days = card.current_interval_days;
         card.current_interval_days = update.new_interval_days;
+        card.ease_factor = update.new_ease_factor;
 
         // 3 days -> 7 days (5th correct - reaches week!)
         let update = calculate_next_review(&card, true);
@@ -214,9 +232,10 @@ mod tests {
         card.previous_interval_days = card.current_interval_days;
         card.current_interval_days = update.new_interval_days;
         card.has_reached_week = true;
+        card.ease_factor = update.new_ease_factor;
 
-        // 7 days -> 17.5 days (7 * 2.5)
+        // 7 days -> 15.75 days (7 * 2.25)
         let update = calculate_next_review(&card, true);
-        assert_eq!(update.new_interval_days, 17.5);
+        assert_eq!(update.new_interval_days, 15.75);
     }
 }

@@ -11,6 +11,8 @@ interface CharacterWithProgress {
   definition: string;
   frequency_rank: number;
   is_word: boolean;
+  component_characters: string | null;
+  introduction_score: number;
   // Progress fields
   introduced: boolean | null;
   times_reviewed: number | null;
@@ -43,7 +45,7 @@ function Dictionary({ onClose }: DictionaryProps) {
 
   const loadTotalCount = async () => {
     try {
-      const count = await invoke<number>('get_total_characters_count');
+      const count = await invoke<number>('get_total_items_count');
       setTotalCount(count);
     } catch (error) {
       console.error('Failed to load total count:', error);
@@ -56,7 +58,7 @@ function Dictionary({ onClose }: DictionaryProps) {
       setError('');
 
       const offset = currentPage * PAGE_SIZE;
-      const chars = await invoke<CharacterWithProgress[]>('browse_characters', {
+      const chars = await invoke<CharacterWithProgress[]>('browse_introduction_order', {
         offset,
         limit: PAGE_SIZE,
       });
@@ -99,14 +101,14 @@ function Dictionary({ onClose }: DictionaryProps) {
   return (
     <div className="dictionary-container">
       <div className="dictionary-header">
-        <h1 className="dictionary-title">📕 Character Dictionary</h1>
+        <h1 className="dictionary-title">📕 Dictionary (Introduction Order)</h1>
         <button className="close-button" onClick={onClose}>
           ✕
         </button>
       </div>
 
       <div className="dictionary-stats">
-        <span>Total Characters: {totalCount.toLocaleString()}</span>
+        <span>Total Items: {totalCount.toLocaleString()} (Characters + Words)</span>
         <span>Page {currentPage + 1} of {totalPages}</span>
       </div>
 
@@ -133,7 +135,13 @@ function Dictionary({ onClose }: DictionaryProps) {
                     <div className="character-definition">{char.definition}</div>
                     <div className="character-meta">
                       <span className="frequency-badge">
+                        {char.is_word ? '📝 Word' : '📖 Character'}
+                      </span>
+                      <span className="frequency-badge">
                         Rank #{char.frequency_rank}
+                      </span>
+                      <span className="frequency-badge">
+                        Score: {char.introduction_score.toFixed(1)}
                       </span>
                     </div>
                   </div>
@@ -147,7 +155,7 @@ function Dictionary({ onClose }: DictionaryProps) {
                   </div>
                   {char.next_review_date && (
                     <div className="next-review">
-                      Next: {new Date(char.next_review_date).toLocaleDateString()}
+                      Next: {new Date(char.next_review_date + 'Z').toLocaleDateString()}
                     </div>
                   )}
                 </div>

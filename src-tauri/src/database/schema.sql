@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS characters (
     stroke_data_path TEXT,                        -- Path to stroke order SVG (Phase 2)
     is_word BOOLEAN DEFAULT 0,                    -- 0 = single character, 1 = word (multiple chars)
     component_characters TEXT,                    -- For words: comma-separated character IDs
+    introduction_rank INTEGER,                    -- Pre-calculated rank for learning order (lower = earlier)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,6 +33,7 @@ CREATE INDEX idx_frequency ON characters(frequency_rank);
 CREATE INDEX idx_is_word ON characters(is_word);
 CREATE INDEX idx_character ON characters(character);
 CREATE INDEX idx_simplified ON characters(simplified);
+CREATE INDEX idx_introduction_rank ON characters(introduction_rank);
 
 -- =============================================================================
 -- USER PROGRESS TABLE (SPACED REPETITION)
@@ -47,8 +49,9 @@ CREATE TABLE IF NOT EXISTS user_progress (
     times_reviewed INTEGER DEFAULT 0,             -- Total review count
     times_correct INTEGER DEFAULT 0,              -- Correct answer count
     times_incorrect INTEGER DEFAULT 0,            -- Incorrect answer count
-    ease_factor REAL DEFAULT 2.5,                 -- SM-2 ease factor (difficulty)
+    ease_factor REAL DEFAULT 2.25,                -- SM-2 ease factor (difficulty, capped at 2.25)
     has_reached_week BOOLEAN DEFAULT 0,           -- Progress milestone tracking
+    is_mastered BOOLEAN DEFAULT 0,                -- Has reached 9 correct reviews (mastery)
     last_reviewed TIMESTAMP,                      -- Last review timestamp
     introduced BOOLEAN DEFAULT 0,                 -- Has user seen this card yet?
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

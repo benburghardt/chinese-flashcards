@@ -37,6 +37,8 @@ pub fn run() {
       commands::end_session,
       commands::browse_characters,
       commands::get_total_characters_count,
+      commands::browse_introduction_order,
+      commands::get_total_items_count,
       commands::get_review_calendar,
       commands::get_database_debug_info,
     ])

@@ -6,6 +6,7 @@ interface DashboardStats {
   total_characters_learned: number;
   characters_in_srs: number;
   cards_due_today: number;
+  mastered_characters: number;
   study_streak_days: number;
 }
 
@@ -21,9 +22,8 @@ interface StudySession {
 }
 
 interface ReviewCalendarEntry {
-  date: string;
+  review_time: string; // Full datetime in half-hour blocks (YYYY-MM-DD HH:MM:SS)
   cards_due: number;
-  earliest_review_time: string;
 }
 
 
@@ -237,6 +237,14 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
               <div className="stat-name">Day Streak</div>
             </div>
           </div>
+
+          <div className="stat-card">
+            <div className="stat-icon">⭐</div>
+            <div className="stat-content">
+              <div className="stat-value">{stats?.mastered_characters || 0}</div>
+              <div className="stat-name">Mastered</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -246,13 +254,14 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
           <h3 className="section-title">📅 Upcoming Reviews (Next 7 Days)</h3>
           <div className="calendar-grid">
             {calendar.map((entry) => {
-              const date = new Date(entry.date);
-              // Parse SQLite UTC datetime as UTC, then convert to local time
+              // Parse SQLite UTC datetime as UTC (already in half-hour blocks from backend)
               // SQLite format: "YYYY-MM-DD HH:MM:SS" (stored in UTC)
-              const reviewTime = new Date(entry.earliest_review_time + ' UTC');
-              const isToday = date.toDateString() === new Date().toDateString();
+              const reviewTime = new Date(entry.review_time + 'Z'); // Add 'Z' to explicitly mark as UTC
+
+              const isToday = reviewTime.toDateString() === new Date().toDateString();
 
               // Format time in 12-hour format with AM/PM in user's local timezone
+              // Now includes minutes (will be :00 or :30 due to backend rounding)
               const timeString = reviewTime.toLocaleTimeString('en-US', {
                 hour: 'numeric',
                 minute: '2-digit',
@@ -260,9 +269,9 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
               });
 
               return (
-                <div key={entry.date} className={`calendar-day ${isToday ? 'today' : ''}`}>
+                <div key={entry.review_time} className={`calendar-day ${isToday ? 'today' : ''}`}>
                   <div className="calendar-date">
-                    {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {reviewTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                   </div>
                   <div className="calendar-time">{timeString}</div>
                   <div className="calendar-count">{entry.cards_due}</div>
@@ -279,18 +288,22 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
         <div className="sessions-section">
           <h3 className="section-title">📖 Recent Study Sessions</h3>
           <div className="sessions-list">
-            {recentSessions.map((session) => (
-              <div key={session.id} className="session-card">
-                <div className="session-header">
-                  <span className="session-mode">
-                    {session.mode === 'spaced_repetition' ? '🔄 SRS Review' :
-                     session.mode === 'self-study' ? '📖 Self-Study' :
-                     `📚 ${session.mode}`}
-                  </span>
-                  <span className="session-date">
-                    {new Date(session.started_at).toLocaleDateString()} {new Date(session.started_at).toLocaleTimeString()}
-                  </span>
-                </div>
+            {recentSessions.map((session) => {
+              // Parse SQLite UTC datetime as UTC by adding 'Z' suffix
+              const startedAtUTC = new Date(session.started_at + 'Z');
+
+              return (
+                <div key={session.id} className="session-card">
+                  <div className="session-header">
+                    <span className="session-mode">
+                      {session.mode === 'spaced_repetition' ? '🔄 SRS Review' :
+                       session.mode === 'self-study' ? '📖 Self-Study' :
+                       `📚 ${session.mode}`}
+                    </span>
+                    <span className="session-date">
+                      {startedAtUTC.toLocaleDateString()} {startedAtUTC.toLocaleTimeString()}
+                    </span>
+                  </div>
                 <div className="session-stats">
                   <span className="session-stat">
                     {session.cards_studied} cards
@@ -307,7 +320,8 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

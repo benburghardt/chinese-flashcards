@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { verifyAnswer, convertToneNumbersToMarks } from '../../utils/answerVerification';
+import { verifyAnswer, convertToneNumbersToMarks, hasCorrectSyllablesButWrongTones } from '../../utils/answerVerification';
 import './SpacedRepetition.css';
 
 interface DueCard {
@@ -63,11 +63,32 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
   const [isExiting, setIsExiting] = useState(false); // Track if user is exiting study
   const [sessionId, setSessionId] = useState<number | null>(null); // Session ID for recording
   const [sessionEnded, setSessionEnded] = useState(false); // Track if session has been ended
+  const [isRetryAttempt, setIsRetryAttempt] = useState(false); // Track if user is retrying after wrong tones
+  const [wrongTonesOnly, setWrongTonesOnly] = useState(false); // Track if user had correct syllables but wrong tones
 
   // Load due cards on mount
   useEffect(() => {
     loadDueCards();
   }, []);
+
+  // Global keyboard handler for Enter key
+  useEffect(() => {
+    const handleGlobalKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        if (showFeedback && wrongTonesOnly) {
+          // For wrong tones, Enter key triggers retry
+          handleRetry();
+        } else if (showFeedback) {
+          handleNext();
+        } else if (!submitting && userAnswer.trim()) {
+          handleSubmit();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyPress);
+    return () => window.removeEventListener('keydown', handleGlobalKeyPress);
+  }, [showFeedback, submitting, userAnswer, wrongTonesOnly]);
 
   // End session when naturally completed
   useEffect(() => {
@@ -240,9 +261,24 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       console.log('[VERIFY] Result:', correct);
     }
 
+    // For pinyin questions, check if syllables are correct but tones are wrong
+    let wrongTones = false;
+    if (currentQuestion.questionType === 'pinyin' && !correct && !isRetryAttempt) {
+      wrongTones = hasCorrectSyllablesButWrongTones(userAnswer, correctAnswer);
+      console.log('[VERIFY] Wrong tones only:', wrongTones);
+    }
+
     setIsCorrect(correct);
+    setWrongTonesOnly(wrongTones);
     setShowFeedback(true);
     setSubmitting(true);
+
+    // If wrong tones only, give user a second chance - don't update progress yet
+    if (wrongTones) {
+      setIsRetryAttempt(true);
+      setSubmitting(false);
+      return; // Don't update question status or character progress yet
+    }
 
     // Update question status
     const updatedQuestions = [...questions];
@@ -269,7 +305,17 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       }
     }
 
+    // Reset retry state for next question
+    setIsRetryAttempt(false);
     setSubmitting(false);
+  };
+
+  const handleRetry = () => {
+    // User is retrying after wrong tones - clear feedback and let them try again
+    setShowFeedback(false);
+    setUserAnswer('');
+    setWrongTonesOnly(false);
+    // Keep isRetryAttempt = true so we know this is the second attempt
   };
 
   const handleNext = async () => {
@@ -317,43 +363,50 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     // Check if this character is now fully complete (both questions correct)
     const progress = characterProgress.get(currentQuestion.character_id);
     if (progress && progress.definitionCorrect && progress.pinyinCorrect && !progress.submitted) {
-      // Submit to backend
-      try {
-        setSubmitting(true);
-        console.log('[SRS] Character fully answered. Submitting:', currentQuestion.character_id);
+      // For initial study, don't submit to backend yet - will be handled by processInitialStudyCompletion
+      // For regular review, submit to backend immediately
+      if (!isInitialStudy) {
+        // Submit to backend
+        try {
+          setSubmitting(true);
+          console.log('[SRS] Character fully answered. Submitting:', currentQuestion.character_id);
 
-        const reachedWeek = await invoke<boolean>('submit_srs_answer', {
-          characterId: currentQuestion.character_id,
-          correct: true,
-        });
+          const reachedWeek = await invoke<boolean>('submit_srs_answer', {
+            characterId: currentQuestion.character_id,
+            correct: true,
+          });
 
-        console.log('[SRS] Answer submitted. Reached week:', reachedWeek);
+          console.log('[SRS] Answer submitted. Reached week:', reachedWeek);
 
-        // Mark as submitted
-        progress.submitted = true;
-        setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
+          // Mark as submitted
+          progress.submitted = true;
+          setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
 
-        // Update stats: increment completed characters counter
-        setCompletedCharacters(prev => prev + 1);
+          // Character reached week milestone (tracked for analytics)
+          if (reachedWeek) {
+            console.log('[SRS] Character reached week milestone (mastery tracked)');
+          }
 
-        // Update correct card counter only if this card never had an incorrect answer
-        if (!progress.hadIncorrectAnswer) {
-          setStats(prev => ({
-            ...prev,
-            cardsCorrect: prev.cardsCorrect + 1,
-          }));
+          setSubmitting(false);
+        } catch (error) {
+          console.error('[SRS] CRITICAL ERROR during answer submission:', error);
+          alert(`Error submitting answer: ${error}. Please check the console.`);
+          setSubmitting(false);
         }
+      } else {
+        // For initial study, just mark as completed (will be submitted at end)
+        console.log('[SRS] Initial study: Character fully answered:', currentQuestion.character_id);
+      }
 
-        // Character reached week milestone (tracked for analytics)
-        if (reachedWeek) {
-          console.log('[SRS] Character reached week milestone (mastery tracked)');
-        }
+      // Update stats: increment completed characters counter
+      setCompletedCharacters(prev => prev + 1);
 
-        setSubmitting(false);
-      } catch (error) {
-        console.error('[SRS] CRITICAL ERROR during answer submission:', error);
-        alert(`Error submitting answer: ${error}. Please check the console.`);
-        setSubmitting(false);
+      // Update correct card counter only if this card never had an incorrect answer
+      if (!progress.hadIncorrectAnswer) {
+        setStats(prev => ({
+          ...prev,
+          cardsCorrect: prev.cardsCorrect + 1,
+        }));
       }
     }
 
@@ -684,14 +737,25 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
             </button>
           </div>
         ) : (
-          <div className={`feedback-section ${isCorrect ? 'correct' : 'incorrect'}`}>
+          <div className={`feedback-section ${isCorrect ? 'correct' : wrongTonesOnly ? 'partial' : 'incorrect'}`}>
             <div className="feedback-icon">
-              {isCorrect ? '✓' : '✗'}
+              {isCorrect ? '✓' : wrongTonesOnly ? '⚠' : '✗'}
             </div>
             <div className="feedback-message">
-              {isCorrect ? 'Correct!' : 'Incorrect'}
+              {isCorrect ? 'Correct!' : wrongTonesOnly ? 'Wrong Tones!' : 'Incorrect'}
             </div>
-            {!isCorrect && (
+            {wrongTonesOnly && (
+              <>
+                <div className="partial-feedback">
+                  <p><strong>Close!</strong> You have the right syllables, but the tones are incorrect.</p>
+                  <p>Try again and pay attention to the tone marks!</p>
+                </div>
+                <button className="btn-retry" onClick={handleRetry}>
+                  Try Again
+                </button>
+              </>
+            )}
+            {!isCorrect && !wrongTonesOnly && (
               <>
                 <div className="user-answer">
                   <strong>Your answer:</strong> {userAnswer}
@@ -719,9 +783,11 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
                 </div>
               </>
             )}
-            <button className="btn-next" onClick={handleNext}>
-              Continue →
-            </button>
+            {!wrongTonesOnly && (
+              <button className="btn-next" onClick={handleNext}>
+                Continue →
+              </button>
+            )}
           </div>
         )}
       </div>

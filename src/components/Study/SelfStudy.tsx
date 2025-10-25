@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { verifyAnswer, convertToneNumbersToMarks } from '../../utils/answerVerification';
+import { verifyAnswer, convertToneNumbersToMarks, hasCorrectSyllablesButWrongTones } from '../../utils/answerVerification';
 import './SelfStudy.css';
 
 interface DueCard {
@@ -45,6 +45,8 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   const [totalQuestions, setTotalQuestions] = useState(0); // Total questions asked
   const [completedCards, setCompletedCards] = useState(0);
   const [sessionId, setSessionId] = useState<number | null>(null);
+  const [isRetryAttempt, setIsRetryAttempt] = useState(false); // Track if user is retrying after wrong tones
+  const [wrongTonesOnly, setWrongTonesOnly] = useState(false); // Track if user had correct syllables but wrong tones
 
   // Track which cards have been answered correctly (both questions)
   const [cardProgress, setCardProgress] = useState<Map<number, { definition: boolean; pinyin: boolean }>>(new Map());
@@ -52,6 +54,25 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   useEffect(() => {
     loadSelfStudyCards();
   }, []);
+
+  // Global keyboard handler for Enter key
+  useEffect(() => {
+    const handleGlobalKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        if (showFeedback && wrongTonesOnly) {
+          // For wrong tones, Enter key triggers retry
+          handleRetry();
+        } else if (showFeedback) {
+          handleNext();
+        } else if (!submitting && userAnswer.trim()) {
+          handleSubmit();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyPress);
+    return () => window.removeEventListener('keydown', handleGlobalKeyPress);
+  }, [showFeedback, submitting, userAnswer, wrongTonesOnly]);
 
   const shuffleArray = <T,>(array: T[]): T[] => {
     const shuffled = [...array];
@@ -163,11 +184,26 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
 
     const correct = checkAnswer(userAnswer, correctAnswer, currentQuestion.questionType);
 
+    // For pinyin questions, check if syllables are correct but tones are wrong
+    let wrongTones = false;
+    if (currentQuestion.questionType === 'pinyin' && !correct && !isRetryAttempt) {
+      wrongTones = hasCorrectSyllablesButWrongTones(userAnswer, correctAnswer);
+      console.log('[SELF-STUDY] Wrong tones only:', wrongTones);
+    }
+
     setIsCorrect(correct);
+    setWrongTonesOnly(wrongTones);
     setShowFeedback(true);
     setSubmitting(true);
 
-    // Record practice in database
+    // If wrong tones only, give user a second chance - don't record yet
+    if (wrongTones) {
+      setIsRetryAttempt(true);
+      setSubmitting(false);
+      return; // Don't update stats or record practice yet
+    }
+
+    // Record practice in database (only if not a retry with wrong tones)
     try {
       await invoke('record_practice', {
         characterId: currentQuestion.character_id,
@@ -211,7 +247,17 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       setIncorrectAnswers(prev => prev + 1);
     }
 
+    // Reset retry state for next question
+    setIsRetryAttempt(false);
     setSubmitting(false);
+  };
+
+  const handleRetry = () => {
+    // User is retrying after wrong tones - clear feedback and let them try again
+    setShowFeedback(false);
+    setUserAnswer('');
+    setWrongTonesOnly(false);
+    // Keep isRetryAttempt = true so we know this is the second attempt
   };
 
   const handleNext = () => {
@@ -403,14 +449,25 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
             </button>
           </div>
         ) : (
-          <div className={`feedback-section ${isCorrect ? 'correct' : 'incorrect'}`}>
+          <div className={`feedback-section ${isCorrect ? 'correct' : wrongTonesOnly ? 'partial' : 'incorrect'}`}>
             <div className="feedback-icon">
-              {isCorrect ? '✓' : '✗'}
+              {isCorrect ? '✓' : wrongTonesOnly ? '⚠' : '✗'}
             </div>
             <div className="feedback-message">
-              {isCorrect ? 'Excellent! Keep it up!' : 'Not quite - let\'s review this one'}
+              {isCorrect ? 'Excellent! Keep it up!' : wrongTonesOnly ? 'Wrong Tones!' : 'Not quite - let\'s review this one'}
             </div>
-            {!isCorrect && (
+            {wrongTonesOnly && (
+              <>
+                <div className="partial-feedback">
+                  <p><strong>Close!</strong> You have the right syllables, but the tones are incorrect.</p>
+                  <p>Try again and pay attention to the tone marks!</p>
+                </div>
+                <button className="btn-retry" onClick={handleRetry}>
+                  Try Again
+                </button>
+              </>
+            )}
+            {!isCorrect && !wrongTonesOnly && (
               <>
                 <div className="user-answer">
                   <strong>Your answer:</strong> {userAnswer}
@@ -441,9 +498,11 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
                 </div>
               </>
             )}
-            <button className="btn-next" onClick={handleNext}>
-              Continue →
-            </button>
+            {!wrongTonesOnly && (
+              <button className="btn-next" onClick={handleNext}>
+                Continue →
+              </button>
+            )}
           </div>
         )}
       </div>
