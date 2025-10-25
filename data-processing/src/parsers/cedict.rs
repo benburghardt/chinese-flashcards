@@ -67,9 +67,7 @@ fn parse_cedict_line(line: &str) -> Option<CedictEntry> {
             !lower.starts_with("old variant") &&
             !lower.starts_with("used in") &&
             !lower.starts_with("surname") &&
-            !lower.starts_with("abbr.") &&
-            !lower.starts_with("abbr. for") &&
-            !lower.starts_with("abbreviation")
+            !lower.starts_with("abbr.")
         })
         .map(|s| s.trim().to_string())
         .take(3)  // Keep only first 3 definitions
