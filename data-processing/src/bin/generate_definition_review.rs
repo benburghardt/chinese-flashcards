@@ -94,6 +94,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut review_items = Vec::new();
 
     for (id, character, _simplified, pinyin, definition, is_word, freq_rank) in items {
+        // Skip extremely rare items (not useful to learn)
+        if freq_rank == 999999 {
+            continue;
+        }
+
         let item_type = if is_word { "word" } else { "char" };
         let mut flags = Vec::new();
         let mut all_definitions = definition.clone();
@@ -103,11 +108,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             flags.push(format!("Multiple CEDICT entries ({})", defs.len()));
             // Include all definitions for review
             all_definitions = defs.join(" | ");
-        }
-
-        // Flag: Very long definition
-        if definition.len() > 100 {
-            flags.push("Very long".to_string());
         }
 
         // Flag: Contains historical terms
@@ -124,8 +124,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             flags.push("Too short".to_string());
         }
 
-        // Only include items that have at least one flag
+        // Flag: Very long definition (but only if there are other flags too)
+        // We track this separately to avoid reporting items where length is the only issue
+        let is_very_long = definition.len() > 100;
+
+        // Only include items that have at least one substantive flag
+        // "Very long" alone is not enough to warrant review
         if !flags.is_empty() {
+            // Add "Very long" flag if applicable and there are other issues
+            if is_very_long {
+                flags.push("Very long".to_string());
+            }
+
             review_items.push((
                 id,
                 character,
