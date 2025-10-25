@@ -39,6 +39,10 @@ path = "src/bin/test_introduction_scores.rs"
 name = "generate-definition-review"
 path = "src/bin/generate_definition_review.rs"
 
+[[bin]]
+name = "apply-definition-updates"
+path = "src/bin/apply_definition_updates.rs"
+
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking"] }
 tokio = { version = "1", features = ["full"] }
@@ -48,5 +52,6 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 csv = "1.3"
+chrono = "0.4"
 encoding_rs = "0.8"
 encoding_rs_io = "0.1"

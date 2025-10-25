@@ -750,6 +750,7 @@ dependencies = [
 name = "data-processing"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "csv",
  "encoding_rs",
  "encoding_rs_io",

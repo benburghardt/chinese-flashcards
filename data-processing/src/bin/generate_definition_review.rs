@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Write header
     writeln!(
         file,
-        "ID,Character,Pinyin,Type,Frequency Rank,Current Definition,Flags"
+        "ID,Character,Pinyin,Type,Frequency Rank,Current Definition,Flags,Updated Definition"
     )?;
 
     // Write data
@@ -167,16 +167,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         writeln!(
             file,
-            r#"{},{},"{}",{},{},"{}"  ,"{}""#,
+            r#"{},{},"{}",{},{},"{}","{}",""#,
             id, character, pinyin, item_type, freq_rank, escaped_def, flags
         )?;
     }
 
     println!("✅ Report generated: {}", output_path);
-    println!("\nYou can now:");
-    println!("  1. Review the CSV file");
-    println!("  2. Manually select the best definition for each character");
-    println!("  3. Update the database with improved definitions");
+    println!("\nNext steps:");
+    println!("  1. Open {} in your spreadsheet editor", output_path);
+    println!("  2. Fill in the 'Updated Definition' column with your chosen definitions");
+    println!("  3. Run: cargo run --bin apply-definition-updates");
+    println!("\nFor multiple CEDICT entries, pick the best one from the options shown.");
+    println!("Leave 'Updated Definition' blank to keep the current definition.");
 
     Ok(())
 }
