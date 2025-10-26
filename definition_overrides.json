@@ -1,0 +1,20 @@
+[
+  {
+    "character_id": 73907,
+    "character": "的",
+    "pinyin": "de5",
+    "original_definition": "of; ~'s (possessive particle); (used after an attribute when it modifies a noun); (used at the end of a declarative sentence for emphasis) | a taxi; a cab (abbr. for 的士[di1 shi4]) | really and truly | (bound form) bull's-eye; target",
+    "updated_definition": "of; ~'s (possessive particle); (used after an attribute when it modifies a noun)",
+    "reason": "Multiple CEDICT entries (4)",
+    "updated_at": "2025-10-26T06:18:57.350523300+00:00"
+  },
+  {
+    "character_id": 19692,
+    "character": "吧",
+    "pinyin": "ba1",
+    "original_definition": "bar (loanword) (serving drinks, or providing Internet access etc); to puff (on a pipe etc); (onom.) bang | (modal particle indicating suggestion or surmise); ...right?; ...OK? | (onom.) smack!",
+    "updated_definition": "bar (loanword)",
+    "reason": "Multiple CEDICT entries (3), Very long",
+    "updated_at": "2025-10-26T06:18:57.350523300+00:00"
+  }
+]

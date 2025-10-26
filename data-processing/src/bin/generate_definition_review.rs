@@ -167,7 +167,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         writeln!(
             file,
-            r#"{},{},"{}",{},{},"{}","{}",""#,
+            r#"{},{},"{}",{},{},"{}","{}","#,
             id, character, pinyin, item_type, freq_rank, escaped_def, flags
         )?;
     }
