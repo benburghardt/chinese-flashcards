@@ -52,7 +52,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     database::populate_introduction_ranks(output_path.to_str().unwrap())?;
     println!();
 
-    // Step 7: Verify
+    // Step 7: Apply definition overrides
+    println!("📝 Applying definition overrides...");
+    let overrides_path = project_root.join("definition_overrides.json");
+    database::apply_definition_overrides(
+        output_path.to_str().unwrap(),
+        overrides_path.to_str().unwrap()
+    )?;
+    println!();
+
+    // Step 8: Verify
     println!("✅ Verifying database...");
     database::verify_database(output_path.to_str().unwrap())?;
 

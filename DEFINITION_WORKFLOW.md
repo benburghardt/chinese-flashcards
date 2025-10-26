@@ -105,6 +105,7 @@ cargo run --bin apply-definition-updates
 
 **What it does:**
 1. Reads your edits from `definition_review.csv`
+   (Handles quotes and special characters properly)
 2. Updates database: `src-tauri/chinese.db`
 3. Saves override history: `definition_overrides.json`
 
@@ -126,6 +127,11 @@ cargo run --bin apply-definition-updates
 
 ✅ Definition updates applied successfully!
 ```
+
+**Important:** The app automatically applies all overrides from `definition_overrides.json` on every startup. This means:
+- You don't need to manually reapply overrides
+- Changes persist even if you rebuild the database
+- Simply restart the app after running the apply script to see your changes
 
 ---
 
@@ -175,13 +181,14 @@ cd data-processing
 cargo run --bin build-database
 ```
 
-The database will have the original CEDICT definitions. To reapply your manual updates:
+**Your manual definition updates are automatically applied!** The build process:
+1. Creates fresh database from CEDICT
+2. Populates component characters
+3. Calculates introduction ranks
+4. **Automatically applies `definition_overrides.json`**
+5. Verifies database
 
-```bash
-cargo run --bin apply-definition-updates
-```
-
-This reads from `definition_overrides.json` and reapplies all your changes.
+No need to manually run `apply-definition-updates` after rebuilding - it's integrated into the build process.
 
 ---
 

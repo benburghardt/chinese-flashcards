@@ -280,6 +280,56 @@ pub fn populate_introduction_ranks(db_path: &str) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
+/// Apply definition overrides from JSON file if it exists
+pub fn apply_definition_overrides(db_path: &str, overrides_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if !std::path::Path::new(overrides_path).exists() {
+        println!("  ⊗ No definition overrides found ({})", overrides_path);
+        return Ok(());
+    }
+
+    println!("  📝 Applying definition overrides...");
+    let file_content = std::fs::read_to_string(overrides_path)?;
+
+    #[derive(serde::Deserialize)]
+    struct DefinitionOverride {
+        character_id: i32,
+        character: String,
+        updated_definition: String,
+    }
+
+    let overrides: Vec<DefinitionOverride> = serde_json::from_str(&file_content)?;
+
+    if overrides.is_empty() {
+        println!("    ⊗ No overrides in file");
+        return Ok(());
+    }
+
+    let conn = Connection::open(db_path)?;
+    let mut applied = 0;
+    let mut skipped = 0;
+
+    for override_item in &overrides {
+        match conn.execute(
+            "UPDATE characters SET definition = ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![&override_item.updated_definition, override_item.character_id]
+        ) {
+            Ok(rows) if rows > 0 => {
+                applied += 1;
+            },
+            _ => {
+                skipped += 1;
+            }
+        }
+    }
+
+    println!("    ✓ Applied {} overrides", applied);
+    if skipped > 0 {
+        println!("    ⊗ Skipped {} (IDs not found)", skipped);
+    }
+
+    Ok(())
+}
+
 pub fn verify_database(path: &str) -> Result<()> {
     let conn = Connection::open(path)?;
 

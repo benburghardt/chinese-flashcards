@@ -83,6 +83,9 @@ pub fn initialize_database() -> Result<DbConnection> {
     // Run migrations
     run_migrations(&conn)?;
 
+    // Apply definition overrides from definition_overrides.json
+    apply_definition_overrides(&conn)?;
+
     // Initialize new user with first 30 characters if this is a new database
     println!("[DB] Checking if initial unlock completed...");
     let initial_unlock_completed = get_setting(&conn, "initial_unlock_completed")
@@ -1155,4 +1158,74 @@ fn build_database_if_needed() -> std::result::Result<PathBuf, Box<dyn std::error
     println!("[DB BUILD] Database created successfully!");
 
     Ok(output_path)
+}
+
+/// Apply definition overrides from definition_overrides.json if it exists
+/// This is called automatically on app startup to apply any manual definition edits
+fn apply_definition_overrides(conn: &Connection) -> Result<()> {
+    // Look for definition_overrides.json in the project root (one level up from src-tauri)
+    let overrides_path = if cfg!(debug_assertions) {
+        PathBuf::from("../definition_overrides.json")
+    } else {
+        // In production, look in the current directory
+        PathBuf::from("definition_overrides.json")
+    };
+
+    if !overrides_path.exists() {
+        println!("[DB] No definition overrides found at {:?}", overrides_path.canonicalize().unwrap_or(overrides_path.clone()));
+        return Ok(());
+    }
+
+    println!("[DB] Applying definition overrides from {:?}", overrides_path);
+
+    #[derive(serde::Deserialize)]
+    struct DefinitionOverride {
+        character_id: i32,
+        updated_definition: String,
+    }
+
+    let file_content = match fs::read_to_string(&overrides_path) {
+        Ok(content) => content,
+        Err(e) => {
+            println!("[DB] Warning: Could not read definition overrides file: {}", e);
+            return Ok(());
+        }
+    };
+
+    let overrides: Vec<DefinitionOverride> = match serde_json::from_str(&file_content) {
+        Ok(overrides) => overrides,
+        Err(e) => {
+            println!("[DB] Warning: Could not parse definition overrides JSON: {}", e);
+            return Ok(());
+        }
+    };
+
+    if overrides.is_empty() {
+        println!("[DB] No overrides to apply");
+        return Ok(());
+    }
+
+    let mut applied = 0;
+    let mut skipped = 0;
+
+    for override_item in &overrides {
+        match conn.execute(
+            "UPDATE characters SET definition = ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![&override_item.updated_definition, override_item.character_id]
+        ) {
+            Ok(rows) if rows > 0 => {
+                applied += 1;
+            },
+            _ => {
+                skipped += 1;
+            }
+        }
+    }
+
+    println!("[DB] Applied {} definition overrides", applied);
+    if skipped > 0 {
+        println!("[DB] Skipped {} overrides (IDs not found)", skipped);
+    }
+
+    Ok(())
 }
