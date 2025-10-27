@@ -25,6 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Instructions for SUBTLEX-CH (requires manual download)
     show_subtlex_instructions(&datasets_dir);
 
+    // Download Make Me a Hanzi
+    download_makemeahanzi(&datasets_dir).await?;
+
     println!("\n✅ Download process complete!");
     println!("⚠️  Please review DATA-LICENSES.md for license terms\n");
 
@@ -92,6 +95,52 @@ fn show_subtlex_instructions(datasets_dir: &std::path::PathBuf) {
     println!("   4. You should have:");
     println!("      - {:?}", subtlex_dir.join("SUBTLEX-CH-CHR.txt"));
     println!("      - {:?}", subtlex_dir.join("SUBTLEX-CH-WF_PoS.txt\n"));
+}
+
+/// Download Make Me a Hanzi data files
+async fn download_makemeahanzi(
+    datasets_dir: &std::path::PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("📥 Downloading Make Me a Hanzi...");
+    println!("   Source: https://github.com/skishore/makemeahanzi");
+    println!("   License: ARPHIC PUBLIC LICENSE\n");
+
+    let mmah_dir = datasets_dir.join("makemeahanzi");
+    fs::create_dir_all(&mmah_dir)?;
+
+    // Download dictionary.txt (character data in JSON lines format)
+    let dict_url = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/dictionary.txt";
+    let dict_path = mmah_dir.join("dictionary.txt");
+
+    if dict_path.exists() {
+        println!("   ✓ dictionary.txt already exists");
+    } else {
+        println!("   Downloading dictionary.txt...");
+        let response = reqwest::get(dict_url).await?;
+        let bytes = response.bytes().await?;
+        let mut file = File::create(&dict_path)?;
+        file.write_all(&bytes)?;
+        println!("   ✓ Downloaded dictionary.txt ({} KB)", bytes.len() / 1024);
+    }
+
+    // Download graphics.txt (stroke order SVG data in JSON lines format)
+    let graphics_url = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/graphics.txt";
+    let graphics_path = mmah_dir.join("graphics.txt");
+
+    if graphics_path.exists() {
+        println!("   ✓ graphics.txt already exists");
+    } else {
+        println!("   Downloading graphics.txt...");
+        let response = reqwest::get(graphics_url).await?;
+        let bytes = response.bytes().await?;
+        let mut file = File::create(&graphics_path)?;
+        file.write_all(&bytes)?;
+        println!("   ✓ Downloaded graphics.txt ({} KB)", bytes.len() / 1024);
+    }
+
+    println!("   ✓ Make Me a Hanzi data downloaded to {:?}\n", mmah_dir);
+
+    Ok(())
 }
 
 /// Decompress a .gz file to output path

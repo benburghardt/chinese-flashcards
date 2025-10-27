@@ -16,14 +16,18 @@ cargo run --bin download-datasets
 **What it does:**
 - Downloads CC-CEDICT dictionary (~4 MB compressed)
 - Extracts to `datasets/cedict_ts.u8`
+- Downloads Make Me a Hanzi stroke data (~30 MB)
 - Displays instructions for SUBTLEX-CH manual download
 - Shows license attribution notices
 
 **Output:**
 ```
 datasets/
-├── cedict_ts.u8           # CC-CEDICT dictionary (UTF-8, auto-downloaded)
-└── SUBTLEX-CH/            # Frequency data (GBK encoding, manual download)
+├── cedict_ts.u8                    # CC-CEDICT dictionary (UTF-8, auto-downloaded)
+├── makemeahanzi/                   # Stroke order data (auto-downloaded)
+│   ├── dictionary.txt              # Character decomposition & etymology
+│   └── graphics.txt                # SVG stroke paths
+└── SUBTLEX-CH/                     # Frequency data (GBK encoding, manual download)
     ├── SUBTLEX-CH-CHR.txt
     └── SUBTLEX-CH-WF_PoS.txt
 ```
@@ -63,7 +67,36 @@ Processing words...
 ```
 
 ### 3. build-database
-Builds the SQLite database from parsed data.
+Builds the SQLite database from parsed data including stroke order SVG files.
+
+**Usage:**
+```bash
+cd data-processing
+cargo run --bin build-database
+```
+
+**What it does:**
+- Parses CC-CEDICT dictionary
+- Parses SUBTLEX-CH frequency data
+- Merges data and creates database
+- Populates component characters for words
+- Calculates introduction ranks
+- Applies definition overrides (if available)
+- **Integrates Make Me a Hanzi stroke data:**
+  - Generates 6800+ SVG files for stroke order
+  - Populates stroke_count, radical, decomposition fields
+  - 100% coverage of top 100 most common characters
+  - 69.6% overall character coverage
+
+**Output:**
+```
+src-tauri/resources/
+├── chinese.db              # Complete SQLite database
+└── strokes/                # SVG stroke order files
+    ├── U+4E00.svg         # Character: 一
+    ├── U+4E8C.svg         # Character: 二
+    └── ... (6803 files)
+```
 
 ## Dependencies
 
@@ -100,6 +133,7 @@ The download script displays license information for each dataset:
 
 - **CC-CEDICT**: CC BY-SA 4.0
 - **SUBTLEX-CH**: Free for research/educational use (citation required)
+- **Make Me a Hanzi**: ARPHIC PUBLIC LICENSE
 
 Full license details are in `DATA-LICENSES.md` at the project root.
 

@@ -43,6 +43,14 @@ path = "src/bin/generate_definition_review.rs"
 name = "apply-definition-updates"
 path = "src/bin/apply_definition_updates.rs"
 
+[[bin]]
+name = "test-makemeahanzi"
+path = "src/bin/test_makemeahanzi.rs"
+
+[[bin]]
+name = "verify-stroke-data"
+path = "src/bin/verify_stroke_data.rs"
+
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking"] }
 tokio = { version = "1", features = ["full"] }

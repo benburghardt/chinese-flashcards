@@ -1,4 +1,4 @@
-use data_processing::parsers::{cedict, subtlex};
+use data_processing::parsers::{cedict, makemeahanzi, subtlex};
 use data_processing::{database, merge_cedict_with_frequency_separated};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,6 +15,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .join("src-tauri")
         .join("resources")
         .join("chinese.db");
+
+    // Strokes directory for SVG files
+    let strokes_dir = project_root
+        .join("src-tauri")
+        .join("resources")
+        .join("strokes");
 
     println!("=== Building Chinese Learning Database ===\n");
 
@@ -64,12 +70,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     println!();
 
-    // Step 8: Verify
+    // Step 8: Parse and integrate Make Me a Hanzi stroke data
+    println!("🎨 Parsing Make Me a Hanzi data...");
+    let mmah_dir = datasets_dir.join("makemeahanzi");
+    let dict_path = mmah_dir.join("dictionary.txt");
+    let graphics_path = mmah_dir.join("graphics.txt");
+
+    let dictionary = makemeahanzi::parse_dictionary_file(dict_path.to_str().unwrap())?;
+    let graphics = makemeahanzi::parse_graphics_file(graphics_path.to_str().unwrap())?;
+    let mmah_data = makemeahanzi::merge_data(dictionary, graphics);
+
+    println!("  ✓ Loaded {} entries with stroke data", mmah_data.len());
+    println!();
+
+    println!("🖌️  Populating stroke data...");
+    database::populate_stroke_data(
+        output_path.to_str().unwrap(),
+        mmah_data,
+        strokes_dir.to_str().unwrap(),
+    )?;
+    println!();
+
+    // Step 9: Verify
     println!("✅ Verifying database...");
     database::verify_database(output_path.to_str().unwrap())?;
 
     println!("\n🎉 Database build complete!");
     println!("   Output: {}", output_path.display());
+    println!("   Strokes: {}", strokes_dir.display());
     println!("   Ready to use in application");
 
     Ok(())

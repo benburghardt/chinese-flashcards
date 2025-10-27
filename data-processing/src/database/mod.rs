@@ -1,6 +1,9 @@
+use crate::parsers::makemeahanzi::MakeMeAHanziEntry;
 use crate::EnrichedEntry;
 use rusqlite::{Connection, Result};
 use std::collections::HashMap;
+use std::fs;
+use std::io::Write;
 use std::path::Path;
 
 pub fn create_database(entries: Vec<EnrichedEntry>, output_path: &str) -> Result<()> {
@@ -353,6 +356,109 @@ pub fn apply_definition_overrides(
     Ok(())
 }
 
+/// Generate SVG file from stroke data
+fn generate_svg(_character: &str, strokes: &[String]) -> String {
+    let mut svg = String::from(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g stroke="black" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+"#,
+    );
+
+    for (i, stroke) in strokes.iter().enumerate() {
+        svg.push_str(&format!("    <path id=\"stroke-{}\" d=\"{}\" />\n", i + 1, stroke));
+    }
+
+    svg.push_str(
+        r#"  </g>
+</svg>
+"#,
+    );
+
+    svg
+}
+
+/// Populate stroke data from Make Me a Hanzi
+pub fn populate_stroke_data(
+    db_path: &str,
+    mmah_data: HashMap<String, MakeMeAHanziEntry>,
+    strokes_dir: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("  Creating strokes directory...");
+    fs::create_dir_all(strokes_dir)?;
+
+    let conn = Connection::open(db_path)?;
+
+    // Get all characters (single characters only, not words)
+    let characters: Vec<(i32, String)> = {
+        let mut stmt = conn.prepare("SELECT id, character FROM characters WHERE is_word = 0")?;
+        let result = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>>>()?;
+        result
+    };
+
+    println!("  Found {} characters in database", characters.len());
+    println!("  Matching with {} Make Me a Hanzi entries", mmah_data.len());
+
+    let mut updated = 0;
+    let mut skipped = 0;
+    let mut svg_created = 0;
+
+    let mut update_stmt = conn.prepare(
+        "UPDATE characters
+         SET stroke_count = ?1,
+             radical = ?2,
+             decomposition = ?3,
+             stroke_data_path = ?4
+         WHERE id = ?5",
+    )?;
+
+    for (id, character) in characters {
+        if let Some(entry) = mmah_data.get(&character) {
+            // Generate SVG file
+            let svg_content = generate_svg(&character, &entry.strokes);
+
+            // Use Unicode codepoint hex for filename to avoid filesystem issues
+            let filename = character
+                .chars()
+                .next()
+                .map(|c| format!("U+{:04X}.svg", c as u32))
+                .unwrap_or_else(|| "unknown.svg".to_string());
+
+            let svg_path = Path::new(strokes_dir).join(&filename);
+            let mut file = fs::File::create(&svg_path)?;
+            file.write_all(svg_content.as_bytes())?;
+            svg_created += 1;
+
+            // Update database with relative path from resources/
+            let relative_path = format!("strokes/{}", filename);
+
+            update_stmt.execute(rusqlite::params![
+                entry.stroke_count as i32,
+                &entry.radical,
+                &entry.decomposition,
+                &relative_path,
+                id,
+            ])?;
+
+            updated += 1;
+
+            if updated % 1000 == 0 {
+                println!("    Updated {} characters...", updated);
+            }
+        } else {
+            skipped += 1;
+        }
+    }
+
+    println!("  ✓ Updated {} characters with stroke data", updated);
+    println!("  ✓ Created {} SVG files", svg_created);
+    println!("  ⊗ Skipped {} (no Make Me a Hanzi data)", skipped);
+
+    Ok(())
+}
+
 pub fn verify_database(path: &str) -> Result<()> {
     let conn = Connection::open(path)?;
 
@@ -368,9 +474,16 @@ pub fn verify_database(path: &str) -> Result<()> {
         |row| row.get(0),
     )?;
 
+    let stroke_count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM characters WHERE stroke_data_path IS NOT NULL",
+        [],
+        |row| row.get(0),
+    )?;
+
     println!("\n=== Database Verification ===");
     println!("Characters: {}", char_count);
     println!("Words: {}", word_count);
+    println!("Characters with stroke data: {}", stroke_count);
 
     // Show top 30 most common characters (these will be auto-initialized on first app run)
     let mut stmt = conn.prepare(
