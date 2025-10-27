@@ -38,6 +38,7 @@ Under the following terms:
 - Data has been parsed and imported into a SQLite database
 - No modifications to dictionary entries themselves
 - Used for character definitions, pinyin pronunciation, and word meanings
+- `definition_review.csv` (development file in git history): derivative work containing filtered CC-CEDICT data for quality review purposes, licensed under CC BY-SA 4.0 per the requirements
 
 ### Attribution Required
 ```

@@ -1,0 +1,29 @@
+# License for definition_review.csv
+
+This file contains data derived from CC-CEDICT.
+
+## Source Attribution
+
+**CC-CEDICT** - Chinese-English Dictionary
+Copyright © MDBG and CC-CEDICT contributors
+https://www.mdbg.net/chinese/dictionary?page=cedict
+
+## License
+
+This derivative work is licensed under:
+**Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)**
+
+Full license text: https://creativecommons.org/licenses/by-sa/4.0/
+
+## Modifications
+
+- Filtered to show only characters/words with potential definition issues
+- Added columns: Flags (indicating issue type), Updated Definition (manual corrections)
+- Sorted by frequency rank for review prioritization
+
+## Usage
+
+This file is a quality assurance tool for reviewing and correcting Chinese character
+definitions. It is provided under CC BY-SA 4.0 consistent with the CC-CEDICT license.
+
+Any further adaptations must also be shared under CC BY-SA 4.0 or compatible license.
