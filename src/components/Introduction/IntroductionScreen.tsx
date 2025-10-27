@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { convertToneNumbersToMarks } from "../../utils/answerVerification";
+import StrokeOrderDisplay from "../StrokeOrder/StrokeOrderDisplay";
 import "./IntroductionScreen.css";
 
 interface Character {
@@ -150,6 +151,13 @@ function IntroductionScreen({
           <div className="card-label">Meaning</div>
           <div className="card-content definition">{character.definition}</div>
         </div>
+
+        {/* Stroke Order section - only show for single characters */}
+        {!character.is_word && (
+          <div className="stroke-order-section">
+            <StrokeOrderDisplay characterId={character.id} autoPlay={true} showControls={true} />
+          </div>
+        )}
 
         {/* Error display */}
         {error && <div className="error-message">{error}</div>}

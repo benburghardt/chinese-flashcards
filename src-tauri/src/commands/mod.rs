@@ -1,5 +1,7 @@
 use crate::database::{Character, DbConnection, DueCard};
 use chrono::{Duration, Utc};
+use std::fs;
+use std::path::PathBuf;
 use tauri::State;
 
 #[tauri::command]
@@ -844,6 +846,65 @@ pub fn get_database_debug_info(db: State<DbConnection>) -> Result<DatabaseDebugI
         introduced,
         initial_unlock_completed,
         last_unlock_date,
+    })
+}
+
+// === Stroke Order Commands ===
+
+#[derive(serde::Serialize)]
+pub struct CharacterStrokeData {
+    pub id: i32,
+    pub character: String,
+    pub stroke_count: Option<i32>,
+    pub radical: Option<String>,
+    pub decomposition: Option<String>,
+    pub stroke_data_path: Option<String>,
+}
+
+#[tauri::command]
+pub fn get_character_stroke_data(
+    db: State<DbConnection>,
+    character_id: i32,
+) -> Result<CharacterStrokeData, String> {
+    let conn = db.0.lock().unwrap();
+
+    conn.query_row(
+        "SELECT id, character, stroke_count, radical, decomposition, stroke_data_path
+         FROM characters
+         WHERE id = ?1",
+        [character_id],
+        |row| {
+            Ok(CharacterStrokeData {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                stroke_count: row.get(2)?,
+                radical: row.get(3)?,
+                decomposition: row.get(4)?,
+                stroke_data_path: row.get(5)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn read_stroke_svg(svg_path: String) -> Result<String, String> {
+    // Get the resources directory
+    let resources_dir = if cfg!(debug_assertions) {
+        PathBuf::from("resources")
+    } else {
+        // In production, Tauri handles this differently
+        // We may need to adjust based on Tauri's asset handling
+        PathBuf::from("resources")
+    };
+
+    let full_path = resources_dir.join(&svg_path);
+
+    println!("[RUST] Reading SVG from: {:?}", full_path);
+
+    fs::read_to_string(&full_path).map_err(|e| {
+        eprintln!("[RUST] Error reading SVG file {:?}: {}", full_path, e);
+        format!("Failed to read SVG file: {}", e)
     })
 }
 

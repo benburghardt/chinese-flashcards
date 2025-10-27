@@ -160,6 +160,14 @@
   line-height: 1.5;
 }
 
+/* Stroke Order Section */
+.stroke-order-section {
+  margin: 20px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
 /* Error Message */
 .error-message {
   background: #fee;

@@ -1,0 +1,216 @@
+.stroke-order-display {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stroke-order-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 0.5rem;
+}
+
+.stroke-order-character {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0;
+  color: #333;
+}
+
+.stroke-order-info {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.stroke-count,
+.radical {
+  padding: 0.25rem 0.5rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.stroke-order-canvas {
+  width: 100%;
+  max-width: 400px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.stroke-order-canvas svg {
+  width: 100%;
+  height: 100%;
+}
+
+.stroke-order-canvas path {
+  stroke: #2c3e50;
+  stroke-width: 3;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity 0.2s ease;
+}
+
+.stroke-order-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.playback-controls {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.control-button {
+  width: 3rem;
+  height: 3rem;
+  border: none;
+  border-radius: 50%;
+  background: #3498db;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-button:hover {
+  background: #2980b9;
+  transform: scale(1.05);
+}
+
+.control-button:active {
+  transform: scale(0.95);
+}
+
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.speed-control label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.speed-slider {
+  width: 150px;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #ddd;
+  outline: none;
+  border-radius: 3px;
+}
+
+.speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #3498db;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.speed-slider::-webkit-slider-thumb:hover {
+  background: #2980b9;
+}
+
+.speed-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #3498db;
+  cursor: pointer;
+  border-radius: 50%;
+  border: none;
+  transition: background 0.2s ease;
+}
+
+.speed-slider::-moz-range-thumb:hover {
+  background: #2980b9;
+}
+
+.speed-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  min-width: 3rem;
+  text-align: center;
+}
+
+.stroke-progress {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.stroke-order-loading,
+.stroke-order-error {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+  font-size: 1rem;
+}
+
+.stroke-order-error {
+  color: #e74c3c;
+  background: #fee;
+  border-radius: 4px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .stroke-order-display {
+    padding: 0.75rem;
+  }
+
+  .stroke-order-character {
+    font-size: 1.5rem;
+  }
+
+  .stroke-order-canvas {
+    max-width: 100%;
+  }
+
+  .control-button {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1rem;
+  }
+
+  .speed-slider {
+    width: 120px;
+  }
+}
+
+/* Animation states */
+.stroke-order-canvas path[data-highlighted="true"] {
+  stroke: #e74c3c;
+  stroke-width: 4;
+}

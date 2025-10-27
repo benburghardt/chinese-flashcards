@@ -41,6 +41,8 @@ pub fn run() {
             commands::get_total_items_count,
             commands::get_review_calendar,
             commands::get_database_debug_info,
+            commands::get_character_stroke_data,
+            commands::read_stroke_svg,
         ])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
