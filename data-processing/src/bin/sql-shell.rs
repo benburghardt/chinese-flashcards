@@ -36,11 +36,8 @@ fn main() -> Result<()> {
                 Ok(mut stmt) => {
                     // Get column names
                     let column_count = stmt.column_count();
-                    let column_names: Vec<String> = stmt
-                        .column_names()
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect();
+                    let column_names: Vec<String> =
+                        stmt.column_names().iter().map(|s| s.to_string()).collect();
 
                     // Print header
                     println!("{}", column_names.join(" | "));
@@ -50,7 +47,8 @@ fn main() -> Result<()> {
                     let rows = stmt.query_map([], |row| {
                         let mut values = Vec::new();
                         for i in 0..column_count {
-                            let value: String = row.get::<_, rusqlite::types::Value>(i)
+                            let value: String = row
+                                .get::<_, rusqlite::types::Value>(i)
                                 .map(|v| format!("{:?}", v))
                                 .unwrap_or_else(|_| "NULL".to_string());
                             values.push(value);

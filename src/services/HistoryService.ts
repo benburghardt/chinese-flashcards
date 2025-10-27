@@ -1,5 +1,5 @@
 // Phase 4.4: Undo/Redo History Service
-import { Flashcard } from '../types';
+import { Flashcard } from "../types";
 
 interface HistoryState {
   flashcard: Flashcard;

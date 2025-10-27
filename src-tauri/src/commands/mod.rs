@@ -1,31 +1,30 @@
-use crate::database::{DbConnection, Character, DueCard};
+use crate::database::{Character, DbConnection, DueCard};
+use chrono::{Duration, Utc};
 use tauri::State;
-use chrono::{Utc, Duration};
 
 #[tauri::command]
 pub fn get_character(db: State<DbConnection>, id: i32) -> Result<Character, String> {
     let conn = db.0.lock().unwrap();
-    crate::database::get_character_by_id(&conn, id)
-        .map_err(|e| e.to_string())
+    crate::database::get_character_by_id(&conn, id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn get_top_characters(db: State<DbConnection>, limit: usize) -> Result<Vec<Character>, String> {
     let conn = db.0.lock().unwrap();
-    crate::database::get_characters_by_frequency(&conn, limit)
-        .map_err(|e| e.to_string())
+    crate::database::get_characters_by_frequency(&conn, limit).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn test_database_connection(db: State<DbConnection>) -> Result<String, String> {
     let conn = db.0.lock().unwrap();
-    let count: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM characters",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let count: i32 = conn
+        .query_row("SELECT COUNT(*) FROM characters", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
 
-    Ok(format!("Database connected! {} characters available", count))
+    Ok(format!(
+        "Database connected! {} characters available",
+        count
+    ))
 }
 
 // === SRS Commands ===
@@ -33,8 +32,7 @@ pub fn test_database_connection(db: State<DbConnection>) -> Result<String, Strin
 #[tauri::command]
 pub fn get_due_cards_for_review(db: State<DbConnection>) -> Result<Vec<DueCard>, String> {
     let conn = db.0.lock().unwrap();
-    crate::database::get_due_cards(&conn)
-        .map_err(|e| e.to_string())
+    crate::database::get_due_cards(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -43,13 +41,15 @@ pub fn submit_srs_answer(
     character_id: i32,
     correct: bool,
 ) -> Result<bool, String> {
-    println!("[RUST] submit_srs_answer called: char_id={}, correct={}", character_id, correct);
+    println!(
+        "[RUST] submit_srs_answer called: char_id={}, correct={}",
+        character_id, correct
+    );
     let conn = db.0.lock().unwrap();
-    let result = crate::database::record_srs_answer(&conn, character_id, correct)
-        .map_err(|e| {
-            eprintln!("[RUST] ERROR in record_srs_answer: {}", e);
-            e.to_string()
-        });
+    let result = crate::database::record_srs_answer(&conn, character_id, correct).map_err(|e| {
+        eprintln!("[RUST] ERROR in record_srs_answer: {}", e);
+        e.to_string()
+    });
     println!("[RUST] submit_srs_answer result: {:?}", result);
     result
 }
@@ -58,23 +58,23 @@ pub fn submit_srs_answer(
 pub fn unlock_new_character(db: State<DbConnection>) -> Result<Option<Character>, String> {
     println!("[RUST] unlock_new_character called");
     let conn = db.0.lock().unwrap();
-    let result = crate::database::unlock_next_character(&conn)
-        .map_err(|e| {
-            eprintln!("[RUST] ERROR in unlock_new_character: {}", e);
-            e.to_string()
-        });
-    println!("[RUST] unlock_new_character result: {:?}", result.as_ref().map(|opt| opt.as_ref().map(|c| &c.character)));
+    let result = crate::database::unlock_next_character(&conn).map_err(|e| {
+        eprintln!("[RUST] ERROR in unlock_new_character: {}", e);
+        e.to_string()
+    });
+    println!(
+        "[RUST] unlock_new_character result: {:?}",
+        result
+            .as_ref()
+            .map(|opt| opt.as_ref().map(|c| &c.character))
+    );
     result
 }
 
 #[tauri::command]
-pub fn introduce_character(
-    db: State<DbConnection>,
-    character_id: i32,
-) -> Result<(), String> {
+pub fn introduce_character(db: State<DbConnection>, character_id: i32) -> Result<(), String> {
     let conn = db.0.lock().unwrap();
-    crate::database::mark_character_introduced(&conn, character_id)
-        .map_err(|e| e.to_string())
+    crate::database::mark_character_introduced(&conn, character_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -82,7 +82,10 @@ pub fn introduce_character_immediately_reviewable(
     db: State<DbConnection>,
     character_id: i32,
 ) -> Result<(), String> {
-    println!("[RUST] introduce_character_immediately_reviewable called for char_id={}", character_id);
+    println!(
+        "[RUST] introduce_character_immediately_reviewable called for char_id={}",
+        character_id
+    );
     let conn = db.0.lock().unwrap();
 
     // Mark character as introduced and set next review to now (immediately reviewable)
@@ -96,13 +99,17 @@ pub fn introduce_character_immediately_reviewable(
              next_review_date = datetime('now', '-1 second'),
              updated_at = datetime('now')
          WHERE character_id = ?1",
-        [character_id]
-    ).map_err(|e| {
+        [character_id],
+    )
+    .map_err(|e| {
         eprintln!("[RUST] Error updating character {}: {}", character_id, e);
         e.to_string()
     })?;
 
-    println!("[RUST] Marked character {} as introduced and immediately reviewable", character_id);
+    println!(
+        "[RUST] Marked character {} as introduced and immediately reviewable",
+        character_id
+    );
     Ok(())
 }
 
@@ -111,12 +118,14 @@ pub fn get_available_to_learn_count(db: State<DbConnection>) -> Result<i32, Stri
     let conn = db.0.lock().unwrap();
 
     // Count characters that have been unlocked but not yet introduced
-    let count: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress p
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM user_progress p
          WHERE p.introduced = 0",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     Ok(count)
 }
@@ -129,31 +138,34 @@ pub fn get_unlocked_characters_batch(
     let conn = db.0.lock().unwrap();
 
     // Get characters that have been unlocked but not yet introduced
-    let mut stmt = conn.prepare(
-        "SELECT c.id, c.character, c.simplified, c.traditional,
+    let mut stmt = conn
+        .prepare(
+            "SELECT c.id, c.character, c.simplified, c.traditional,
                 c.mandarin_pinyin, c.definition, c.frequency_rank, c.is_word
          FROM characters c
          INNER JOIN user_progress p ON c.id = p.character_id
          WHERE p.introduced = 0
          ORDER BY c.frequency_rank ASC
-         LIMIT ?1"
-    ).map_err(|e| e.to_string())?;
+         LIMIT ?1",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let characters = stmt.query_map([batch_size], |row| {
-        Ok(Character {
-            id: row.get(0)?,
-            character: row.get(1)?,
-            simplified: row.get(2)?,
-            traditional: row.get(3)?,
-            mandarin_pinyin: row.get(4)?,
-            definition: row.get(5)?,
-            frequency_rank: row.get(6)?,
-            is_word: row.get(7)?,
+    let characters = stmt
+        .query_map([batch_size], |row| {
+            Ok(Character {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                simplified: row.get(2)?,
+                traditional: row.get(3)?,
+                mandarin_pinyin: row.get(4)?,
+                definition: row.get(5)?,
+                frequency_rank: row.get(6)?,
+                is_word: row.get(7)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(characters)
 }
@@ -163,7 +175,10 @@ pub fn complete_initial_srs_session(
     db: State<DbConnection>,
     character_ids: Vec<i32>,
 ) -> Result<String, String> {
-    println!("[RUST] complete_initial_srs_session called with {} characters", character_ids.len());
+    println!(
+        "[RUST] complete_initial_srs_session called with {} characters",
+        character_ids.len()
+    );
     let conn = db.0.lock().unwrap();
 
     // Calculate next review time: 30 minutes from now, rounded to half-hour
@@ -175,10 +190,12 @@ pub fn complete_initial_srs_session(
     let next_review = crate::database::round_down_to_half_hour(next_review_unrounded);
     let next_review_sqlite = next_review.format("%Y-%m-%d %H:%M:%S").to_string();
 
-    println!("[RUST] Scheduling reviews for {} at {} UTC (rounded from {})",
-             next_review_sqlite,
-             next_review.format("%H:%M"),
-             next_review_unrounded.format("%H:%M"));
+    println!(
+        "[RUST] Scheduling reviews for {} at {} UTC (rounded from {})",
+        next_review_sqlite,
+        next_review.format("%H:%M"),
+        next_review_unrounded.format("%H:%M")
+    );
 
     for char_id in &character_ids {
         // Mark character as introduced and set next review to rounded half-hour
@@ -191,16 +208,23 @@ pub fn complete_initial_srs_session(
                  next_review_date = ?1,
                  updated_at = datetime('now')
              WHERE character_id = ?2",
-            rusqlite::params![&next_review_sqlite, char_id]
-        ).map_err(|e| {
+            rusqlite::params![&next_review_sqlite, char_id],
+        )
+        .map_err(|e| {
             eprintln!("[RUST] Error updating character {}: {}", char_id, e);
             e.to_string()
         })?;
 
-        println!("[RUST] Marked character {} as introduced, review at {}", char_id, next_review_sqlite);
+        println!(
+            "[RUST] Marked character {} as introduced, review at {}",
+            char_id, next_review_sqlite
+        );
     }
 
-    let result = format!("Completed initial SRS for {} characters", character_ids.len());
+    let result = format!(
+        "Completed initial SRS for {} characters",
+        character_ids.len()
+    );
     println!("[RUST] {}", result);
     Ok(result)
 }
@@ -210,7 +234,10 @@ pub fn mark_incomplete_characters_reviewable(
     db: State<DbConnection>,
     character_ids: Vec<i32>,
 ) -> Result<String, String> {
-    println!("[RUST] mark_incomplete_characters_reviewable called with {} characters", character_ids.len());
+    println!(
+        "[RUST] mark_incomplete_characters_reviewable called with {} characters",
+        character_ids.len()
+    );
     let conn = db.0.lock().unwrap();
 
     for char_id in &character_ids {
@@ -225,16 +252,23 @@ pub fn mark_incomplete_characters_reviewable(
                  next_review_date = datetime('now', '-1 second'),
                  updated_at = datetime('now')
              WHERE character_id = ?1",
-            [char_id]
-        ).map_err(|e| {
+            [char_id],
+        )
+        .map_err(|e| {
             eprintln!("[RUST] Error updating character {}: {}", char_id, e);
             e.to_string()
         })?;
 
-        println!("[RUST] Marked incomplete character {} as immediately reviewable", char_id);
+        println!(
+            "[RUST] Marked incomplete character {} as immediately reviewable",
+            char_id
+        );
     }
 
-    let result = format!("Marked {} incomplete characters as immediately reviewable", character_ids.len());
+    let result = format!(
+        "Marked {} incomplete characters as immediately reviewable",
+        character_ids.len()
+    );
     println!("[RUST] {}", result);
     Ok(result)
 }
@@ -244,25 +278,31 @@ pub fn introduce_multiple_characters(
     db: State<DbConnection>,
     count: i32,
 ) -> Result<String, String> {
-    println!("[RUST] introduce_multiple_characters called with count={}", count);
+    println!(
+        "[RUST] introduce_multiple_characters called with count={}",
+        count
+    );
     let conn = db.0.lock().unwrap();
 
     // Get 'count' most frequent characters that are NOT yet in user_progress
-    let mut stmt = conn.prepare(
-        "SELECT c.id FROM characters c
+    let mut stmt = conn
+        .prepare(
+            "SELECT c.id FROM characters c
          WHERE c.is_word = 0
            AND NOT EXISTS (
                SELECT 1 FROM user_progress p
                WHERE p.character_id = c.id
            )
          ORDER BY c.frequency_rank ASC
-         LIMIT ?1"
-    ).map_err(|e| {
-        eprintln!("[RUST] Error preparing query: {}", e);
-        e.to_string()
-    })?;
+         LIMIT ?1",
+        )
+        .map_err(|e| {
+            eprintln!("[RUST] Error preparing query: {}", e);
+            e.to_string()
+        })?;
 
-    let char_ids: Vec<i32> = stmt.query_map([count], |row| row.get(0))
+    let char_ids: Vec<i32> = stmt
+        .query_map([count], |row| row.get(0))
         .map_err(|e| {
             eprintln!("[RUST] Error executing query: {}", e);
             e.to_string()
@@ -273,7 +313,11 @@ pub fn introduce_multiple_characters(
             e.to_string()
         })?;
 
-    println!("[RUST] Found {} characters to introduce: {:?}", char_ids.len(), char_ids);
+    println!(
+        "[RUST] Found {} characters to introduce: {:?}",
+        char_ids.len(),
+        char_ids
+    );
 
     // For each character, add to user_progress and mark as introduced
     for char_id in &char_ids {
@@ -285,14 +329,19 @@ pub fn introduce_multiple_characters(
              (character_id, current_interval_days, previous_interval_days,
               next_review_date, introduced)
              VALUES (?1, 0.0417, 0.0417, datetime('now'), 1)",
-            [char_id]
-        ).map_err(|e| {
+            [char_id],
+        )
+        .map_err(|e| {
             eprintln!("[RUST] Error inserting character {}: {}", char_id, e);
             e.to_string()
         })?;
     }
 
-    let result = format!("Introduced {} new characters (IDs: {:?})", char_ids.len(), char_ids);
+    let result = format!(
+        "Introduced {} new characters (IDs: {:?})",
+        char_ids.len(),
+        char_ids
+    );
     println!("[RUST] {}", result);
     Ok(result)
 }
@@ -322,7 +371,7 @@ pub fn get_characters_for_initial_study(
                     current_interval: row.get(4)?,
                     times_reviewed: row.get(5)?,
                 })
-            }
+            },
         );
 
         if let Ok(card) = card {
@@ -347,20 +396,21 @@ pub fn check_and_unlock_characters(db: State<DbConnection>) -> Result<UnlockStat
     println!("[RUST] check_and_unlock_characters called");
     let conn = db.0.lock().unwrap();
 
-    let (unlocked_count, _) = crate::database::check_and_unlock_characters(&conn)
-        .map_err(|e| {
-            eprintln!("[RUST] ERROR in check_and_unlock_characters: {}", e);
-            e.to_string()
-        })?;
+    let (unlocked_count, _) = crate::database::check_and_unlock_characters(&conn).map_err(|e| {
+        eprintln!("[RUST] ERROR in check_and_unlock_characters: {}", e);
+        e.to_string()
+    })?;
 
-    let ready_to_learn_count = crate::database::get_ready_to_learn_count(&conn)
-        .map_err(|e| e.to_string())?;
+    let ready_to_learn_count =
+        crate::database::get_ready_to_learn_count(&conn).map_err(|e| e.to_string())?;
 
-    let hours_until_next_unlock = crate::database::get_hours_until_next_unlock(&conn)
-        .map_err(|e| e.to_string())?;
+    let hours_until_next_unlock =
+        crate::database::get_hours_until_next_unlock(&conn).map_err(|e| e.to_string())?;
 
-    println!("[RUST] Unlock status: unlocked={}, ready={}, hours_until={:?}",
-        unlocked_count, ready_to_learn_count, hours_until_next_unlock);
+    println!(
+        "[RUST] Unlock status: unlocked={}, ready={}, hours_until={:?}",
+        unlocked_count, ready_to_learn_count, hours_until_next_unlock
+    );
 
     Ok(UnlockStatus {
         unlocked_count,
@@ -373,11 +423,11 @@ pub fn check_and_unlock_characters(db: State<DbConnection>) -> Result<UnlockStat
 pub fn get_unlock_status(db: State<DbConnection>) -> Result<UnlockStatus, String> {
     let conn = db.0.lock().unwrap();
 
-    let ready_to_learn_count = crate::database::get_ready_to_learn_count(&conn)
-        .map_err(|e| e.to_string())?;
+    let ready_to_learn_count =
+        crate::database::get_ready_to_learn_count(&conn).map_err(|e| e.to_string())?;
 
-    let hours_until_next_unlock = crate::database::get_hours_until_next_unlock(&conn)
-        .map_err(|e| e.to_string())?;
+    let hours_until_next_unlock =
+        crate::database::get_hours_until_next_unlock(&conn).map_err(|e| e.to_string())?;
 
     Ok(UnlockStatus {
         unlocked_count: 0,
@@ -393,8 +443,8 @@ pub fn mark_all_ready_characters_introduced(db: State<DbConnection>) -> Result<S
 
     // This triggers the 2-day timer to start
     // We update last_unlock_date when all ready-to-learn characters are introduced
-    let ready_count = crate::database::get_ready_to_learn_count(&conn)
-        .map_err(|e| e.to_string())?;
+    let ready_count =
+        crate::database::get_ready_to_learn_count(&conn).map_err(|e| e.to_string())?;
 
     if ready_count == 0 {
         // All characters have been introduced, set the timer
@@ -405,8 +455,11 @@ pub fn mark_all_ready_characters_introduced(db: State<DbConnection>) -> Result<S
         crate::database::set_setting(&conn, "last_unlock_date", &now_sqlite)
             .map_err(|e| e.to_string())?;
 
-        println!("[RUST] All characters introduced. Timer set to: {}", now_sqlite);
-        Ok(format!("Timer set. Next unlock in 48 hours."))
+        println!(
+            "[RUST] All characters introduced. Timer set to: {}",
+            now_sqlite
+        );
+        Ok("Timer set. Next unlock in 48 hours.".to_string())
     } else {
         Ok(format!("Still {} characters to introduce", ready_count))
     }
@@ -418,11 +471,10 @@ pub fn mark_all_ready_characters_introduced(db: State<DbConnection>) -> Result<S
 pub fn get_self_study_cards(db: State<DbConnection>, limit: usize) -> Result<Vec<DueCard>, String> {
     println!("[RUST] get_self_study_cards called with limit={}", limit);
     let conn = db.0.lock().unwrap();
-    crate::database::get_self_study_cards(&conn, limit)
-        .map_err(|e| {
-            eprintln!("[RUST] ERROR in get_self_study_cards: {}", e);
-            e.to_string()
-        })
+    crate::database::get_self_study_cards(&conn, limit).map_err(|e| {
+        eprintln!("[RUST] ERROR in get_self_study_cards: {}", e);
+        e.to_string()
+    })
 }
 
 #[tauri::command]
@@ -473,33 +525,35 @@ pub struct StudySession {
 pub fn get_dashboard_stats(db: State<DbConnection>) -> Result<DashboardStats, String> {
     let conn = db.0.lock().unwrap();
 
-    let total_characters_learned = crate::database::get_introduced_count(&conn)
+    let total_characters_learned =
+        crate::database::get_introduced_count(&conn).map_err(|e| e.to_string())?;
+
+    let characters_in_srs: usize = conn
+        .query_row("SELECT COUNT(*) FROM user_progress", [], |row| row.get(0))
         .map_err(|e| e.to_string())?;
 
-    let characters_in_srs: usize = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
-
-    let cards_due_today: usize = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress
+    let cards_due_today: usize = conn
+        .query_row(
+            "SELECT COUNT(*) FROM user_progress
          WHERE introduced = 1
            AND is_mastered = 0
            AND next_review_date <= datetime('now')",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
-    let mastered_characters: usize = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress WHERE is_mastered = 1",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let mastered_characters: usize = conn
+        .query_row(
+            "SELECT COUNT(*) FROM user_progress WHERE is_mastered = 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     // Calculate study streak (consecutive days with sessions)
-    let study_streak_days = crate::database::calculate_study_streak(&conn)
-        .map_err(|e| e.to_string())?;
+    let study_streak_days =
+        crate::database::calculate_study_streak(&conn).map_err(|e| e.to_string())?;
 
     Ok(DashboardStats {
         total_characters_learned,
@@ -511,7 +565,10 @@ pub fn get_dashboard_stats(db: State<DbConnection>) -> Result<DashboardStats, St
 }
 
 #[tauri::command]
-pub fn get_recent_sessions(db: State<DbConnection>, limit: usize) -> Result<Vec<StudySession>, String> {
+pub fn get_recent_sessions(
+    db: State<DbConnection>,
+    limit: usize,
+) -> Result<Vec<StudySession>, String> {
     let conn = db.0.lock().unwrap();
 
     let mut stmt = conn.prepare(
@@ -522,21 +579,22 @@ pub fn get_recent_sessions(db: State<DbConnection>, limit: usize) -> Result<Vec<
          LIMIT ?1"
     ).map_err(|e| e.to_string())?;
 
-    let sessions = stmt.query_map([limit], |row| {
-        Ok(StudySession {
-            id: row.get(0)?,
-            mode: row.get(1)?,
-            started_at: row.get(2)?,
-            ended_at: row.get(3)?,
-            cards_studied: row.get(4)?,
-            cards_correct: row.get(5)?,
-            cards_incorrect: row.get(6)?,
-            duration_seconds: row.get(7)?,
+    let sessions = stmt
+        .query_map([limit], |row| {
+            Ok(StudySession {
+                id: row.get(0)?,
+                mode: row.get(1)?,
+                started_at: row.get(2)?,
+                ended_at: row.get(3)?,
+                cards_studied: row.get(4)?,
+                cards_correct: row.get(5)?,
+                cards_incorrect: row.get(6)?,
+                duration_seconds: row.get(7)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(sessions)
 }
@@ -544,8 +602,7 @@ pub fn get_recent_sessions(db: State<DbConnection>, limit: usize) -> Result<Vec<
 #[tauri::command]
 pub fn start_session(db: State<DbConnection>, mode: String) -> Result<i32, String> {
     let conn = db.0.lock().unwrap();
-    crate::database::start_study_session(&conn, &mode)
-        .map_err(|e| e.to_string())
+    crate::database::start_study_session(&conn, &mode).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -557,8 +614,14 @@ pub fn end_session(
     cards_incorrect: i32,
 ) -> Result<(), String> {
     let conn = db.0.lock().unwrap();
-    crate::database::end_study_session(&conn, session_id, cards_studied, cards_correct, cards_incorrect)
-        .map_err(|e| e.to_string())
+    crate::database::end_study_session(
+        &conn,
+        session_id,
+        cards_studied,
+        cards_correct,
+        cards_incorrect,
+    )
+    .map_err(|e| e.to_string())
 }
 
 // === Dictionary/Browse Commands ===
@@ -590,8 +653,9 @@ pub fn browse_characters(
 ) -> Result<Vec<CharacterWithProgress>, String> {
     let conn = db.0.lock().unwrap();
 
-    let mut stmt = conn.prepare(
-        "SELECT c.id, c.character, c.simplified, c.traditional, c.mandarin_pinyin,
+    let mut stmt = conn
+        .prepare(
+            "SELECT c.id, c.character, c.simplified, c.traditional, c.mandarin_pinyin,
                 c.definition, c.frequency_rank, c.is_word,
                 p.introduced, p.times_reviewed, p.times_correct, p.times_incorrect,
                 p.current_interval_days, p.next_review_date
@@ -599,30 +663,32 @@ pub fn browse_characters(
          LEFT JOIN user_progress p ON c.id = p.character_id
          WHERE c.is_word = 0
          ORDER BY c.frequency_rank ASC
-         LIMIT ?1 OFFSET ?2"
-    ).map_err(|e| e.to_string())?;
+         LIMIT ?1 OFFSET ?2",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let characters = stmt.query_map([limit, offset], |row| {
-        Ok(CharacterWithProgress {
-            id: row.get(0)?,
-            character: row.get(1)?,
-            simplified: row.get(2)?,
-            traditional: row.get(3)?,
-            mandarin_pinyin: row.get(4)?,
-            definition: row.get(5)?,
-            frequency_rank: row.get(6)?,
-            is_word: row.get(7)?,
-            introduced: row.get(8)?,
-            times_reviewed: row.get(9)?,
-            times_correct: row.get(10)?,
-            times_incorrect: row.get(11)?,
-            current_interval_days: row.get(12)?,
-            next_review_date: row.get(13)?,
+    let characters = stmt
+        .query_map([limit, offset], |row| {
+            Ok(CharacterWithProgress {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                simplified: row.get(2)?,
+                traditional: row.get(3)?,
+                mandarin_pinyin: row.get(4)?,
+                definition: row.get(5)?,
+                frequency_rank: row.get(6)?,
+                is_word: row.get(7)?,
+                introduced: row.get(8)?,
+                times_reviewed: row.get(9)?,
+                times_correct: row.get(10)?,
+                times_incorrect: row.get(11)?,
+                current_interval_days: row.get(12)?,
+                next_review_date: row.get(13)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(characters)
 }
@@ -630,11 +696,13 @@ pub fn browse_characters(
 #[tauri::command]
 pub fn get_total_characters_count(db: State<DbConnection>) -> Result<i32, String> {
     let conn = db.0.lock().unwrap();
-    let count: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM characters WHERE is_word = 0",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM characters WHERE is_word = 0",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
     Ok(count)
 }
 
@@ -668,8 +736,9 @@ pub fn browse_introduction_order(
     let conn = db.0.lock().unwrap();
 
     // Query items sorted by introduction_rank (pre-calculated)
-    let mut stmt = conn.prepare(
-        "SELECT c.id, c.character, c.simplified, c.traditional, c.mandarin_pinyin,
+    let mut stmt = conn
+        .prepare(
+            "SELECT c.id, c.character, c.simplified, c.traditional, c.mandarin_pinyin,
                 c.definition, c.frequency_rank, c.is_word, c.component_characters,
                 c.introduction_rank,
                 p.introduced, p.times_reviewed, p.times_correct, p.times_incorrect,
@@ -677,32 +746,34 @@ pub fn browse_introduction_order(
          FROM characters c
          LEFT JOIN user_progress p ON c.id = p.character_id
          ORDER BY c.introduction_rank ASC
-         LIMIT ?1 OFFSET ?2"
-    ).map_err(|e| e.to_string())?;
+         LIMIT ?1 OFFSET ?2",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let results = stmt.query_map([limit, offset], |row| {
-        Ok(CharacterWithProgressAndScore {
-            id: row.get(0)?,
-            character: row.get(1)?,
-            simplified: row.get(2)?,
-            traditional: row.get(3)?,
-            mandarin_pinyin: row.get(4)?,
-            definition: row.get(5)?,
-            frequency_rank: row.get(6)?,
-            is_word: row.get(7)?,
-            component_characters: row.get(8)?,
-            introduction_score: row.get::<_, Option<i32>>(9)?.unwrap_or(999999) as f64,
-            introduced: row.get(10)?,
-            times_reviewed: row.get(11)?,
-            times_correct: row.get(12)?,
-            times_incorrect: row.get(13)?,
-            current_interval_days: row.get(14)?,
-            next_review_date: row.get(15)?,
+    let results = stmt
+        .query_map([limit, offset], |row| {
+            Ok(CharacterWithProgressAndScore {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                simplified: row.get(2)?,
+                traditional: row.get(3)?,
+                mandarin_pinyin: row.get(4)?,
+                definition: row.get(5)?,
+                frequency_rank: row.get(6)?,
+                is_word: row.get(7)?,
+                component_characters: row.get(8)?,
+                introduction_score: row.get::<_, Option<i32>>(9)?.unwrap_or(999999) as f64,
+                introduced: row.get(10)?,
+                times_reviewed: row.get(11)?,
+                times_correct: row.get(12)?,
+                times_incorrect: row.get(13)?,
+                current_interval_days: row.get(14)?,
+                next_review_date: row.get(15)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(results)
 }
@@ -710,11 +781,9 @@ pub fn browse_introduction_order(
 #[tauri::command]
 pub fn get_total_items_count(db: State<DbConnection>) -> Result<i32, String> {
     let conn = db.0.lock().unwrap();
-    let count: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM characters",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let count: i32 = conn
+        .query_row("SELECT COUNT(*) FROM characters", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
     Ok(count)
 }
 
@@ -734,29 +803,33 @@ pub struct DatabaseDebugInfo {
 pub fn get_database_debug_info(db: State<DbConnection>) -> Result<DatabaseDebugInfo, String> {
     let conn = db.0.lock().unwrap();
 
-    let total_characters: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM characters WHERE is_word = 0",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let total_characters: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM characters WHERE is_word = 0",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
-    let characters_in_progress: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let characters_in_progress: i32 = conn
+        .query_row("SELECT COUNT(*) FROM user_progress", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
 
-    let ready_to_learn: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress WHERE introduced = 0",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let ready_to_learn: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM user_progress WHERE introduced = 0",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
-    let introduced: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress WHERE introduced = 1",
-        [],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let introduced: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM user_progress WHERE introduced = 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     let initial_unlock_completed = crate::database::get_setting(&conn, "initial_unlock_completed")
         .unwrap_or_else(|_| "ERROR".to_string());
@@ -778,16 +851,20 @@ pub fn get_database_debug_info(db: State<DbConnection>) -> Result<DatabaseDebugI
 
 #[derive(serde::Serialize)]
 pub struct ReviewCalendarEntry {
-    pub review_time: String,  // Full datetime in half-hour blocks (YYYY-MM-DD HH:MM:SS)
+    pub review_time: String, // Full datetime in half-hour blocks (YYYY-MM-DD HH:MM:SS)
     pub cards_due: i32,
 }
 
 #[tauri::command]
-pub fn get_review_calendar(db: State<DbConnection>, days: i32) -> Result<Vec<ReviewCalendarEntry>, String> {
+pub fn get_review_calendar(
+    db: State<DbConnection>,
+    days: i32,
+) -> Result<Vec<ReviewCalendarEntry>, String> {
     let conn = db.0.lock().unwrap();
 
-    let mut stmt = conn.prepare(
-        "SELECT next_review_date,
+    let mut stmt = conn
+        .prepare(
+            "SELECT next_review_date,
                 COUNT(*) as cards_due
          FROM user_progress
          WHERE introduced = 1
@@ -796,18 +873,20 @@ pub fn get_review_calendar(db: State<DbConnection>, days: i32) -> Result<Vec<Rev
            AND next_review_date > datetime('now')
            AND DATE(next_review_date) <= DATE('now', '+' || ?1 || ' days')
          GROUP BY next_review_date
-         ORDER BY next_review_date ASC"
-    ).map_err(|e| e.to_string())?;
+         ORDER BY next_review_date ASC",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let entries = stmt.query_map([days], |row| {
-        Ok(ReviewCalendarEntry {
-            review_time: row.get(0)?,
-            cards_due: row.get(1)?,
+    let entries = stmt
+        .query_map([days], |row| {
+            Ok(ReviewCalendarEntry {
+                review_time: row.get(0)?,
+                cards_due: row.get(1)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(entries)
 }

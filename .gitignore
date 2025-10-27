@@ -5,6 +5,7 @@ node_modules/
 dist/
 src-tauri/target/
 data-processing/target/
+**/.rustc_info.json
 
 # Downloaded datasets (DO NOT COMMIT)
 datasets/
@@ -27,6 +28,7 @@ SUBTLEX-CH*/
 
 # Claude
 .claude/
+.claude/**
 
 # OS
 .DS_Store
@@ -42,3 +44,7 @@ npm-debug.log*
 
 # Test files
 test-*.js
+
+# Development/Review files (contain CC-CEDICT data)
+definition_review.csv
+definition_overrides.json

@@ -1,6 +1,6 @@
 // Phase 3: Progress Persistence Service - Separate from flashcard sets for easy sharing
-import { StudyProgress } from '../types';
-import { detectEnvironment } from '../utils/environmentDetection';
+import { StudyProgress } from "../types";
+import { detectEnvironment } from "../utils/environmentDetection";
 
 export interface ProgressData {
   flashcardSetId: string;
@@ -14,14 +14,14 @@ export interface ProgressData {
 const getTauriAPI = async () => {
   const environment = await detectEnvironment();
 
-  if (environment === 'desktop') {
+  if (environment === "desktop") {
     try {
-      const { readTextFile, writeTextFile, exists } = await import('@tauri-apps/plugin-fs');
-      const { appDataDir } = await import('@tauri-apps/api/path');
+      const { readTextFile, writeTextFile, exists } = await import("@tauri-apps/plugin-fs");
+      const { appDataDir } = await import("@tauri-apps/api/path");
 
       return { readTextFile, writeTextFile, exists, appDataDir };
     } catch (error) {
-      console.warn('Failed to load Tauri APIs in desktop environment:', error);
+      console.warn("Failed to load Tauri APIs in desktop environment:", error);
       return null;
     }
   }
@@ -30,8 +30,8 @@ const getTauriAPI = async () => {
 };
 
 export class ProgressService {
-  private static readonly PROGRESS_VERSION = '1.0.0';
-  private static readonly PROGRESS_STORAGE_PREFIX = 'extended-flashcards-progress-';
+  private static readonly PROGRESS_VERSION = "1.0.0";
+  private static readonly PROGRESS_STORAGE_PREFIX = "extended-flashcards-progress-";
 
   /**
    * Load progress for a specific flashcard set
@@ -59,7 +59,7 @@ export class ProgressService {
         const data: ProgressData = JSON.parse(content);
 
         if (!this.validateProgressData(data)) {
-          console.warn('Invalid progress data format, resetting progress');
+          console.warn("Invalid progress data format, resetting progress");
           return {};
         }
 
@@ -86,7 +86,7 @@ export class ProgressService {
         const data: ProgressData = JSON.parse(stored);
 
         if (!this.validateProgressData(data)) {
-          console.warn('Invalid progress data format, resetting progress');
+          console.warn("Invalid progress data format, resetting progress");
           localStorage.removeItem(key);
           return {};
         }
@@ -104,7 +104,7 @@ export class ProgressService {
         return progressMap;
       }
     } catch (error) {
-      console.error('Error loading progress:', error);
+      console.error("Error loading progress:", error);
       return {};
     }
   }
@@ -147,7 +147,7 @@ export class ProgressService {
         localStorage.setItem(key, content);
       }
     } catch (error) {
-      console.error('Error saving progress:', error);
+      console.error("Error saving progress:", error);
       throw error;
     }
   }
@@ -159,7 +159,7 @@ export class ProgressService {
    */
   static getReadyCardsCount(progress: Record<string, StudyProgress>): number {
     const now = new Date();
-    return Object.values(progress).filter(p => new Date(p.nextReview) <= now).length;
+    return Object.values(progress).filter((p) => new Date(p.nextReview) <= now).length;
   }
 
   /**
@@ -168,12 +168,9 @@ export class ProgressService {
    * @param progress - The progress map
    * @returns Arrow IDs that are due for review
    */
-  static getReadyArrows(
-    arrowIds: string[],
-    progress: Record<string, StudyProgress>
-  ): string[] {
+  static getReadyArrows(arrowIds: string[], progress: Record<string, StudyProgress>): string[] {
     const now = new Date();
-    return arrowIds.filter(arrowId => {
+    return arrowIds.filter((arrowId) => {
       const arrowProgress = progress[arrowId];
       if (!arrowProgress) return true; // New arrows are always ready
       return new Date(arrowProgress.nextReview) <= now;
@@ -185,10 +182,7 @@ export class ProgressService {
    * @param flashcardSetId - The ID of the flashcard set
    * @param flashcardSetFilePath - The file path of the flashcard set (for desktop version)
    */
-  static async clearProgress(
-    flashcardSetId: string,
-    flashcardSetFilePath?: string
-  ): Promise<void> {
+  static async clearProgress(flashcardSetId: string, flashcardSetFilePath?: string): Promise<void> {
     try {
       const tauriAPI = await getTauriAPI();
 
@@ -200,7 +194,7 @@ export class ProgressService {
         // Write empty progress file
         const emptyProgress: ProgressData = {
           flashcardSetId,
-          flashcardSetName: '',
+          flashcardSetName: "",
           progress: {},
           lastUpdated: new Date(),
           version: this.PROGRESS_VERSION,
@@ -212,7 +206,7 @@ export class ProgressService {
         localStorage.removeItem(key);
       }
     } catch (error) {
-      console.error('Error clearing progress:', error);
+      console.error("Error clearing progress:", error);
       throw error;
     }
   }
@@ -225,10 +219,10 @@ export class ProgressService {
     // Extract filename without extension
     const pathParts = flashcardSetFilePath.split(/[/\\]/);
     const filename = pathParts[pathParts.length - 1];
-    const nameWithoutExt = filename.replace(/\.json$/, '');
+    const nameWithoutExt = filename.replace(/\.json$/, "");
 
     // Detect the path separator used in the original path
-    const separator = flashcardSetFilePath.includes('\\') ? '\\' : '/';
+    const separator = flashcardSetFilePath.includes("\\") ? "\\" : "/";
 
     // Store in same directory as flashcard set
     const directory = pathParts.slice(0, -1).join(separator);
@@ -242,26 +236,27 @@ export class ProgressService {
     try {
       return (
         data &&
-        typeof data.flashcardSetId === 'string' &&
-        typeof data.version === 'string' &&
+        typeof data.flashcardSetId === "string" &&
+        typeof data.version === "string" &&
         data.progress &&
-        typeof data.progress === 'object' &&
+        typeof data.progress === "object" &&
         data.lastUpdated &&
         // Validate each progress entry
-        Object.entries(data.progress).every(([arrowId, progress]: [string, any]) =>
-          typeof arrowId === 'string' &&
-          progress &&
-          typeof progress.arrowId === 'string' &&
-          typeof progress.timesStudied === 'number' &&
-          typeof progress.timesCorrect === 'number' &&
-          typeof progress.easeFactor === 'number' &&
-          typeof progress.interval === 'number' &&
-          progress.lastStudied &&
-          progress.nextReview
+        Object.entries(data.progress).every(
+          ([arrowId, progress]: [string, any]) =>
+            typeof arrowId === "string" &&
+            progress &&
+            typeof progress.arrowId === "string" &&
+            typeof progress.timesStudied === "number" &&
+            typeof progress.timesCorrect === "number" &&
+            typeof progress.easeFactor === "number" &&
+            typeof progress.interval === "number" &&
+            progress.lastStudied &&
+            progress.nextReview
         )
       );
     } catch (error) {
-      console.error('Progress validation error:', error);
+      console.error("Progress validation error:", error);
       return false;
     }
   }

@@ -1,5 +1,5 @@
 // Phase 3: Spaced Repetition Algorithm
-import { StudyProgress } from '../types';
+import { StudyProgress } from "../types";
 
 export class SpacedRepetitionAlgorithm {
   private static readonly MIN_EASE_FACTOR = 1.3;
@@ -67,7 +67,7 @@ export class SpacedRepetitionAlgorithm {
   static getCardsForReview(progressList: StudyProgress[], limit: number = 20): StudyProgress[] {
     const now = new Date();
     return progressList
-      .filter(progress => progress.nextReview <= now)
+      .filter((progress) => progress.nextReview <= now)
       .sort((a, b) => a.nextReview.getTime() - b.nextReview.getTime())
       .slice(0, limit);
   }

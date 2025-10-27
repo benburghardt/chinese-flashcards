@@ -1,7 +1,7 @@
-use rusqlite::{Connection, Result};
 use crate::EnrichedEntry;
-use std::path::Path;
+use rusqlite::{Connection, Result};
 use std::collections::HashMap;
+use std::path::Path;
 
 pub fn create_database(entries: Vec<EnrichedEntry>, output_path: &str) -> Result<()> {
     // Delete existing database
@@ -36,7 +36,7 @@ fn insert_characters(conn: &Connection, entries: Vec<EnrichedEntry>) -> Result<(
         "INSERT OR IGNORE INTO characters (
             character, simplified, traditional, mandarin_pinyin,
             definition, frequency_rank, is_word
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
     )?;
 
     let mut inserted = 0;
@@ -72,13 +72,18 @@ fn insert_characters(conn: &Connection, entries: Vec<EnrichedEntry>) -> Result<(
             seen_characters.insert(cedict.simplified.clone(), 1);
         } else {
             // Character already exists - this is a duplicate entry
-            *seen_characters.entry(cedict.simplified.clone()).or_insert(0) += 1;
+            *seen_characters
+                .entry(cedict.simplified.clone())
+                .or_insert(0) += 1;
             duplicates += 1;
         }
     }
 
     println!("  Inserted {} unique characters/words", inserted);
-    println!("  Skipped {} duplicate entries (multiple CEDICT entries for same character)", duplicates);
+    println!(
+        "  Skipped {} duplicate entries (multiple CEDICT entries for same character)",
+        duplicates
+    );
 
     Ok(())
 }
@@ -138,9 +143,9 @@ pub fn populate_component_characters(db_path: &str) -> Result<(), Box<dyn std::e
     // Get all words
     let words: Vec<(i32, String)> = {
         let mut stmt = conn.prepare("SELECT id, character FROM characters WHERE is_word = 1")?;
-        let result = stmt.query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })?.collect::<Result<Vec<_>>>()?;
+        let result = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>>>()?;
         result
     };
 
@@ -153,7 +158,8 @@ pub fn populate_component_characters(db_path: &str) -> Result<(), Box<dyn std::e
     let mut skipped = 0;
 
     {
-        let mut update_stmt = tx.prepare("UPDATE characters SET component_characters = ?1 WHERE id = ?2")?;
+        let mut update_stmt =
+            tx.prepare("UPDATE characters SET component_characters = ?1 WHERE id = ?2")?;
 
         for (i, (word_id, word_char)) in words.iter().enumerate() {
             if i % 10000 == 0 && i > 0 {
@@ -185,7 +191,10 @@ pub fn populate_component_characters(db_path: &str) -> Result<(), Box<dyn std::e
     tx.commit()?;
 
     println!("  ✓ Updated: {} words", updated);
-    println!("  ⊗ Skipped: {} words (missing component characters)", skipped);
+    println!(
+        "  ⊗ Skipped: {} words (missing component characters)",
+        skipped
+    );
 
     Ok(())
 }
@@ -202,9 +211,8 @@ pub fn populate_introduction_ranks(db_path: &str) -> Result<(), Box<dyn std::err
 
     // Calculate score for each character/word
     let scored_items: Vec<ScoredItem> = {
-        let mut stmt = conn.prepare(
-            "SELECT id, frequency_rank, is_word, component_characters FROM characters"
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT id, frequency_rank, is_word, component_characters FROM characters")?;
 
         let items: Vec<(i32, i32, bool, Option<String>)> = stmt
             .query_map([], |row| {
@@ -231,7 +239,7 @@ pub fn populate_introduction_ranks(db_path: &str) -> Result<(), Box<dyn std::err
                             if let Ok(rank) = conn.query_row(
                                 "SELECT frequency_rank FROM characters WHERE id = ?1",
                                 [comp_id],
-                                |row| row.get::<_, i32>(0)
+                                |row| row.get::<_, i32>(0),
                             ) {
                                 max_component_rank = max_component_rank.max(rank);
                             }
@@ -258,7 +266,11 @@ pub fn populate_introduction_ranks(db_path: &str) -> Result<(), Box<dyn std::err
 
     // Sort by score to determine rank
     let mut sorted_items = scored_items;
-    sorted_items.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+    sorted_items.sort_by(|a, b| {
+        a.score
+            .partial_cmp(&b.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     println!("  Assigning introduction ranks...");
 
@@ -266,7 +278,8 @@ pub fn populate_introduction_ranks(db_path: &str) -> Result<(), Box<dyn std::err
     let tx = conn.transaction()?;
 
     {
-        let mut update_stmt = tx.prepare("UPDATE characters SET introduction_rank = ?1 WHERE id = ?2")?;
+        let mut update_stmt =
+            tx.prepare("UPDATE characters SET introduction_rank = ?1 WHERE id = ?2")?;
 
         for (rank, item) in sorted_items.iter().enumerate() {
             update_stmt.execute(rusqlite::params![rank + 1, item.id])?;
@@ -275,13 +288,19 @@ pub fn populate_introduction_ranks(db_path: &str) -> Result<(), Box<dyn std::err
 
     tx.commit()?;
 
-    println!("  ✓ Assigned introduction ranks to {} items", sorted_items.len());
+    println!(
+        "  ✓ Assigned introduction ranks to {} items",
+        sorted_items.len()
+    );
 
     Ok(())
 }
 
 /// Apply definition overrides from JSON file if it exists
-pub fn apply_definition_overrides(db_path: &str, overrides_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn apply_definition_overrides(
+    db_path: &str,
+    overrides_path: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     if !std::path::Path::new(overrides_path).exists() {
         println!("  ⊗ No definition overrides found ({})", overrides_path);
         return Ok(());
@@ -293,6 +312,7 @@ pub fn apply_definition_overrides(db_path: &str, overrides_path: &str) -> Result
     #[derive(serde::Deserialize)]
     struct DefinitionOverride {
         character_id: i32,
+        #[allow(dead_code)]
         character: String,
         updated_definition: String,
     }
@@ -311,11 +331,14 @@ pub fn apply_definition_overrides(db_path: &str, overrides_path: &str) -> Result
     for override_item in &overrides {
         match conn.execute(
             "UPDATE characters SET definition = ?1, updated_at = datetime('now') WHERE id = ?2",
-            rusqlite::params![&override_item.updated_definition, override_item.character_id]
+            rusqlite::params![
+                &override_item.updated_definition,
+                override_item.character_id
+            ],
         ) {
             Ok(rows) if rows > 0 => {
                 applied += 1;
-            },
+            }
             _ => {
                 skipped += 1;
             }
@@ -336,13 +359,13 @@ pub fn verify_database(path: &str) -> Result<()> {
     let char_count: i32 = conn.query_row(
         "SELECT COUNT(*) FROM characters WHERE is_word = 0",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
 
     let word_count: i32 = conn.query_row(
         "SELECT COUNT(*) FROM characters WHERE is_word = 1",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
 
     println!("\n=== Database Verification ===");
@@ -355,7 +378,7 @@ pub fn verify_database(path: &str) -> Result<()> {
          FROM characters c
          WHERE c.is_word = 0
          ORDER BY c.frequency_rank ASC
-         LIMIT 30"
+         LIMIT 30",
     )?;
 
     println!("\n=== Top 30 Characters (Will be auto-initialized on first run) ===");

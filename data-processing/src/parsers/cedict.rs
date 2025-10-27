@@ -7,7 +7,7 @@ pub struct CedictEntry {
     pub simplified: String,
     pub pinyin: String,
     pub definitions: Vec<String>,
-    pub is_word: bool,  // true if multi-character
+    pub is_word: bool, // true if multi-character
 }
 
 pub fn parse_cedict_file(path: &str) -> Result<Vec<CedictEntry>, Box<dyn std::error::Error>> {
@@ -62,15 +62,15 @@ fn parse_cedict_line(line: &str) -> Option<CedictEntry> {
         .filter(|s| {
             let lower = s.to_lowercase();
             // Filter out unwanted definition types
-            !lower.starts_with("variant") &&
-            !lower.starts_with("erhua variant") &&
-            !lower.starts_with("old variant") &&
-            !lower.starts_with("used in") &&
-            !lower.starts_with("surname") &&
-            !lower.starts_with("abbr.")
+            !lower.starts_with("variant")
+                && !lower.starts_with("erhua variant")
+                && !lower.starts_with("old variant")
+                && !lower.starts_with("used in")
+                && !lower.starts_with("surname")
+                && !lower.starts_with("abbr.")
         })
         .map(|s| s.trim().to_string())
-        .take(3)  // Keep only first 3 definitions
+        .take(3) // Keep only first 3 definitions
         .collect();
 
     if definitions.is_empty() {

@@ -3,22 +3,20 @@ use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Path to the database
-    let db_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| {
-            // Default to resources directory
-            let project_root = std::env::current_dir()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .to_path_buf();
-            project_root
-                .join("src-tauri")
-                .join("resources")
-                .join("chinese.db")
-                .to_string_lossy()
-                .to_string()
-        });
+    let db_path = std::env::args().nth(1).unwrap_or_else(|| {
+        // Default to resources directory
+        let project_root = std::env::current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        project_root
+            .join("src-tauri")
+            .join("resources")
+            .join("chinese.db")
+            .to_string_lossy()
+            .to_string()
+    });
 
     println!("=== Populating Component Characters ===");
     println!("Database: {}\n", db_path);
@@ -29,9 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Building character lookup map...");
     let char_to_id: HashMap<String, i32> = {
         let mut map = HashMap::new();
-        let mut stmt = conn.prepare(
-            "SELECT id, character FROM characters WHERE is_word = 0"
-        )?;
+        let mut stmt = conn.prepare("SELECT id, character FROM characters WHERE is_word = 0")?;
 
         let chars: Vec<(i32, String)> = stmt
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
@@ -48,11 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Now, process all words
     println!("Processing words...");
     let words: Vec<(i32, String)> = {
-        let mut stmt = conn.prepare(
-            "SELECT id, simplified FROM characters WHERE is_word = 1"
-        )?;
+        let mut stmt = conn.prepare("SELECT id, simplified FROM characters WHERE is_word = 1")?;
 
-        let result = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        let result = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<Result<Vec<_>>>()?;
         result
     }; // stmt is dropped here
@@ -98,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Update the word's component_characters field
             tx.execute(
                 "UPDATE characters SET component_characters = ?1 WHERE id = ?2",
-                rusqlite::params![component_str, word_id]
+                rusqlite::params![component_str, word_id],
             )?;
 
             updated += 1;
@@ -116,7 +111,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n=== Results ===");
     println!("✓ Updated: {} words", updated);
-    println!("⊗ Skipped: {} words (missing component characters)", skipped);
+    println!(
+        "⊗ Skipped: {} words (missing component characters)",
+        skipped
+    );
 
     if !missing_chars.is_empty() {
         println!("\nMissing characters (first 20):");

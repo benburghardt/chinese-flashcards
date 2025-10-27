@@ -12,20 +12,60 @@
  */
 const TONE_MARKS: Record<string, string> = {
   // Tone 1 (ā)
-  'ā': 'a1', 'ē': 'e1', 'ī': 'i1', 'ō': 'o1', 'ū': 'u1', 'ǖ': 'v1',
-  'Ā': 'A1', 'Ē': 'E1', 'Ī': 'I1', 'Ō': 'O1', 'Ū': 'U1', 'Ǖ': 'V1',
+  ā: "a1",
+  ē: "e1",
+  ī: "i1",
+  ō: "o1",
+  ū: "u1",
+  ǖ: "v1",
+  Ā: "A1",
+  Ē: "E1",
+  Ī: "I1",
+  Ō: "O1",
+  Ū: "U1",
+  Ǖ: "V1",
 
   // Tone 2 (á)
-  'á': 'a2', 'é': 'e2', 'í': 'i2', 'ó': 'o2', 'ú': 'u2', 'ǘ': 'v2',
-  'Á': 'A2', 'É': 'E2', 'Í': 'I2', 'Ó': 'O2', 'Ú': 'U2', 'Ǘ': 'V2',
+  á: "a2",
+  é: "e2",
+  í: "i2",
+  ó: "o2",
+  ú: "u2",
+  ǘ: "v2",
+  Á: "A2",
+  É: "E2",
+  Í: "I2",
+  Ó: "O2",
+  Ú: "U2",
+  Ǘ: "V2",
 
   // Tone 3 (ǎ)
-  'ǎ': 'a3', 'ě': 'e3', 'ǐ': 'i3', 'ǒ': 'o3', 'ǔ': 'u3', 'ǚ': 'v3',
-  'Ǎ': 'A3', 'Ě': 'E3', 'Ǐ': 'I3', 'Ǒ': 'O3', 'Ǔ': 'U3', 'Ǚ': 'V3',
+  ǎ: "a3",
+  ě: "e3",
+  ǐ: "i3",
+  ǒ: "o3",
+  ǔ: "u3",
+  ǚ: "v3",
+  Ǎ: "A3",
+  Ě: "E3",
+  Ǐ: "I3",
+  Ǒ: "O3",
+  Ǔ: "U3",
+  Ǚ: "V3",
 
   // Tone 4 (à)
-  'à': 'a4', 'è': 'e4', 'ì': 'i4', 'ò': 'o4', 'ù': 'u4', 'ǜ': 'v4',
-  'À': 'A4', 'È': 'E4', 'Ì': 'I4', 'Ò': 'O4', 'Ù': 'U4', 'Ǜ': 'V4',
+  à: "a4",
+  è: "e4",
+  ì: "i4",
+  ò: "o4",
+  ù: "u4",
+  ǜ: "v4",
+  À: "A4",
+  È: "E4",
+  Ì: "I4",
+  Ò: "O4",
+  Ù: "U4",
+  Ǜ: "V4",
 };
 
 /**
@@ -47,24 +87,24 @@ const TONE_MARKS: Record<string, string> = {
 export function convertToneNumbersToMarks(pinyin: string): string {
   // Mapping of tone numbers to tone marks for each vowel
   const toneMap: Record<string, string[]> = {
-    'a': ['a', 'ā', 'á', 'ǎ', 'à'],
-    'e': ['e', 'ē', 'é', 'ě', 'è'],
-    'i': ['i', 'ī', 'í', 'ǐ', 'ì'],
-    'o': ['o', 'ō', 'ó', 'ǒ', 'ò'],
-    'u': ['u', 'ū', 'ú', 'ǔ', 'ù'],
-    'v': ['ü', 'ǖ', 'ǘ', 'ǚ', 'ǜ'],
+    a: ["a", "ā", "á", "ǎ", "à"],
+    e: ["e", "ē", "é", "ě", "è"],
+    i: ["i", "ī", "í", "ǐ", "ì"],
+    o: ["o", "ō", "ó", "ǒ", "ò"],
+    u: ["u", "ū", "ú", "ǔ", "ù"],
+    v: ["ü", "ǖ", "ǘ", "ǚ", "ǜ"],
   };
 
   // All accented vowels (to detect if already has tone mark)
   const accentedVowels = /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ]/;
 
   let input = pinyin.toLowerCase().trim();
-  if (!input) return '';
+  if (!input) return "";
 
   // Split by spaces to handle multi-word pinyin (e.g., "ni3 hao3")
   const words = input.split(/\s+/);
-  const processedWords = words.map(word => {
-    let result = '';
+  const processedWords = words.map((word) => {
+    let result = "";
     let i = 0;
     let hasAccentInCurrentSyllable = false; // Track if current syllable already has accent
 
@@ -72,7 +112,9 @@ export function convertToneNumbersToMarks(pinyin: string): string {
       // Try to match a syllable with tone number(s)
       // Pattern: optional consonants + vowel cluster + optional consonants + tone number(s)
       // Note: We capture ALL tone numbers but only use the first one
-      const syllableMatch = word.slice(i).match(/^([bcdfghjklmnpqrstwxyz]*)([aeiouv]+)([bcdfghjklmnpqrstwxyzng]*)([1-5]+)/i);
+      const syllableMatch = word
+        .slice(i)
+        .match(/^([bcdfghjklmnpqrstwxyz]*)([aeiouv]+)([bcdfghjklmnpqrstwxyzng]*)([1-5]+)/i);
 
       if (syllableMatch && !hasAccentInCurrentSyllable) {
         const [fullMatch, consonantPrefix, vowelCluster, consonantSuffix, toneStr] = syllableMatch;
@@ -86,30 +128,30 @@ export function convertToneNumbersToMarks(pinyin: string): string {
           // Priority: a > o > e > (second vowel in "iu" or "ui") > i > u > ü
           let markedVowels = vowelCluster.toLowerCase();
 
-          if (markedVowels.includes('a')) {
+          if (markedVowels.includes("a")) {
             // Mark 'a' - always takes precedence
-            markedVowels = markedVowels.replace('a', toneMap['a'][toneNum]);
-          } else if (markedVowels.includes('o')) {
+            markedVowels = markedVowels.replace("a", toneMap["a"][toneNum]);
+          } else if (markedVowels.includes("o")) {
             // Mark 'o' - second priority
-            markedVowels = markedVowels.replace('o', toneMap['o'][toneNum]);
-          } else if (markedVowels.includes('e')) {
+            markedVowels = markedVowels.replace("o", toneMap["o"][toneNum]);
+          } else if (markedVowels.includes("e")) {
             // Mark 'e' - third priority
-            markedVowels = markedVowels.replace('e', toneMap['e'][toneNum]);
-          } else if (markedVowels === 'iu') {
+            markedVowels = markedVowels.replace("e", toneMap["e"][toneNum]);
+          } else if (markedVowels === "iu") {
             // Special case: 'iu' - mark the 'u'
-            markedVowels = 'i' + toneMap['u'][toneNum];
-          } else if (markedVowels === 'ui') {
+            markedVowels = "i" + toneMap["u"][toneNum];
+          } else if (markedVowels === "ui") {
             // Special case: 'ui' - mark the 'i'
-            markedVowels = 'u' + toneMap['i'][toneNum];
-          } else if (markedVowels.includes('i')) {
+            markedVowels = "u" + toneMap["i"][toneNum];
+          } else if (markedVowels.includes("i")) {
             // Mark 'i' when it appears alone or as first vowel
-            markedVowels = markedVowels.replace('i', toneMap['i'][toneNum]);
-          } else if (markedVowels.includes('u')) {
+            markedVowels = markedVowels.replace("i", toneMap["i"][toneNum]);
+          } else if (markedVowels.includes("u")) {
             // Mark 'u'
-            markedVowels = markedVowels.replace('u', toneMap['u'][toneNum]);
-          } else if (markedVowels.includes('v')) {
+            markedVowels = markedVowels.replace("u", toneMap["u"][toneNum]);
+          } else if (markedVowels.includes("v")) {
             // Mark 'v' (ü)
-            markedVowels = markedVowels.replace('v', toneMap['v'][toneNum]);
+            markedVowels = markedVowels.replace("v", toneMap["v"][toneNum]);
           }
 
           result += consonantPrefix + markedVowels + consonantSuffix;
@@ -140,7 +182,7 @@ export function convertToneNumbersToMarks(pinyin: string): string {
 
           // Check if this character marks a syllable boundary
           // Reset accent flag when we encounter a consonant after vowels
-          const prevChar = i > 0 ? word[i - 1] : '';
+          const prevChar = i > 0 ? word[i - 1] : "";
           const isVowel = /[aeiouv]/i.test(char);
           const isPrevVowel = /[aeiouv]/i.test(prevChar) || accentedVowels.test(prevChar);
 
@@ -156,7 +198,7 @@ export function convertToneNumbersToMarks(pinyin: string): string {
     return result;
   });
 
-  return processedWords.join('');
+  return processedWords.join("");
 }
 
 /**
@@ -172,16 +214,37 @@ export function convertToneNumbersToMarks(pinyin: string): string {
  * IMPORTANT: If input already has tone numbers (e.g., "ren2"), leave them unchanged!
  */
 export function convertToneMarksToNumbers(pinyin: string): string {
-  if (!pinyin) return '';
+  if (!pinyin) return "";
 
-  let result = '';
+  let result = "";
   const input = pinyin.trim();
-  const vowels = new Set(['a', 'e', 'i', 'o', 'u', 'v', 'ü', 'A', 'E', 'I', 'O', 'U', 'V', 'Ü']);
-  const consonants = new Set(['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'w', 'x', 'y', 'z']);
+  const vowels = new Set(["a", "e", "i", "o", "u", "v", "ü", "A", "E", "I", "O", "U", "V", "Ü"]);
+  const consonants = new Set([
+    "b",
+    "c",
+    "d",
+    "f",
+    "g",
+    "h",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "w",
+    "x",
+    "y",
+    "z",
+  ]);
 
   let i = 0;
-  let currentSyllable = '';
-  let currentTone = ''; // Store tone to be appended at syllable end
+  let currentSyllable = "";
+  let currentTone = ""; // Store tone to be appended at syllable end
 
   const finishSyllable = () => {
     if (currentSyllable) {
@@ -191,14 +254,14 @@ export function convertToneMarksToNumbers(pinyin: string): string {
         result += currentTone;
       } else {
         // If syllable has vowels but no tone mark AND no existing tone number, it's tone 5 (neutral)
-        const hasVowel = [...currentSyllable].some(c => vowels.has(c));
+        const hasVowel = [...currentSyllable].some((c) => vowels.has(c));
         const hasToneNumber = /[1-5]$/.test(currentSyllable);
         if (hasVowel && !hasToneNumber) {
-          result += '5';
+          result += "5";
         }
       }
-      currentSyllable = '';
-      currentTone = '';
+      currentSyllable = "";
+      currentTone = "";
     }
   };
 
@@ -206,7 +269,7 @@ export function convertToneMarksToNumbers(pinyin: string): string {
     const char = input[i];
 
     // Space or dash = syllable boundary
-    if (char === ' ' || char === '-') {
+    if (char === " " || char === "-") {
       finishSyllable();
       i++;
       continue;
@@ -227,7 +290,7 @@ export function convertToneMarksToNumbers(pinyin: string): string {
 
       // Look ahead: collect any remaining vowels in this cluster
       let j = i + 1;
-      while (j < input.length && vowels.has(input[j]) && input[j] !== ' ' && input[j] !== '-') {
+      while (j < input.length && vowels.has(input[j]) && input[j] !== " " && input[j] !== "-") {
         const nextChar = input[j];
 
         // Check if next vowel is also accented
@@ -235,8 +298,8 @@ export function convertToneMarksToNumbers(pinyin: string): string {
         if (nextToneInfo) {
           // Another accented vowel - just add the base letter
           currentSyllable += nextToneInfo[0].toLowerCase();
-        } else if (nextChar === 'ü' || nextChar === 'Ü') {
-          currentSyllable += 'v';
+        } else if (nextChar === "ü" || nextChar === "Ü") {
+          currentSyllable += "v";
         } else {
           currentSyllable += nextChar.toLowerCase();
         }
@@ -244,16 +307,21 @@ export function convertToneMarksToNumbers(pinyin: string): string {
       }
 
       i = j;
-    } else if (char === 'ü' || char === 'Ü') {
+    } else if (char === "ü" || char === "Ü") {
       // Handle unaccented ü -> v conversion
-      currentSyllable += 'v';
+      currentSyllable += "v";
       i++;
     } else if (/[1-5]/.test(char)) {
       // Tone number found - store it to be added at syllable end
       currentTone = char;
       // Tone number typically ends a syllable (unless followed by more tone numbers)
       // Peek ahead to see if we should finish
-      if (i + 1 >= input.length || (input[i + 1] !== ' ' && input[i + 1] !== '-' && /[bcdfghjklmnpqrstwxyz]/i.test(input[i + 1]))) {
+      if (
+        i + 1 >= input.length ||
+        (input[i + 1] !== " " &&
+          input[i + 1] !== "-" &&
+          /[bcdfghjklmnpqrstwxyz]/i.test(input[i + 1]))
+      ) {
         // Next is a consonant (start of new syllable) or end of string
         finishSyllable();
       }
@@ -263,9 +331,18 @@ export function convertToneMarksToNumbers(pinyin: string): string {
       const lowerChar = char.toLowerCase();
 
       // Check if we're starting a new syllable (consonant after vowels)
-      if (currentSyllable && vowels.has(currentSyllable[currentSyllable.length - 1]) && consonants.has(lowerChar)) {
-        // Special case: 'ng' and 'n' at end of syllable are part of the same syllable
-        if (!(lowerChar === 'n' || lowerChar === 'g')) {
+      if (
+        currentSyllable &&
+        vowels.has(currentSyllable[currentSyllable.length - 1]) &&
+        consonants.has(lowerChar)
+      ) {
+        // Special cases for consonants that can be part of the same syllable:
+        // - 'ng' and 'n' at end of syllable
+        // - 'r' after 'e' (the special "er" rhotic syllable)
+        const isPartOfSameSyllable =
+          lowerChar === "n" || lowerChar === "g" || (lowerChar === "r" && currentSyllable === "e");
+
+        if (!isPartOfSameSyllable) {
           finishSyllable();
         }
       }
@@ -296,7 +373,7 @@ export function normalizePinyin(pinyin: string): string {
 
   // Remove spaces between syllables for flexible matching
   // But preserve the string structure
-  normalized = normalized.replace(/\s+/g, '');
+  normalized = normalized.replace(/\s+/g, "");
 
   return normalized;
 }
@@ -315,17 +392,15 @@ export function verifyPinyin(userAnswer: string, correctAnswer: string): boolean
   const normalizedUser = normalizePinyin(userAnswer);
 
   // Handle multiple valid pronunciations (separated by semicolons or slashes)
-  const validPronunciations = correctAnswer
-    .split(/[;/]/)
-    .map(p => normalizePinyin(p.trim()));
+  const validPronunciations = correctAnswer.split(/[;/]/).map((p) => normalizePinyin(p.trim()));
 
   // Debug logging
-  console.log('[verifyPinyin] User:', userAnswer, '→', normalizedUser);
-  console.log('[verifyPinyin] Correct:', correctAnswer, '→', validPronunciations);
+  console.log("[verifyPinyin] User:", userAnswer, "→", normalizedUser);
+  console.log("[verifyPinyin] Correct:", correctAnswer, "→", validPronunciations);
 
   // Check if user's answer matches any valid pronunciation
-  const result = validPronunciations.some(valid => normalizedUser === valid);
-  console.log('[verifyPinyin] Match:', result);
+  const result = validPronunciations.some((valid) => normalizedUser === valid);
+  console.log("[verifyPinyin] Match:", result);
 
   return result;
 }
@@ -336,21 +411,33 @@ export function verifyPinyin(userAnswer: string, correctAnswer: string): boolean
  * Removes common articles and prepositions
  */
 export function extractKeywords(definition: string): string[] {
-  const commonWords = new Set(['a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'by']);
+  const commonWords = new Set([
+    "a",
+    "an",
+    "the",
+    "to",
+    "of",
+    "in",
+    "on",
+    "at",
+    "for",
+    "with",
+    "by",
+  ]);
 
   // Split on semicolons, commas, and "or"
   const parts = definition
     .toLowerCase()
     .split(/[;,]|\s+or\s+/)
-    .map(part => part.trim())
-    .filter(part => part.length > 0);
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
 
   // For each part, extract meaningful words
   const keywords: string[] = [];
 
   for (const part of parts) {
     // Remove parenthetical content
-    const cleaned = part.replace(/\([^)]*\)/g, '').trim();
+    const cleaned = part.replace(/\([^)]*\)/g, "").trim();
 
     // If nothing remains after removing parentheses, extract from inside parentheses
     // This handles characters like 了 that only have parenthetical definitions
@@ -359,12 +446,12 @@ export function extractKeywords(definition: string): string[] {
       if (parentheticalMatch) {
         const insideParens = parentheticalMatch[1].trim();
         // Remove any classifier markers or pinyin inside brackets
-        const cleanedParens = insideParens.replace(/\[[^\]]*\]/g, '').trim();
+        const cleanedParens = insideParens.replace(/\[[^\]]*\]/g, "").trim();
         if (cleanedParens.length > 0) {
           keywords.push(cleanedParens);
           const parenWords = cleanedParens
             .split(/\s+/)
-            .filter(word => word.length > 0 && !commonWords.has(word));
+            .filter((word) => word.length > 0 && !commonWords.has(word));
           keywords.push(...parenWords);
         }
       }
@@ -372,9 +459,7 @@ export function extractKeywords(definition: string): string[] {
     }
 
     // Split into words and filter out common words
-    const words = cleaned
-      .split(/\s+/)
-      .filter(word => word.length > 0 && !commonWords.has(word));
+    const words = cleaned.split(/\s+/).filter((word) => word.length > 0 && !commonWords.has(word));
 
     // Add the whole phrase as one keyword
     if (cleaned.length > 0) {
@@ -412,7 +497,7 @@ export function verifyDefinition(userAnswer: string, correctDefinition: string):
   // This handles both:
   // - User typing a subset (e.g., "study" for "to study; to learn")
   // - User typing more (e.g., "to study hard" for "to study")
-  const matches = keywords.some(keyword => {
+  const matches = keywords.some((keyword) => {
     return normalizedUser.includes(keyword) || keyword.includes(normalizedUser);
   });
 
@@ -438,10 +523,10 @@ function removeTones(pinyin: string): string {
   result = convertToneMarksToNumbers(result);
 
   // Remove all tone numbers (1-5)
-  result = result.replace(/[12345]/g, '');
+  result = result.replace(/[12345]/g, "");
 
   // Remove spaces
-  result = result.replace(/\s+/g, '');
+  result = result.replace(/\s+/g, "");
 
   return result;
 }
@@ -459,12 +544,10 @@ export function hasCorrectSyllablesButWrongTones(
   const userNoTones = removeTones(userAnswer);
 
   // Handle multiple valid pronunciations
-  const validPronunciations = correctAnswer
-    .split(/[;/]/)
-    .map(p => removeTones(p.trim()));
+  const validPronunciations = correctAnswer.split(/[;/]/).map((p) => removeTones(p.trim()));
 
   // Check if syllables match any valid pronunciation
-  const syllablesMatch = validPronunciations.some(valid => userNoTones === valid);
+  const syllablesMatch = validPronunciations.some((valid) => userNoTones === valid);
 
   // Only return true if syllables match but the full answer (with tones) doesn't
   const fullMatch = verifyPinyin(userAnswer, correctAnswer);
@@ -475,9 +558,9 @@ export function hasCorrectSyllablesButWrongTones(
 export function verifyAnswer(
   userAnswer: string,
   correctAnswer: string,
-  questionType: 'pinyin' | 'definition'
+  questionType: "pinyin" | "definition"
 ): boolean {
-  if (questionType === 'pinyin') {
+  if (questionType === "pinyin") {
     return verifyPinyin(userAnswer, correctAnswer);
   } else {
     return verifyDefinition(userAnswer, correctAnswer);
@@ -491,20 +574,18 @@ export function verifyAnswer(
 export function debugVerification(
   userAnswer: string,
   correctAnswer: string,
-  questionType: 'pinyin' | 'definition'
+  questionType: "pinyin" | "definition"
 ): {
   isCorrect: boolean;
   normalizedUser: string;
   normalizedCorrect: string | string[];
   matched?: string;
 } {
-  if (questionType === 'pinyin') {
+  if (questionType === "pinyin") {
     const normalizedUser = normalizePinyin(userAnswer);
-    const validPronunciations = correctAnswer
-      .split(/[;/]/)
-      .map(p => normalizePinyin(p.trim()));
+    const validPronunciations = correctAnswer.split(/[;/]/).map((p) => normalizePinyin(p.trim()));
 
-    const matched = validPronunciations.find(valid => normalizedUser === valid);
+    const matched = validPronunciations.find((valid) => normalizedUser === valid);
 
     return {
       isCorrect: !!matched,
@@ -515,8 +596,8 @@ export function debugVerification(
   } else {
     const normalizedUser = userAnswer.toLowerCase().trim();
     const keywords = extractKeywords(correctAnswer);
-    const matched = keywords.find(keyword =>
-      normalizedUser.includes(keyword) || keyword.includes(normalizedUser)
+    const matched = keywords.find(
+      (keyword) => normalizedUser.includes(keyword) || keyword.includes(normalizedUser)
     );
 
     return {

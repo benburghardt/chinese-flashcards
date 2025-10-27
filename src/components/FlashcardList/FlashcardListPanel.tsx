@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Flashcard } from '../../types';
+import { useState } from "react";
+import { Flashcard } from "../../types";
 
 interface FlashcardListPanelProps {
   flashcards: Flashcard[];
@@ -22,10 +22,10 @@ export const FlashcardListPanel: React.FC<FlashcardListPanelProps> = ({
   onFlashcardReorder,
   onCreateFlashcard,
   onDuplicateStructure,
-  canDuplicate
+  canDuplicate,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState<string>('');
+  const [editingName, setEditingName] = useState<string>("");
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleStartEditing = (flashcard: Flashcard) => {
@@ -34,11 +34,11 @@ export const FlashcardListPanel: React.FC<FlashcardListPanelProps> = ({
   };
 
   const handleFinishEditing = (flashcardId: string) => {
-    if (editingName.trim() !== '') {
+    if (editingName.trim() !== "") {
       onFlashcardRename(flashcardId, editingName.trim());
     }
     setEditingId(null);
-    setEditingName('');
+    setEditingName("");
   };
 
   const handleDragStart = (index: number) => {
@@ -92,7 +92,7 @@ export const FlashcardListPanel: React.FC<FlashcardListPanelProps> = ({
           flashcards.map((flashcard, index) => (
             <div
               key={flashcard.id}
-              className={`flashcard-list-item ${currentFlashcardId === flashcard.id ? 'active' : ''}`}
+              className={`flashcard-list-item ${currentFlashcardId === flashcard.id ? "active" : ""}`}
               draggable
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
@@ -109,11 +109,11 @@ export const FlashcardListPanel: React.FC<FlashcardListPanelProps> = ({
                   onChange={(e) => setEditingName(e.target.value)}
                   onBlur={() => handleFinishEditing(flashcard.id)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       handleFinishEditing(flashcard.id);
-                    } else if (e.key === 'Escape') {
+                    } else if (e.key === "Escape") {
                       setEditingId(null);
-                      setEditingName('');
+                      setEditingName("");
                     }
                   }}
                   autoFocus

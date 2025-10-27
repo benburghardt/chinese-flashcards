@@ -50,7 +50,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .dashboard-loading p {
@@ -143,7 +145,7 @@
 }
 
 .action-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -163,11 +165,11 @@
 }
 
 .action-card.learn-new::before {
-  background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+  background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
 }
 
 .action-card.review-srs::before {
-  background: linear-gradient(90deg, #2196F3 0%, #03A9F4 100%);
+  background: linear-gradient(90deg, #2196f3 0%, #03a9f4 100%);
 }
 
 .action-card.disabled {
@@ -235,12 +237,12 @@
 }
 
 .action-card.learn-new .action-button {
-  background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%);
+  background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
   box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
 }
 
 .action-card.review-srs .action-button {
-  background: linear-gradient(135deg, #2196F3 0%, #03A9F4 100%);
+  background: linear-gradient(135deg, #2196f3 0%, #03a9f4 100%);
   box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
 }
 
@@ -318,7 +320,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #FF9800;
+  background: #ff9800;
   color: white;
   font-size: 11px;
   font-weight: 600;
@@ -484,7 +486,7 @@
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 4px 0;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
 }
 
 .calendar-day.today .calendar-time {

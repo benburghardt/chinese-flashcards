@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import './Dictionary.css';
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { convertToneNumbersToMarks } from "../../utils/answerVerification";
+import "./Dictionary.css";
 
 interface CharacterWithProgress {
   id: number;
@@ -31,7 +32,7 @@ function Dictionary({ onClose }: DictionaryProps) {
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   const PAGE_SIZE = 50;
 
@@ -45,20 +46,20 @@ function Dictionary({ onClose }: DictionaryProps) {
 
   const loadTotalCount = async () => {
     try {
-      const count = await invoke<number>('get_total_items_count');
+      const count = await invoke<number>("get_total_items_count");
       setTotalCount(count);
     } catch (error) {
-      console.error('Failed to load total count:', error);
+      console.error("Failed to load total count:", error);
     }
   };
 
   const loadCharacters = async () => {
     try {
       setLoading(true);
-      setError('');
+      setError("");
 
       const offset = currentPage * PAGE_SIZE;
-      const chars = await invoke<CharacterWithProgress[]>('browse_introduction_order', {
+      const chars = await invoke<CharacterWithProgress[]>("browse_introduction_order", {
         offset,
         limit: PAGE_SIZE,
       });
@@ -66,7 +67,7 @@ function Dictionary({ onClose }: DictionaryProps) {
       setCharacters(chars);
       setLoading(false);
     } catch (error) {
-      console.error('Failed to load characters:', error);
+      console.error("Failed to load characters:", error);
       setError(`Failed to load characters: ${error}`);
       setLoading(false);
     }
@@ -74,26 +75,26 @@ function Dictionary({ onClose }: DictionaryProps) {
 
   const getProgressStatus = (char: CharacterWithProgress): string => {
     if (!char.introduced) {
-      return 'Not Started';
+      return "Not Started";
     }
     if (char.times_reviewed === 0) {
-      return 'New';
+      return "New";
     }
     if (char.times_correct && char.times_reviewed) {
       const accuracy = Math.round((char.times_correct / char.times_reviewed) * 100);
       return `${accuracy}% (${char.times_reviewed} reviews)`;
     }
-    return 'Learning';
+    return "Learning";
   };
 
   const getProgressColor = (char: CharacterWithProgress): string => {
-    if (!char.introduced) return '#ccc';
-    if (!char.times_correct || !char.times_reviewed) return '#667eea';
+    if (!char.introduced) return "#ccc";
+    if (!char.times_correct || !char.times_reviewed) return "#667eea";
 
     const accuracy = (char.times_correct / char.times_reviewed) * 100;
-    if (accuracy >= 80) return '#48bb78';
-    if (accuracy >= 60) return '#ecc94b';
-    return '#f56565';
+    if (accuracy >= 80) return "#48bb78";
+    if (accuracy >= 60) return "#ecc94b";
+    return "#f56565";
   };
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -109,7 +110,9 @@ function Dictionary({ onClose }: DictionaryProps) {
 
       <div className="dictionary-stats">
         <span>Total Items: {totalCount.toLocaleString()} (Characters + Words)</span>
-        <span>Page {currentPage + 1} of {totalPages}</span>
+        <span>
+          Page {currentPage + 1} of {totalPages}
+        </span>
       </div>
 
       {error && (
@@ -131,15 +134,15 @@ function Dictionary({ onClose }: DictionaryProps) {
                 <div className="character-main">
                   <div className="character-display">{char.character}</div>
                   <div className="character-info">
-                    <div className="character-pinyin">{char.mandarin_pinyin}</div>
+                    <div className="character-pinyin">
+                      {convertToneNumbersToMarks(char.mandarin_pinyin)}
+                    </div>
                     <div className="character-definition">{char.definition}</div>
                     <div className="character-meta">
                       <span className="frequency-badge">
-                        {char.is_word ? '📝 Word' : '📖 Character'}
+                        {char.is_word ? "📝 Word" : "📖 Character"}
                       </span>
-                      <span className="frequency-badge">
-                        Rank #{char.frequency_rank}
-                      </span>
+                      <span className="frequency-badge">Rank #{char.frequency_rank}</span>
                       <span className="frequency-badge">
                         Score: {char.introduction_score.toFixed(1)}
                       </span>
@@ -155,7 +158,7 @@ function Dictionary({ onClose }: DictionaryProps) {
                   </div>
                   {char.next_review_date && (
                     <div className="next-review">
-                      Next: {new Date(char.next_review_date + 'Z').toLocaleDateString()}
+                      Next: {new Date(char.next_review_date + "Z").toLocaleDateString()}
                     </div>
                   )}
                 </div>
@@ -172,7 +175,8 @@ function Dictionary({ onClose }: DictionaryProps) {
               ← Previous
             </button>
             <span className="pagination-info">
-              Showing {currentPage * PAGE_SIZE + 1} - {Math.min((currentPage + 1) * PAGE_SIZE, totalCount)}
+              Showing {currentPage * PAGE_SIZE + 1} -{" "}
+              {Math.min((currentPage + 1) * PAGE_SIZE, totalCount)}
             </span>
             <button
               className="pagination-button"

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useApp } from '../../context/AppContext';
-import { FileMetadata } from '../../types';
-import { TauriFileService } from '../../services/TauriFileService';
-import { isWeb } from '../../utils/environmentDetection';
+import { useState, useEffect } from "react";
+import { useApp } from "../../context/AppContext";
+import { FileMetadata } from "../../types";
+import { TauriFileService } from "../../services/TauriFileService";
+import { isWeb } from "../../utils/environmentDetection";
 
 interface FileManagerProps {
   onClose: () => void;
@@ -10,7 +10,11 @@ interface FileManagerProps {
   onNewFromTemplate?: () => void;
 }
 
-export const FileManager: React.FC<FileManagerProps> = ({ onClose, onFileOpened, onNewFromTemplate }) => {
+export const FileManager: React.FC<FileManagerProps> = ({
+  onClose,
+  onFileOpened,
+  onNewFromTemplate,
+}) => {
   const { dispatch } = useApp();
   const [recentFiles, setRecentFiles] = useState<FileMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,8 +31,8 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose, onFileOpened,
       const isWebEnvironment = await isWeb();
       setRecentFiles(isWebEnvironment ? [] : files);
     } catch (err) {
-      console.error('Error loading recent files:', err);
-      setError('Failed to load recent files');
+      console.error("Error loading recent files:", err);
+      setError("Failed to load recent files");
     }
   };
 
@@ -54,14 +58,14 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose, onFileOpened,
       }
 
       if (set) {
-        dispatch({ type: 'SET_CURRENT_SET', payload: set, filePath: openedFilePath });
-        dispatch({ type: 'SET_EDIT_MODE', payload: 'edit' });
+        dispatch({ type: "SET_CURRENT_SET", payload: set, filePath: openedFilePath });
+        dispatch({ type: "SET_EDIT_MODE", payload: "edit" });
 
         // Always clear current flashcard first, then set the new one if available
-        dispatch({ type: 'SET_CURRENT_FLASHCARD', payload: null });
+        dispatch({ type: "SET_CURRENT_FLASHCARD", payload: null });
 
         if (set.flashcards.length > 0) {
-          dispatch({ type: 'SET_CURRENT_FLASHCARD', payload: set.flashcards[0] });
+          dispatch({ type: "SET_CURRENT_FLASHCARD", payload: set.flashcards[0] });
         }
 
         // Call the onFileOpened callback to update file path and other state
@@ -71,8 +75,8 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose, onFileOpened,
         onClose();
       }
     } catch (err) {
-      console.error('Error opening file:', err);
-      setError(err instanceof Error ? err.message : 'Failed to open file');
+      console.error("Error opening file:", err);
+      setError(err instanceof Error ? err.message : "Failed to open file");
     } finally {
       setIsLoading(false);
     }
@@ -80,23 +84,23 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose, onFileOpened,
 
   const handleCreateNew = () => {
     const newSet = TauriFileService.createNewSet();
-    dispatch({ type: 'SET_CURRENT_SET', payload: newSet, filePath: undefined });
-    dispatch({ type: 'SET_EDIT_MODE', payload: 'edit' });
+    dispatch({ type: "SET_CURRENT_SET", payload: newSet, filePath: undefined });
+    dispatch({ type: "SET_EDIT_MODE", payload: "edit" });
     // Clear current flashcard when creating a new set
-    dispatch({ type: 'SET_CURRENT_FLASHCARD', payload: null });
+    dispatch({ type: "SET_CURRENT_FLASHCARD", payload: null });
     onClose();
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) return "0 B";
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB'];
+    const sizes = ["B", "KB", "MB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
   const formatDate = (date: Date): string => {
-    return new Date(date).toLocaleDateString() + ' ' + new Date(date).toLocaleTimeString();
+    return new Date(date).toLocaleDateString() + " " + new Date(date).toLocaleTimeString();
   };
 
   return (
@@ -104,22 +108,16 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose, onFileOpened,
       <div className="file-manager">
         <header className="file-manager-header">
           <h2>File Manager</h2>
-          <button className="close-button" onClick={onClose}>×</button>
+          <button className="close-button" onClick={onClose}>
+            ×
+          </button>
         </header>
 
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        {error && <div className="error-message">{error}</div>}
 
         <div className="file-manager-content">
           <section className="file-actions">
-            <button
-              className="primary-button"
-              onClick={handleCreateNew}
-              disabled={isLoading}
-            >
+            <button className="primary-button" onClick={handleCreateNew} disabled={isLoading}>
               Create New Set
             </button>
             <button
@@ -127,7 +125,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose, onFileOpened,
               onClick={() => handleOpenFile()}
               disabled={isLoading}
             >
-              {isLoading ? 'Opening...' : 'Open File...'}
+              {isLoading ? "Opening..." : "Open File..."}
             </button>
             <button
               className="template-button"

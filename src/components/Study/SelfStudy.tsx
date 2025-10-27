@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { verifyAnswer, convertToneNumbersToMarks, hasCorrectSyllablesButWrongTones } from '../../utils/answerVerification';
-import './SelfStudy.css';
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  verifyAnswer,
+  convertToneNumbersToMarks,
+  hasCorrectSyllablesButWrongTones,
+} from "../../utils/answerVerification";
+import "./SelfStudy.css";
 
 interface DueCard {
   character_id: number;
@@ -12,7 +16,7 @@ interface DueCard {
   times_reviewed: number;
 }
 
-type QuestionType = 'definition' | 'pinyin';
+type QuestionType = "definition" | "pinyin";
 
 interface Question {
   id: string;
@@ -32,7 +36,7 @@ interface SelfStudyProps {
 function SelfStudy({ onComplete }: SelfStudyProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswer, setUserAnswer] = useState('');
+  const [userAnswer, setUserAnswer] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,7 +53,9 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   const [wrongTonesOnly, setWrongTonesOnly] = useState(false); // Track if user had correct syllables but wrong tones
 
   // Track which cards have been answered correctly (both questions)
-  const [cardProgress, setCardProgress] = useState<Map<number, { definition: boolean; pinyin: boolean }>>(new Map());
+  const [cardProgress, setCardProgress] = useState<
+    Map<number, { definition: boolean; pinyin: boolean }>
+  >(new Map());
 
   useEffect(() => {
     loadSelfStudyCards();
@@ -58,7 +64,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   // Global keyboard handler for Enter key
   useEffect(() => {
     const handleGlobalKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         if (showFeedback && wrongTonesOnly) {
           // For wrong tones, Enter key triggers retry
           handleRetry();
@@ -70,8 +76,8 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       }
     };
 
-    window.addEventListener('keydown', handleGlobalKeyPress);
-    return () => window.removeEventListener('keydown', handleGlobalKeyPress);
+    window.addEventListener("keydown", handleGlobalKeyPress);
+    return () => window.removeEventListener("keydown", handleGlobalKeyPress);
   }, [showFeedback, submitting, userAnswer, wrongTonesOnly]);
 
   const shuffleArray = <T,>(array: T[]): T[] => {
@@ -88,47 +94,47 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       setLoading(true);
 
       // Start session recording
-      const newSessionId = await invoke<number>('start_session', { mode: 'self-study' });
+      const newSessionId = await invoke<number>("start_session", { mode: "self-study" });
       setSessionId(newSessionId);
-      console.log('[SELF-STUDY] Started session:', newSessionId);
+      console.log("[SELF-STUDY] Started session:", newSessionId);
 
-      const cards = await invoke<DueCard[]>('get_self_study_cards', { limit: 20 });
+      const cards = await invoke<DueCard[]>("get_self_study_cards", { limit: 20 });
 
       if (cards.length === 0) {
         setSessionComplete(true);
         setLoading(false);
         // End session with 0 cards
         if (newSessionId) {
-          await invoke('end_session', {
+          await invoke("end_session", {
             sessionId: newSessionId,
             cardsStudied: 0,
             cardsCorrect: 0,
-            cardsIncorrect: 0
+            cardsIncorrect: 0,
           });
         }
         return;
       }
 
-      console.log('[SELF-STUDY] Loaded', cards.length, 'cards for practice');
+      console.log("[SELF-STUDY] Loaded", cards.length, "cards for practice");
       setTotalCards(cards.length);
 
       // Initialize card progress tracking
       const progressMap = new Map<number, { definition: boolean; pinyin: boolean }>();
-      cards.forEach(card => {
+      cards.forEach((card) => {
         progressMap.set(card.character_id, { definition: false, pinyin: false });
       });
       setCardProgress(progressMap);
 
       // Create question pool
       const questionPool: Question[] = [];
-      cards.forEach(card => {
+      cards.forEach((card) => {
         questionPool.push({
           id: `${card.character_id}-definition`,
           character_id: card.character_id,
           character: card.character,
           pinyin: card.pinyin,
           definition: card.definition,
-          questionType: 'definition',
+          questionType: "definition",
           answeredCorrectly: null,
           attemptCount: 0,
         });
@@ -139,7 +145,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
           character: card.character,
           pinyin: card.pinyin,
           definition: card.definition,
-          questionType: 'pinyin',
+          questionType: "pinyin",
           answeredCorrectly: null,
           attemptCount: 0,
         });
@@ -149,14 +155,18 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       setQuestions(shuffledQuestions);
       setLoading(false);
     } catch (error) {
-      console.error('Failed to load self-study cards:', error);
+      console.error("Failed to load self-study cards:", error);
       setLoading(false);
     }
   };
 
   const getCurrentQuestion = () => questions[currentQuestionIndex];
 
-  const checkAnswer = (answer: string, correctAnswer: string, questionType: QuestionType): boolean => {
+  const checkAnswer = (
+    answer: string,
+    correctAnswer: string,
+    questionType: QuestionType
+  ): boolean => {
     return verifyAnswer(answer, correctAnswer, questionType);
   };
 
@@ -164,7 +174,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     const value = e.target.value;
     const currentQuestion = getCurrentQuestion();
 
-    if (currentQuestion && currentQuestion.questionType === 'pinyin') {
+    if (currentQuestion && currentQuestion.questionType === "pinyin") {
       const withMarks = convertToneNumbersToMarks(value);
       setUserAnswer(withMarks);
     } else {
@@ -178,17 +188,18 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     const currentQuestion = getCurrentQuestion();
     if (!currentQuestion) return;
 
-    const correctAnswer = currentQuestion.questionType === 'definition'
-      ? currentQuestion.definition
-      : currentQuestion.pinyin;
+    const correctAnswer =
+      currentQuestion.questionType === "definition"
+        ? currentQuestion.definition
+        : currentQuestion.pinyin;
 
     const correct = checkAnswer(userAnswer, correctAnswer, currentQuestion.questionType);
 
     // For pinyin questions, check if syllables are correct but tones are wrong
     let wrongTones = false;
-    if (currentQuestion.questionType === 'pinyin' && !correct && !isRetryAttempt) {
+    if (currentQuestion.questionType === "pinyin" && !correct && !isRetryAttempt) {
       wrongTones = hasCorrectSyllablesButWrongTones(userAnswer, correctAnswer);
-      console.log('[SELF-STUDY] Wrong tones only:', wrongTones);
+      console.log("[SELF-STUDY] Wrong tones only:", wrongTones);
     }
 
     setIsCorrect(correct);
@@ -205,15 +216,15 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
 
     // Record practice in database (only if not a retry with wrong tones)
     try {
-      await invoke('record_practice', {
+      await invoke("record_practice", {
         characterId: currentQuestion.character_id,
-        practiceMode: 'self-study',
-        arrowTested: currentQuestion.questionType === 'definition' ? 'zh_to_en' : 'pinyin_to_zh',
+        practiceMode: "self-study",
+        arrowTested: currentQuestion.questionType === "definition" ? "zh_to_en" : "pinyin_to_zh",
         userAnswer: userAnswer,
         isCorrect: correct,
       });
     } catch (error) {
-      console.error('Failed to record practice:', error);
+      console.error("Failed to record practice:", error);
     }
 
     // Update question status
@@ -225,7 +236,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     // Update card progress
     const progress = cardProgress.get(currentQuestion.character_id);
     if (progress) {
-      if (currentQuestion.questionType === 'definition') {
+      if (currentQuestion.questionType === "definition") {
         progress.definition = correct;
       } else {
         progress.pinyin = correct;
@@ -234,17 +245,17 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     }
 
     // Track statistics
-    setTotalQuestions(prev => prev + 1); // Increment total questions asked
+    setTotalQuestions((prev) => prev + 1); // Increment total questions asked
 
     if (correct && updatedQuestions[currentQuestionIndex].attemptCount === 1) {
       // Correct on first attempt
-      setFirstAttemptCorrect(prev => prev + 1);
+      setFirstAttemptCorrect((prev) => prev + 1);
     }
 
     if (correct) {
-      setCorrectAnswers(prev => prev + 1);
+      setCorrectAnswers((prev) => prev + 1);
     } else {
-      setIncorrectAnswers(prev => prev + 1);
+      setIncorrectAnswers((prev) => prev + 1);
     }
 
     // Reset retry state for next question
@@ -255,7 +266,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   const handleRetry = () => {
     // User is retrying after wrong tones - clear feedback and let them try again
     setShowFeedback(false);
-    setUserAnswer('');
+    setUserAnswer("");
     setWrongTonesOnly(false);
     // Keep isRetryAttempt = true so we know this is the second attempt
   };
@@ -278,7 +289,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       // Reset progress for this question type
       const progress = cardProgress.get(currentQuestion.character_id);
       if (progress) {
-        if (currentQuestion.questionType === 'definition') {
+        if (currentQuestion.questionType === "definition") {
           progress.definition = false;
         } else {
           progress.pinyin = false;
@@ -289,7 +300,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       // Check if this card is now fully complete
       const progress = cardProgress.get(currentQuestion.character_id);
       if (progress && progress.definition && progress.pinyin) {
-        setCompletedCards(prev => prev + 1);
+        setCompletedCards((prev) => prev + 1);
       }
     }
 
@@ -301,15 +312,15 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       setSessionComplete(true);
     } else {
       setCurrentQuestionIndex(nextIndex);
-      setUserAnswer('');
+      setUserAnswer("");
       setShowFeedback(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !showFeedback) {
+    if (e.key === "Enter" && !showFeedback) {
       handleSubmit();
-    } else if (e.key === 'Enter' && showFeedback) {
+    } else if (e.key === "Enter" && showFeedback) {
       handleNext();
     }
   };
@@ -347,35 +358,46 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
           </div>
           <div className="encouragement-message">
             {totalCards === 0 ? (
-              <p>No cards available for self-study right now. Complete your SRS reviews or learn new characters!</p>
+              <p>
+                No cards available for self-study right now. Complete your SRS reviews or learn new
+                characters!
+              </p>
             ) : completedCards === totalCards ? (
-              <p>Perfect! You've mastered all the cards in this session. Keep up the excellent work!</p>
+              <p>
+                Perfect! You've mastered all the cards in this session. Keep up the excellent work!
+              </p>
             ) : (
-              <p>You've completed this practice session! Remember, self-study doesn't affect your SRS schedule - you can practice as much as you want!</p>
+              <p>
+                You've completed this practice session! Remember, self-study doesn't affect your SRS
+                schedule - you can practice as much as you want!
+              </p>
             )}
           </div>
-          <button className="btn-primary" onClick={async () => {
-            // End session recording
-            if (sessionId) {
-              try {
-                // Calculate actual cards studied (unique cards that had questions answered)
-                // Each card has 2 questions, so divide totalQuestions by 2 (rounding up for partial cards)
-                const actualCardsStudied = Math.ceil(totalQuestions / 2);
-                // For correct/incorrect, we track at card level
-                // completedCards = cards with both questions correct
-                await invoke('end_session', {
-                  sessionId,
-                  cardsStudied: actualCardsStudied,
-                  cardsCorrect: completedCards,
-                  cardsIncorrect: actualCardsStudied - completedCards
-                });
-                console.log('[SELF-STUDY] Session ended:', sessionId);
-              } catch (error) {
-                console.error('[SELF-STUDY] Error ending session:', error);
+          <button
+            className="btn-primary"
+            onClick={async () => {
+              // End session recording
+              if (sessionId) {
+                try {
+                  // Calculate actual cards studied (unique cards that had questions answered)
+                  // Each card has 2 questions, so divide totalQuestions by 2 (rounding up for partial cards)
+                  const actualCardsStudied = Math.ceil(totalQuestions / 2);
+                  // For correct/incorrect, we track at card level
+                  // completedCards = cards with both questions correct
+                  await invoke("end_session", {
+                    sessionId,
+                    cardsStudied: actualCardsStudied,
+                    cardsCorrect: completedCards,
+                    cardsIncorrect: actualCardsStudied - completedCards,
+                  });
+                  console.log("[SELF-STUDY] Session ended:", sessionId);
+                } catch (error) {
+                  console.error("[SELF-STUDY] Error ending session:", error);
+                }
               }
-            }
-            onComplete();
-          }}>
+              onComplete();
+            }}
+          >
             Return to Dashboard
           </button>
         </div>
@@ -399,14 +421,16 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     );
   }
 
-  const progress = questions.length > 0 ? ((currentQuestionIndex / questions.length) * 100) : 0;
+  const progress = questions.length > 0 ? (currentQuestionIndex / questions.length) * 100 : 0;
 
   return (
     <div className="self-study-container">
       {/* Progress Bar */}
       <div className="progress-bar">
         <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-        <div className="progress-text">{currentQuestionIndex} / {questions.length}</div>
+        <div className="progress-text">
+          {currentQuestionIndex} / {questions.length}
+        </div>
       </div>
 
       {/* Session Header */}
@@ -418,11 +442,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
         <div className="card-counter">
           {completedCards} / {totalCards} cards
         </div>
-        <button
-          className="btn-exit-study"
-          onClick={onComplete}
-          title="Exit practice session"
-        >
+        <button className="btn-exit-study" onClick={onComplete} title="Exit practice session">
           🚪 Exit
         </button>
       </div>
@@ -431,12 +451,12 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       <div className={`question-card question-type-${currentQuestion.questionType}`}>
         <div className="practice-badge">📖 Self-Study Practice</div>
         <div className="question-label">
-          {currentQuestion.questionType === 'definition' ? '📖 What does this mean?' : '🔊 How do you pronounce this?'}
+          {currentQuestion.questionType === "definition"
+            ? "📖 What does this mean?"
+            : "🔊 How do you pronounce this?"}
         </div>
 
-        <div className="character-display-large">
-          {currentQuestion.character}
-        </div>
+        <div className="character-display-large">{currentQuestion.character}</div>
 
         {!showFeedback ? (
           <div className="answer-section">
@@ -446,7 +466,11 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
               value={userAnswer}
               onChange={handleAnswerChange}
               onKeyPress={handleKeyPress}
-              placeholder={currentQuestion.questionType === 'definition' ? 'Type the meaning...' : 'Type the pinyin...'}
+              placeholder={
+                currentQuestion.questionType === "definition"
+                  ? "Type the meaning..."
+                  : "Type the pinyin..."
+              }
               autoFocus
               disabled={submitting}
             />
@@ -455,21 +479,28 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
               onClick={handleSubmit}
               disabled={!userAnswer.trim() || submitting}
             >
-              {submitting ? 'Checking...' : 'Submit'}
+              {submitting ? "Checking..." : "Submit"}
             </button>
           </div>
         ) : (
-          <div className={`feedback-section ${isCorrect ? 'correct' : wrongTonesOnly ? 'partial' : 'incorrect'}`}>
-            <div className="feedback-icon">
-              {isCorrect ? '✓' : wrongTonesOnly ? '⚠' : '✗'}
-            </div>
+          <div
+            className={`feedback-section ${isCorrect ? "correct" : wrongTonesOnly ? "partial" : "incorrect"}`}
+          >
+            <div className="feedback-icon">{isCorrect ? "✓" : wrongTonesOnly ? "⚠" : "✗"}</div>
             <div className="feedback-message">
-              {isCorrect ? 'Excellent! Keep it up!' : wrongTonesOnly ? 'Wrong Tones!' : 'Not quite - let\'s review this one'}
+              {isCorrect
+                ? "Excellent! Keep it up!"
+                : wrongTonesOnly
+                  ? "Wrong Tones!"
+                  : "Not quite - let's review this one"}
             </div>
             {wrongTonesOnly && (
               <>
                 <div className="partial-feedback">
-                  <p><strong>Close!</strong> You have the right syllables, but the tones are incorrect.</p>
+                  <p>
+                    <strong>Close!</strong> You have the right syllables, but the tones are
+                    incorrect.
+                  </p>
                   <p>Try again and pay attention to the tone marks!</p>
                 </div>
                 <button className="btn-retry" onClick={handleRetry}>
@@ -483,11 +514,10 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
                   <strong>Your answer:</strong> {userAnswer}
                 </div>
                 <div className="correct-answer">
-                  <strong>Correct answer:</strong> {
-                    currentQuestion.questionType === 'definition'
-                      ? currentQuestion.definition
-                      : convertToneNumbersToMarks(currentQuestion.pinyin)
-                  }
+                  <strong>Correct answer:</strong>{" "}
+                  {currentQuestion.questionType === "definition"
+                    ? currentQuestion.definition
+                    : convertToneNumbersToMarks(currentQuestion.pinyin)}
                 </div>
                 <div className="card-info">
                   <div className="info-row">
@@ -496,7 +526,9 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
                   </div>
                   <div className="info-row">
                     <span className="label">Pinyin:</span>
-                    <span className="value">{convertToneNumbersToMarks(currentQuestion.pinyin)}</span>
+                    <span className="value">
+                      {convertToneNumbersToMarks(currentQuestion.pinyin)}
+                    </span>
                   </div>
                   <div className="info-row">
                     <span className="label">Meaning:</span>
@@ -504,7 +536,8 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
                   </div>
                 </div>
                 <div className="learning-note">
-                  💡 <strong>Remember:</strong> This card will come back until you get it right. Take your time!
+                  💡 <strong>Remember:</strong> This card will come back until you get it right.
+                  Take your time!
                 </div>
               </>
             )}

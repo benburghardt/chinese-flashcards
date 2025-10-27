@@ -1,5 +1,5 @@
 use data_processing::parsers::{cedict, subtlex};
-use data_processing::{merge_cedict_with_frequency_separated, database};
+use data_processing::{database, merge_cedict_with_frequency_separated};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Navigate to project root to find datasets
@@ -11,7 +11,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let datasets_dir = project_root.join("datasets");
 
     // Output to src-tauri/resources/ directory for Tauri bundling
-    let output_path = project_root.join("src-tauri").join("resources").join("chinese.db");
+    let output_path = project_root
+        .join("src-tauri")
+        .join("resources")
+        .join("chinese.db");
 
     println!("=== Building Chinese Learning Database ===\n");
 
@@ -57,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let overrides_path = project_root.join("definition_overrides.json");
     database::apply_definition_overrides(
         output_path.to_str().unwrap(),
-        overrides_path.to_str().unwrap()
+        overrides_path.to_str().unwrap(),
     )?;
     println!();
 

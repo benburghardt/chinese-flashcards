@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
-use std::collections::{HashMap, HashSet};
 
 /// Remove parenthetical content from a definition for comparison
 fn strip_parentheses(s: &str) -> String {
@@ -62,7 +62,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("  ✓ Found {} characters with multiple CEDICT entries\n", duplicates.len());
+    println!(
+        "  ✓ Found {} characters with multiple CEDICT entries\n",
+        duplicates.len()
+    );
 
     // Step 2: Query database
     let db_path = "../src-tauri/chinese.db";
@@ -71,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stmt = conn.prepare(
         "SELECT id, character, simplified, mandarin_pinyin, definition, is_word, frequency_rank
          FROM characters
-         ORDER BY frequency_rank ASC"
+         ORDER BY frequency_rank ASC",
     )?;
 
     let items: Vec<(i32, String, String, String, String, bool, i32)> = stmt

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import './Dashboard.css';
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import "./Dashboard.css";
 
 interface DashboardStats {
   total_characters_learned: number;
@@ -26,7 +26,6 @@ interface ReviewCalendarEntry {
   cards_due: number;
 }
 
-
 interface DashboardProps {
   onStartLearnNew: () => void;
   onStartSrsSession: () => void;
@@ -34,7 +33,12 @@ interface DashboardProps {
   onBrowseDictionary: () => void;
 }
 
-function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBrowseDictionary }: DashboardProps) {
+function Dashboard({
+  onStartLearnNew,
+  onStartSrsSession,
+  onStartSelfStudy,
+  onBrowseDictionary,
+}: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [unlockStatus, setUnlockStatus] = useState<{
     ready_to_learn_count: number;
@@ -43,7 +47,7 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
   const [recentSessions, setRecentSessions] = useState<StudySession[]>([]);
   const [calendar, setCalendar] = useState<ReviewCalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     loadStats();
@@ -52,28 +56,28 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
   const loadStats = async () => {
     try {
       setLoading(true);
-      setError('');
+      setError("");
 
       // Check and unlock characters automatically
       const unlockStatus = await invoke<{
         unlocked_count: number;
         ready_to_learn_count: number;
         hours_until_next_unlock: number | null;
-      }>('check_and_unlock_characters');
+      }>("check_and_unlock_characters");
 
       // Get dashboard statistics
-      const dashboardStats = await invoke<DashboardStats>('get_dashboard_stats');
+      const dashboardStats = await invoke<DashboardStats>("get_dashboard_stats");
 
       // Get recent study sessions
-      const sessions = await invoke<StudySession[]>('get_recent_sessions', { limit: 10 });
+      const sessions = await invoke<StudySession[]>("get_recent_sessions", { limit: 10 });
 
       // Get review calendar (next 7 days)
-      const calendarData = await invoke<ReviewCalendarEntry[]>('get_review_calendar', { days: 7 });
+      const calendarData = await invoke<ReviewCalendarEntry[]>("get_review_calendar", { days: 7 });
 
-      console.log('Dashboard stats:', dashboardStats);
-      console.log('Recent sessions:', sessions);
-      console.log('Review calendar:', calendarData);
-      console.log('Unlock status:', unlockStatus);
+      console.log("Dashboard stats:", dashboardStats);
+      console.log("Recent sessions:", sessions);
+      console.log("Review calendar:", calendarData);
+      console.log("Unlock status:", unlockStatus);
 
       setStats(dashboardStats);
       setUnlockStatus(unlockStatus);
@@ -81,7 +85,7 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
       setCalendar(calendarData);
       setLoading(false);
     } catch (error) {
-      console.error('Failed to load stats:', error);
+      console.error("Failed to load stats:", error);
       setError(`Failed to load statistics: ${error}`);
       setLoading(false);
     }
@@ -117,65 +121,66 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
       {/* Welcome Header */}
       <div className="dashboard-header">
         <h1 className="dashboard-title">欢迎 Welcome!</h1>
-        <p className="dashboard-subtitle">
-          Continue your Chinese learning journey
-        </p>
+        <p className="dashboard-subtitle">Continue your Chinese learning journey</p>
       </div>
 
       {/* Primary Action Cards */}
       <div className="primary-actions">
-        <div className="action-card learn-new" onClick={unlockStatus?.ready_to_learn_count && unlockStatus.ready_to_learn_count > 0 ? onStartLearnNew : undefined}>
+        <div
+          className="action-card learn-new"
+          onClick={
+            unlockStatus?.ready_to_learn_count && unlockStatus.ready_to_learn_count > 0
+              ? onStartLearnNew
+              : undefined
+          }
+        >
           <div className="action-icon">📚</div>
           <h2 className="action-title">Learn New</h2>
-          <p className="action-description">
-            Introduce new characters and words
-          </p>
+          <p className="action-description">Introduce new characters and words</p>
           <div className="action-stat">
             <span className="stat-number">{unlockStatus?.ready_to_learn_count || 0}</span>
             <span className="stat-label">available</span>
           </div>
-          {unlockStatus?.hours_until_next_unlock !== null && unlockStatus?.hours_until_next_unlock !== undefined && unlockStatus.ready_to_learn_count === 0 && (
-            <div style={{
-              marginTop: '12px',
-              padding: '8px 12px',
-              background: 'rgba(102, 126, 234, 0.1)',
-              borderRadius: '8px',
-              fontSize: '14px',
-              color: '#667eea'
-            }}>
-              {unlockStatus.hours_until_next_unlock === 0 ? (
-                '✨ New characters available soon!'
-              ) : (
-                `⏰ Next unlock in ${unlockStatus.hours_until_next_unlock}h`
-              )}
-            </div>
-          )}
-          <button
-            className="action-button"
-            disabled={unlockStatus?.ready_to_learn_count === 0}
-          >
-            {unlockStatus?.ready_to_learn_count === 0 ? 'No Characters Ready' : 'Start Learning'}
+          {unlockStatus?.hours_until_next_unlock !== null &&
+            unlockStatus?.hours_until_next_unlock !== undefined &&
+            unlockStatus.ready_to_learn_count === 0 && (
+              <div
+                style={{
+                  marginTop: "12px",
+                  padding: "8px 12px",
+                  background: "rgba(102, 126, 234, 0.1)",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  color: "#667eea",
+                }}
+              >
+                {unlockStatus.hours_until_next_unlock === 0
+                  ? "✨ New characters available soon!"
+                  : unlockStatus.hours_until_next_unlock > 24
+                    ? `⏰ Next unlock in ${Math.floor(unlockStatus.hours_until_next_unlock / 24)}d`
+                    : `⏰ Next unlock in ${unlockStatus.hours_until_next_unlock}h`}
+              </div>
+            )}
+          <button className="action-button" disabled={unlockStatus?.ready_to_learn_count === 0}>
+            {unlockStatus?.ready_to_learn_count === 0 ? "No Characters Ready" : "Start Learning"}
           </button>
         </div>
 
         <div
-          className={`action-card review-srs ${stats?.cards_due_today === 0 ? 'disabled' : ''}`}
-          onClick={stats?.cards_due_today && stats.cards_due_today > 0 ? onStartSrsSession : undefined}
+          className={`action-card review-srs ${stats?.cards_due_today === 0 ? "disabled" : ""}`}
+          onClick={
+            stats?.cards_due_today && stats.cards_due_today > 0 ? onStartSrsSession : undefined
+          }
         >
           <div className="action-icon">🔄</div>
           <h2 className="action-title">Review</h2>
-          <p className="action-description">
-            Practice due cards with SRS
-          </p>
+          <p className="action-description">Practice due cards with SRS</p>
           <div className="action-stat">
             <span className="stat-number">{stats?.cards_due_today || 0}</span>
             <span className="stat-label">due cards</span>
           </div>
-          <button
-            className="action-button"
-            disabled={stats?.cards_due_today === 0}
-          >
-            {stats?.cards_due_today === 0 ? 'All Caught Up!' : 'Start Review'}
+          <button className="action-button" disabled={stats?.cards_due_today === 0}>
+            {stats?.cards_due_today === 0 ? "All Caught Up!" : "Start Review"}
           </button>
         </div>
       </div>
@@ -256,22 +261,26 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
             {calendar.map((entry) => {
               // Parse SQLite UTC datetime as UTC (already in half-hour blocks from backend)
               // SQLite format: "YYYY-MM-DD HH:MM:SS" (stored in UTC)
-              const reviewTime = new Date(entry.review_time + 'Z'); // Add 'Z' to explicitly mark as UTC
+              const reviewTime = new Date(entry.review_time + "Z"); // Add 'Z' to explicitly mark as UTC
 
               const isToday = reviewTime.toDateString() === new Date().toDateString();
 
               // Format time in 12-hour format with AM/PM in user's local timezone
               // Now includes minutes (will be :00 or :30 due to backend rounding)
-              const timeString = reviewTime.toLocaleTimeString('en-US', {
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
+              const timeString = reviewTime.toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
               });
 
               return (
-                <div key={entry.review_time} className={`calendar-day ${isToday ? 'today' : ''}`}>
+                <div key={entry.review_time} className={`calendar-day ${isToday ? "today" : ""}`}>
                   <div className="calendar-date">
-                    {reviewTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {reviewTime.toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </div>
                   <div className="calendar-time">{timeString}</div>
                   <div className="calendar-count">{entry.cards_due}</div>
@@ -290,36 +299,42 @@ function Dashboard({ onStartLearnNew, onStartSrsSession, onStartSelfStudy, onBro
           <div className="sessions-list">
             {recentSessions.map((session) => {
               // Parse SQLite UTC datetime as UTC by adding 'Z' suffix
-              const startedAtUTC = new Date(session.started_at + 'Z');
+              const startedAtUTC = new Date(session.started_at + "Z");
 
               return (
                 <div key={session.id} className="session-card">
                   <div className="session-header">
                     <span className="session-mode">
-                      {session.mode === 'spaced_repetition' ? '🔄 SRS Review' :
-                       session.mode === 'self-study' ? '📖 Self-Study' :
-                       `📚 ${session.mode}`}
+                      {session.mode === "spaced_repetition"
+                        ? "🔄 SRS Review"
+                        : session.mode === "self-study"
+                          ? "📖 Self-Study"
+                          : `📚 ${session.mode}`}
                     </span>
                     <span className="session-date">
                       {startedAtUTC.toLocaleDateString()} {startedAtUTC.toLocaleTimeString()}
                     </span>
                   </div>
-                <div className="session-stats">
-                  <span className="session-stat">
-                    {session.cards_studied} cards
-                  </span>
-                  <span className="session-stat session-accuracy">
-                    {session.cards_studied > 0
-                      ? Math.round((session.cards_correct / session.cards_studied) * 100)
-                      : 0}% accuracy
-                  </span>
-                  {session.duration_seconds && (
-                    <span className="session-stat">
-                      {Math.round(session.duration_seconds / 60)} min
+                  <div className="session-stats">
+                    <span className="session-stat">{session.cards_studied} cards</span>
+                    <span className="session-stat session-accuracy">
+                      {(() => {
+                        // cards_correct and cards_incorrect now store question counts
+                        const totalQuestions = session.cards_correct + session.cards_incorrect;
+                        const accuracy =
+                          totalQuestions > 0
+                            ? Math.round((session.cards_correct / totalQuestions) * 100)
+                            : 0;
+                        return `${accuracy}% accuracy`;
+                      })()}
                     </span>
-                  )}
+                    {session.duration_seconds && (
+                      <span className="session-stat">
+                        {Math.round(session.duration_seconds / 60)} min
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
               );
             })}
           </div>

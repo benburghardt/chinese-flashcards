@@ -15,12 +15,15 @@ fn main() -> Result<()> {
         .query_row(
             "SELECT value FROM app_settings WHERE key = 'initial_unlock_completed'",
             [],
-            |row| row.get(0)
+            |row| row.get(0),
         )
         .unwrap_or_else(|_| "false".to_string());
 
     println!("\nStep 1: Check setting");
-    println!("  initial_unlock_completed = '{}'", initial_unlock_completed);
+    println!(
+        "  initial_unlock_completed = '{}'",
+        initial_unlock_completed
+    );
 
     if initial_unlock_completed == "true" {
         println!("  Already initialized, exiting");
@@ -38,10 +41,11 @@ fn main() -> Result<()> {
                WHERE p.character_id = c.id
            )
          ORDER BY c.frequency_rank ASC
-         LIMIT 30"
+         LIMIT 30",
     )?;
 
-    let character_ids: Vec<i32> = stmt.query_map([], |row| row.get(0))?
+    let character_ids: Vec<i32> = stmt
+        .query_map([], |row| row.get(0))?
         .collect::<Result<Vec<i32>>>()?;
 
     let count = character_ids.len();
@@ -70,23 +74,20 @@ fn main() -> Result<()> {
     conn.execute(
         "INSERT OR REPLACE INTO app_settings (key, value, updated_at)
          VALUES ('initial_unlock_completed', 'true', datetime('now'))",
-        []
+        [],
     )?;
     println!("  Set initial_unlock_completed = 'true'");
 
     // 5. Verify
     println!("\nStep 5: Verify results");
-    let progress_count: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress",
-        [],
-        |row| row.get(0)
-    )?;
+    let progress_count: i32 =
+        conn.query_row("SELECT COUNT(*) FROM user_progress", [], |row| row.get(0))?;
     println!("  Characters in user_progress: {}", progress_count);
 
     let not_introduced_count: i32 = conn.query_row(
         "SELECT COUNT(*) FROM user_progress WHERE introduced = 0",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
     println!("  Ready to learn: {}", not_introduced_count);
 
@@ -96,7 +97,7 @@ fn main() -> Result<()> {
         "SELECT c.simplified, c.mandarin_pinyin, c.frequency_rank
          FROM user_progress p
          JOIN characters c ON p.character_id = c.id
-         ORDER BY c.frequency_rank ASC"
+         ORDER BY c.frequency_rank ASC",
     )?;
 
     let rows = stmt.query_map([], |row| {

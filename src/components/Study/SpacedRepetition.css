@@ -259,13 +259,13 @@
 
 /* Question type specific styling */
 .question-card.question-type-definition {
-  border-top-color: #2196F3;
-  background: linear-gradient(to bottom, #E3F2FD 0%, #E3F2FD 100px, white 100px);
+  border-top-color: #2196f3;
+  background: linear-gradient(to bottom, #e3f2fd 0%, #e3f2fd 100px, white 100px);
 }
 
 .question-card.question-type-pinyin {
-  border-top-color: #FF9800;
-  background: linear-gradient(to bottom, #FFF3E0 0%, #FFF3E0 100px, white 100px);
+  border-top-color: #ff9800;
+  background: linear-gradient(to bottom, #fff3e0 0%, #fff3e0 100px, white 100px);
 }
 
 @keyframes slideIn {
@@ -290,11 +290,11 @@
 }
 
 .question-type-definition .question-label {
-  color: #1976D2;
+  color: #1976d2;
 }
 
 .question-type-pinyin .question-label {
-  color: #F57C00;
+  color: #f57c00;
 }
 
 .character-display-large {
@@ -364,8 +364,12 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .feedback-section.correct {
@@ -544,7 +548,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .srs-loading p {

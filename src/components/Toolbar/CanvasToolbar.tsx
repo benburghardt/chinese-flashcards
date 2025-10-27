@@ -1,4 +1,4 @@
-import { CanvasTool } from '../../types';
+import { CanvasTool } from "../../types";
 
 interface CanvasToolbarProps {
   selectedTool: CanvasTool;
@@ -24,10 +24,10 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   canRedo,
 }) => {
   const tools: { tool: CanvasTool; label: string; icon: string }[] = [
-    { tool: 'select', label: 'Select', icon: '🔗' },
-    { tool: 'add-side', label: 'Add Side', icon: '⬜' },
-    { tool: 'add-arrow', label: 'Add Arrow', icon: '➡️' },
-    { tool: 'pan', label: 'Pan', icon: '✋' },
+    { tool: "select", label: "Select", icon: "🔗" },
+    { tool: "add-side", label: "Add Side", icon: "⬜" },
+    { tool: "add-arrow", label: "Add Arrow", icon: "➡️" },
+    { tool: "pan", label: "Pan", icon: "✋" },
   ];
 
   return (
@@ -36,7 +36,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         {tools.map(({ tool, label, icon }) => (
           <button
             key={tool}
-            className={`tool-button ${selectedTool === tool ? 'active' : ''}`}
+            className={`tool-button ${selectedTool === tool ? "active" : ""}`}
             onClick={() => onToolSelect(tool)}
             title={label}
           >
@@ -46,20 +46,10 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       </div>
 
       <div className="tool-group">
-        <button
-          className="tool-button"
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Undo"
-        >
+        <button className="tool-button" onClick={onUndo} disabled={!canUndo} title="Undo">
           ↶
         </button>
-        <button
-          className="tool-button"
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="Redo"
-        >
+        <button className="tool-button" onClick={onRedo} disabled={!canRedo} title="Redo">
           ↷
         </button>
       </div>

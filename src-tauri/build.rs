@@ -10,7 +10,13 @@ fn main() {
 
         // Run the build-database binary from data-processing
         let status = Command::new("cargo")
-            .args(&["run", "--bin", "build-database", "--manifest-path", "../data-processing/Cargo.toml"])
+            .args([
+                "run",
+                "--bin",
+                "build-database",
+                "--manifest-path",
+                "../data-processing/Cargo.toml",
+            ])
             .status()
             .expect("Failed to execute build-database");
 

@@ -2,11 +2,13 @@ use chrono::{DateTime, Duration, Utc};
 
 #[derive(Debug, Clone)]
 pub struct SrsCard {
+    #[allow(dead_code)]
     pub character_id: i32,
     pub current_interval_days: f32,
     pub previous_interval_days: f32,
     pub ease_factor: f32,
     pub times_correct: i32,
+    #[allow(dead_code)]
     pub times_incorrect: i32,
     pub has_reached_week: bool,
 }
@@ -19,10 +21,7 @@ pub struct SrsUpdate {
     pub reached_week_for_first_time: bool,
 }
 
-pub fn calculate_next_review(
-    card: &SrsCard,
-    correct: bool,
-) -> SrsUpdate {
+pub fn calculate_next_review(card: &SrsCard, correct: bool) -> SrsUpdate {
     let (new_interval, new_ease) = if correct {
         calculate_interval_correct(card)
     } else {
@@ -35,8 +34,7 @@ pub fn calculate_next_review(
     let next_review_date = Utc::now() + Duration::minutes(interval_minutes);
 
     // Check if reaching 1 week for first time
-    let reached_week_for_first_time =
-        !card.has_reached_week && new_interval >= 7.0;
+    let reached_week_for_first_time = !card.has_reached_week && new_interval >= 7.0;
 
     SrsUpdate {
         new_interval_days: new_interval,
@@ -159,7 +157,7 @@ mod tests {
         // Test that incorrect answers have a minimum of 1 hour, not 1 day
         let card = SrsCard {
             character_id: 1,
-            current_interval_days: 0.5, // 12 hours
+            current_interval_days: 0.5,     // 12 hours
             previous_interval_days: 0.0417, // 1 hour
             ease_factor: 2.25,
             times_correct: 1,

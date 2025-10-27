@@ -1,5 +1,5 @@
-use data_processing::parsers::{cedict, subtlex};
 use data_processing::merge_cedict_with_frequency;
+use data_processing::parsers::{cedict, subtlex};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Navigate to project root to find datasets
@@ -32,7 +32,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let enriched = merge_cedict_with_frequency(cedict_entries, combined_freq.clone());
 
     // Statistics
-    let with_freq = enriched.iter().filter(|e| e.frequency_rank.is_some()).count();
+    let with_freq = enriched
+        .iter()
+        .filter(|e| e.frequency_rank.is_some())
+        .count();
     let without_freq = enriched.len() - with_freq;
 
     println!("\n=== Integration Results ===");
@@ -47,12 +50,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n=== Top 20 Most Frequent ===");
     for (i, entry) in sorted.iter().take(20).enumerate() {
         if entry.frequency_rank.is_some() {
-            println!("{}. {} ({}) - Rank: {} - {}",
-                     i + 1,
-                     entry.cedict.simplified,
-                     entry.cedict.pinyin,
-                     entry.frequency_rank.unwrap(),
-                     entry.cedict.definitions.first().unwrap_or(&String::from("(no definition)")));
+            println!(
+                "{}. {} ({}) - Rank: {} - {}",
+                i + 1,
+                entry.cedict.simplified,
+                entry.cedict.pinyin,
+                entry.frequency_rank.unwrap(),
+                entry
+                    .cedict
+                    .definitions
+                    .first()
+                    .unwrap_or(&String::from("(no definition)"))
+            );
         }
     }
 

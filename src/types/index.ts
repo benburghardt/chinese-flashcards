@@ -19,7 +19,7 @@ export interface Arrow {
   destinationId: string;
   label: string;
   color?: string;
-  style?: 'solid' | 'dashed' | 'dotted';
+  style?: "solid" | "dashed" | "dotted";
 }
 
 export interface Flashcard {
@@ -36,8 +36,8 @@ export interface FlashcardTemplate {
   id: string;
   name: string;
   description?: string;
-  sides: Omit<FlashcardSide, 'id' | 'value'>[];
-  arrows: (Omit<Arrow, 'id' | 'sourceId' | 'destinationId'> & {
+  sides: Omit<FlashcardSide, "id" | "value">[];
+  arrows: (Omit<Arrow, "id" | "sourceId" | "destinationId"> & {
     sourceIndex: number;
     destinationIndex: number;
   })[];
@@ -75,7 +75,12 @@ export interface StudySession {
   progressMap?: Record<string, StudyProgress>;
 }
 
-export type StudyMode = 'self-test' | 'spaced-repetition' | 'flash' | 'multiple-choice' | 'custom-path';
+export type StudyMode =
+  | "self-test"
+  | "spaced-repetition"
+  | "flash"
+  | "multiple-choice"
+  | "custom-path";
 
 export interface StudyQuestion {
   id: string;
@@ -95,12 +100,12 @@ export interface AppState {
   currentSet?: FlashcardSet;
   currentSetFilePath?: string;
   currentFlashcard?: Flashcard | null;
-  editMode: 'view' | 'edit' | 'study';
+  editMode: "view" | "edit" | "study";
   selectedTool: CanvasTool;
   studySession?: StudySession;
 }
 
-export type CanvasTool = 'select' | 'add-side' | 'add-arrow' | 'pan';
+export type CanvasTool = "select" | "add-side" | "add-arrow" | "pan";
 
 export interface CanvasState {
   zoom: number;
@@ -117,7 +122,7 @@ export interface CanvasState {
 export interface FileMetadata {
   name: string;
   path: string;
-  type: 'set' | 'template';
+  type: "set" | "template";
   lastModified: Date;
   size: number;
 }

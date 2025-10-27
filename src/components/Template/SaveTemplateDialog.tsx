@@ -1,17 +1,14 @@
 // Phase 4: Save Template Dialog Component
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 interface SaveTemplateDialogProps {
   onSave: (templateName: string, description?: string) => void;
   onCancel: () => void;
 }
 
-export const SaveTemplateDialog: React.FC<SaveTemplateDialogProps> = ({
-  onSave,
-  onCancel,
-}) => {
-  const [templateName, setTemplateName] = useState('');
-  const [templateDescription, setTemplateDescription] = useState('');
+export const SaveTemplateDialog: React.FC<SaveTemplateDialogProps> = ({ onSave, onCancel }) => {
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +22,9 @@ export const SaveTemplateDialog: React.FC<SaveTemplateDialogProps> = ({
       <div className="template-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="template-dialog-header">
           <h2>Save as Template</h2>
-          <button className="close-btn" onClick={onCancel}>×</button>
+          <button className="close-btn" onClick={onCancel}>
+            ×
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="template-dialog-content">
@@ -57,11 +56,7 @@ export const SaveTemplateDialog: React.FC<SaveTemplateDialogProps> = ({
             <button type="button" className="cancel-btn" onClick={onCancel}>
               Cancel
             </button>
-            <button
-              type="submit"
-              className="save-template-btn"
-              disabled={!templateName.trim()}
-            >
+            <button type="submit" className="save-template-btn" disabled={!templateName.trim()}>
               Save Template
             </button>
           </div>

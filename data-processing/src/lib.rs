@@ -1,5 +1,5 @@
-pub mod parsers;
 pub mod database;
+pub mod parsers;
 
 use parsers::cedict::CedictEntry;
 use parsers::subtlex::FrequencyData;
@@ -43,13 +43,9 @@ pub fn merge_cedict_with_frequency_separated(
             // For single characters, prioritize character frequency
             // For multi-character words, use word frequency
             let freq_rank = if entry.simplified.chars().count() == 1 {
-                char_freq
-                    .get(&entry.simplified)
-                    .map(|f| f.frequency_rank)
+                char_freq.get(&entry.simplified).map(|f| f.frequency_rank)
             } else {
-                word_freq
-                    .get(&entry.simplified)
-                    .map(|f| f.frequency_rank)
+                word_freq.get(&entry.simplified).map(|f| f.frequency_rank)
             };
 
             EnrichedEntry {

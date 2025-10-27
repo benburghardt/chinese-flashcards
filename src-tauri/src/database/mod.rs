@@ -1,10 +1,10 @@
+use crate::srs::{calculate_next_review, SrsCard};
+use chrono::{DateTime, Timelike, Utc};
 use rusqlite::{Connection, Result};
-use std::sync::Mutex;
-use std::path::PathBuf;
-use std::fs;
-use crate::srs::{SrsCard, calculate_next_review};
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc, Timelike};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Mutex;
 
 pub struct DbConnection(pub Mutex<Connection>);
 
@@ -21,8 +21,7 @@ pub fn initialize_database() -> Result<DbConnection> {
     };
 
     // Create the app data directory if it doesn't exist
-    fs::create_dir_all(&app_data_dir)
-        .expect("Failed to create app data directory");
+    fs::create_dir_all(&app_data_dir).expect("Failed to create app data directory");
 
     // Path to the user's database (writable)
     let user_db_path = app_data_dir.join("chinese.db");
@@ -93,20 +92,29 @@ pub fn initialize_database() -> Result<DbConnection> {
 
     // Initialize new user with first 30 characters if this is a new database
     println!("[DB] Checking if initial unlock completed...");
-    let initial_unlock_completed = get_setting(&conn, "initial_unlock_completed")
-        .unwrap_or_else(|e| {
+    let initial_unlock_completed =
+        get_setting(&conn, "initial_unlock_completed").unwrap_or_else(|e| {
             println!("[DB] Error getting initial_unlock_completed setting: {}", e);
             "false".to_string()
         });
 
-    println!("[DB] initial_unlock_completed = {}", initial_unlock_completed);
+    println!(
+        "[DB] initial_unlock_completed = {}",
+        initial_unlock_completed
+    );
 
     if initial_unlock_completed == "false" {
         println!("[DB] New user detected. Initializing with first 100 characters...");
         match initialize_new_user_characters(&conn) {
-            Ok(count) => println!("[DB] Successfully initialized {} characters for new user", count),
+            Ok(count) => println!(
+                "[DB] Successfully initialized {} characters for new user",
+                count
+            ),
             Err(e) => {
-                eprintln!("[DB] ERROR: Failed to initialize new user characters: {}", e);
+                eprintln!(
+                    "[DB] ERROR: Failed to initialize new user characters: {}",
+                    e
+                );
                 eprintln!("[DB] This means no characters will be available to learn!");
             }
         }
@@ -120,9 +128,14 @@ pub fn initialize_database() -> Result<DbConnection> {
 fn run_migrations(conn: &Connection) -> Result<()> {
     // Get current schema version
     let version: i32 = conn
-        .query_row("SELECT MAX(version) FROM schema_version", [], |row| row.get(0))
+        .query_row("SELECT MAX(version) FROM schema_version", [], |row| {
+            row.get(0)
+        })
         .unwrap_or_else(|e| {
-            println!("[DB] Warning: Could not read schema_version, assuming version 0: {}", e);
+            println!(
+                "[DB] Warning: Could not read schema_version, assuming version 0: {}",
+                e
+            );
             0
         });
 
@@ -137,12 +150,15 @@ fn run_migrations(conn: &Connection) -> Result<()> {
              ('last_unlock_date', ''),
              ('queue_emptied_date', ''),
              ('initial_unlock_completed', 'false')",
-            []
+            [],
         );
 
         match result {
             Ok(rows) => println!("[DB] Migration 2: Inserted {} app_settings rows", rows),
-            Err(e) => println!("[DB] Migration 2 warning: Error inserting app_settings: {}", e),
+            Err(e) => println!(
+                "[DB] Migration 2 warning: Error inserting app_settings: {}",
+                e
+            ),
         }
 
         conn.execute(
@@ -159,14 +175,14 @@ fn run_migrations(conn: &Connection) -> Result<()> {
 
         conn.execute(
             "ALTER TABLE user_progress ADD COLUMN is_mastered BOOLEAN DEFAULT 0",
-            []
+            [],
         )?;
 
         println!("[DB] Migration 3: Added is_mastered column");
 
         conn.execute(
             "INSERT INTO schema_version (version, description) VALUES (3, 'Add mastery tracking')",
-            []
+            [],
         )?;
 
         println!("[DB] Migration 3 completed");
@@ -204,7 +220,7 @@ pub fn get_character_by_id(conn: &Connection, id: i32) -> Result<Character> {
                 frequency_rank: row.get(6)?,
                 is_word: row.get(7)?,
             })
-        }
+        },
     )
 }
 
@@ -215,7 +231,7 @@ pub fn get_characters_by_frequency(conn: &Connection, limit: usize) -> Result<Ve
          FROM characters
          WHERE is_word = 0
          ORDER BY frequency_rank ASC
-         LIMIT ?1"
+         LIMIT ?1",
     )?;
 
     let chars = stmt.query_map([limit], |row| {
@@ -257,7 +273,7 @@ pub fn get_due_cards(conn: &Connection) -> Result<Vec<DueCard>> {
            AND is_mastered = 0
            AND next_review_date <= datetime('now')",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
     println!("[DB] Cards due for review: {}", due_count);
 
@@ -269,7 +285,7 @@ pub fn get_due_cards(conn: &Connection) -> Result<Vec<DueCard>> {
          WHERE p.introduced = 1
            AND p.is_mastered = 0
            AND p.next_review_date <= datetime('now')
-         ORDER BY p.next_review_date ASC"
+         ORDER BY p.next_review_date ASC",
     )?;
 
     let cards = stmt.query_map([], |row| {
@@ -303,7 +319,7 @@ pub fn get_srs_card_state(conn: &Connection, character_id: i32) -> Result<SrsCar
                 times_incorrect: row.get(5)?,
                 has_reached_week: row.get(6)?,
             })
-        }
+        },
     )
 }
 
@@ -317,30 +333,32 @@ pub fn round_down_to_half_hour(dt: DateTime<Utc>) -> DateTime<Utc> {
 
     // Calculate how many minutes past the last half-hour mark we are
     let minutes_past_half_hour = if minute < 30 {
-        minute  // We're between :00 and :30, so subtract back to :00
+        minute // We're between :00 and :30, so subtract back to :00
     } else {
-        minute - 30  // We're between :30 and :60, so subtract back to :30
+        minute - 30 // We're between :30 and :60, so subtract back to :30
     };
 
     // Calculate total time to subtract (minutes + seconds + nanoseconds)
     let total_seconds_to_subtract = (minutes_past_half_hour as i64 * 60) + second as i64;
-    let duration_to_subtract = Duration::seconds(total_seconds_to_subtract) + Duration::nanoseconds(nano as i64);
+    let duration_to_subtract =
+        Duration::seconds(total_seconds_to_subtract) + Duration::nanoseconds(nano as i64);
 
     // Subtract to get to the half-hour mark
     dt - duration_to_subtract
 }
 
-pub fn record_srs_answer(
-    conn: &Connection,
-    character_id: i32,
-    correct: bool,
-) -> Result<bool> {
+pub fn record_srs_answer(conn: &Connection, character_id: i32, correct: bool) -> Result<bool> {
     // Get current card state
     let card = get_srs_card_state(conn, character_id)?;
 
-    println!("[DB] record_srs_answer: char_id={}, correct={}", character_id, correct);
-    println!("[DB] Before: current_interval={}, previous_interval={}",
-             card.current_interval_days, card.previous_interval_days);
+    println!(
+        "[DB] record_srs_answer: char_id={}, correct={}",
+        character_id, correct
+    );
+    println!(
+        "[DB] Before: current_interval={}, previous_interval={}",
+        card.current_interval_days, card.previous_interval_days
+    );
 
     // Calculate new values
     let update = calculate_next_review(&card, correct);
@@ -348,8 +366,10 @@ pub fn record_srs_answer(
     // Round next review date to nearest half hour for cleaner scheduling
     let next_review_rounded = round_down_to_half_hour(update.next_review_date);
 
-    println!("[DB] After calculation: new_interval={}, next_review={}, rounded={}",
-             update.new_interval_days, update.next_review_date, next_review_rounded);
+    println!(
+        "[DB] After calculation: new_interval={}, next_review={}, rounded={}",
+        update.new_interval_days, update.next_review_date, next_review_rounded
+    );
 
     // Convert to SQLite datetime format (YYYY-MM-DD HH:MM:SS)
     // SQLite's datetime() function uses this format, and we need to match it for comparisons
@@ -377,7 +397,7 @@ pub fn record_srs_answer(
             if correct { 0 } else { 1 },
             update.reached_week_for_first_time,
             character_id,
-        ]
+        ],
     )?;
 
     // Check for mastery (9 correct reviews total)
@@ -385,15 +405,17 @@ pub fn record_srs_answer(
         let new_times_correct = card.times_correct + 1;
 
         if new_times_correct >= 9 {
-            println!("[SRS] Character {} has reached MASTERY after {} correct reviews!",
-                     character_id, new_times_correct);
+            println!(
+                "[SRS] Character {} has reached MASTERY after {} correct reviews!",
+                character_id, new_times_correct
+            );
 
             conn.execute(
                 "UPDATE user_progress
                  SET is_mastered = 1,
                      next_review_date = NULL
                  WHERE character_id = ?1",
-                [character_id]
+                [character_id],
             )?;
         }
     }
@@ -426,7 +448,7 @@ pub fn unlock_next_character(conn: &Connection) -> Result<Option<Character>> {
                 frequency_rank: row.get(6)?,
                 is_word: row.get(7)?,
             })
-        }
+        },
     );
 
     match result {
@@ -448,6 +470,7 @@ pub fn unlock_next_character(conn: &Connection) -> Result<Option<Character>> {
 
 /// Get words that are eligible for introduction
 /// (all component characters have been introduced)
+#[allow(dead_code)]
 pub fn get_eligible_words(conn: &Connection, limit: usize) -> Result<Vec<Character>> {
     // Get all words not yet in user_progress
     let mut stmt = conn.prepare(
@@ -460,25 +483,26 @@ pub fn get_eligible_words(conn: &Connection, limit: usize) -> Result<Vec<Charact
            AND NOT EXISTS (
                SELECT 1 FROM user_progress p WHERE p.character_id = c.id
            )
-         ORDER BY c.frequency_rank ASC"
+         ORDER BY c.frequency_rank ASC",
     )?;
 
-    let words: Vec<(Character, Option<String>)> = stmt.query_map([], |row| {
-        Ok((
-            Character {
-                id: row.get(0)?,
-                character: row.get(1)?,
-                simplified: row.get(2)?,
-                traditional: row.get(3)?,
-                mandarin_pinyin: row.get(4)?,
-                definition: row.get(5)?,
-                frequency_rank: row.get(6)?,
-                is_word: row.get(7)?,
-            },
-            row.get(8)? // component_characters
-        ))
-    })?
-    .collect::<Result<Vec<_>>>()?;
+    let words: Vec<(Character, Option<String>)> = stmt
+        .query_map([], |row| {
+            Ok((
+                Character {
+                    id: row.get(0)?,
+                    character: row.get(1)?,
+                    simplified: row.get(2)?,
+                    traditional: row.get(3)?,
+                    mandarin_pinyin: row.get(4)?,
+                    definition: row.get(5)?,
+                    frequency_rank: row.get(6)?,
+                    is_word: row.get(7)?,
+                },
+                row.get(8)?, // component_characters
+            ))
+        })?
+        .collect::<Result<Vec<_>>>()?;
 
     // Filter words where all components are introduced
     let mut eligible_words = Vec::new();
@@ -499,8 +523,9 @@ pub fn get_eligible_words(conn: &Connection, limit: usize) -> Result<Vec<Charact
                 conn.query_row(
                     "SELECT introduced FROM user_progress WHERE character_id = ?1",
                     [comp_id],
-                    |row| row.get::<_, bool>(0)
-                ).unwrap_or(false)
+                    |row| row.get::<_, bool>(0),
+                )
+                .unwrap_or(false)
             });
 
             if all_introduced {
@@ -518,10 +543,11 @@ pub fn get_eligible_words(conn: &Connection, limit: usize) -> Result<Vec<Charact
 /// Calculate introduction score for a character or word
 /// Lower score = higher priority (more common/frequent)
 /// For words: Ensures word always comes AFTER all component characters
+#[allow(dead_code)]
 fn calculate_introduction_score(
     character: &Character,
     component_chars: &Option<String>,
-    conn: &Connection
+    conn: &Connection,
 ) -> f64 {
     if character.is_word {
         // Word scoring: max(component ranks) + small word frequency adjustment
@@ -536,13 +562,15 @@ fn calculate_introduction_score(
 
             if !comp_ids.is_empty() {
                 // Get component frequency ranks
-                let component_ranks: Vec<i32> = comp_ids.iter()
+                let component_ranks: Vec<i32> = comp_ids
+                    .iter()
                     .filter_map(|comp_id| {
                         conn.query_row(
                             "SELECT frequency_rank FROM characters WHERE id = ?1",
                             [comp_id],
-                            |row| row.get::<_, i32>(0)
-                        ).ok()
+                            |row| row.get::<_, i32>(0),
+                        )
+                        .ok()
                     })
                     .collect();
 
@@ -569,10 +597,11 @@ fn calculate_introduction_score(
 
 /// Get characters and words for browsing in introduction order
 /// Returns items sorted by introduction score (same as introduction algorithm)
+#[allow(dead_code)]
 pub fn get_browse_items_introduction_order(
     conn: &Connection,
     offset: usize,
-    limit: usize
+    limit: usize,
 ) -> Result<Vec<(Character, Option<String>, f64)>> {
     // Fetch a window of items around the requested page
     // For characters, we can use a reasonable window
@@ -580,7 +609,7 @@ pub fn get_browse_items_introduction_order(
     // max(component_ranks), so we need to check many words to find ones with
     // common components
     let char_window_size = (offset + limit) * 2;
-    let word_window_size = (offset + limit) * 50;  // Much larger for words
+    let word_window_size = (offset + limit) * 50; // Much larger for words
 
     // Get characters up to window size
     let all_chars: Vec<(Character, Option<String>)> = {
@@ -590,24 +619,25 @@ pub fn get_browse_items_introduction_order(
              FROM characters
              WHERE is_word = 0
              ORDER BY frequency_rank ASC
-             LIMIT ?1"
+             LIMIT ?1",
         )?;
-        let result = stmt.query_map([char_window_size], |row| {
-            Ok((
-                Character {
-                    id: row.get(0)?,
-                    character: row.get(1)?,
-                    simplified: row.get(2)?,
-                    traditional: row.get(3)?,
-                    mandarin_pinyin: row.get(4)?,
-                    definition: row.get(5)?,
-                    frequency_rank: row.get(6)?,
-                    is_word: row.get(7)?,
-                },
-                None
-            ))
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let result = stmt
+            .query_map([char_window_size], |row| {
+                Ok((
+                    Character {
+                        id: row.get(0)?,
+                        character: row.get(1)?,
+                        simplified: row.get(2)?,
+                        traditional: row.get(3)?,
+                        mandarin_pinyin: row.get(4)?,
+                        definition: row.get(5)?,
+                        frequency_rank: row.get(6)?,
+                        is_word: row.get(7)?,
+                    },
+                    None,
+                ))
+            })?
+            .collect::<Result<Vec<_>>>()?;
         result
     };
 
@@ -620,31 +650,32 @@ pub fn get_browse_items_introduction_order(
              FROM characters
              WHERE is_word = 1
              ORDER BY frequency_rank ASC
-             LIMIT ?1"
+             LIMIT ?1",
         )?;
-        let result = stmt.query_map([word_window_size], |row| {
-            Ok((
-                Character {
-                    id: row.get(0)?,
-                    character: row.get(1)?,
-                    simplified: row.get(2)?,
-                    traditional: row.get(3)?,
-                    mandarin_pinyin: row.get(4)?,
-                    definition: row.get(5)?,
-                    frequency_rank: row.get(6)?,
-                    is_word: row.get(7)?,
-                },
-                row.get(8)?
-            ))
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let result = stmt
+            .query_map([word_window_size], |row| {
+                Ok((
+                    Character {
+                        id: row.get(0)?,
+                        character: row.get(1)?,
+                        simplified: row.get(2)?,
+                        traditional: row.get(3)?,
+                        mandarin_pinyin: row.get(4)?,
+                        definition: row.get(5)?,
+                        frequency_rank: row.get(6)?,
+                        is_word: row.get(7)?,
+                    },
+                    row.get(8)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>>>()?;
         result
     };
 
     // Combine and score all items
     let mut scored_items: Vec<(Character, Option<String>, f64)> = all_chars
         .into_iter()
-        .chain(all_words.into_iter())
+        .chain(all_words)
         .map(|(character, component_chars)| {
             let score = calculate_introduction_score(&character, &component_chars, conn);
             (character, component_chars, score)
@@ -655,20 +686,18 @@ pub fn get_browse_items_introduction_order(
     scored_items.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
 
     // Apply pagination
-    let paginated: Vec<(Character, Option<String>, f64)> = scored_items
-        .into_iter()
-        .skip(offset)
-        .take(limit)
-        .collect();
+    let paginated: Vec<(Character, Option<String>, f64)> =
+        scored_items.into_iter().skip(offset).take(limit).collect();
 
     Ok(paginated)
 }
 
 /// Get next batch of items (characters and words) for introduction
 /// Uses mixed scoring to balance character learning with word learning
+#[allow(dead_code)]
 pub fn get_next_introduction_batch_mixed(
     conn: &Connection,
-    batch_size: usize
+    batch_size: usize,
 ) -> Result<Vec<Character>> {
     // Get eligible characters (not in user_progress)
     let eligible_chars_query = conn.prepare(
@@ -680,41 +709,46 @@ pub fn get_next_introduction_batch_mixed(
                SELECT 1 FROM user_progress p WHERE p.character_id = c.id
            )
          ORDER BY c.frequency_rank ASC
-         LIMIT ?1"
+         LIMIT ?1",
     );
 
     let eligible_chars: Vec<(Character, Option<String>)> = {
         let mut stmt = eligible_chars_query?;
-        let result = stmt.query_map([batch_size * 2], |row| {
-            Ok((
-                Character {
-                    id: row.get(0)?,
-                    character: row.get(1)?,
-                    simplified: row.get(2)?,
-                    traditional: row.get(3)?,
-                    mandarin_pinyin: row.get(4)?,
-                    definition: row.get(5)?,
-                    frequency_rank: row.get(6)?,
-                    is_word: row.get(7)?,
-                },
-                None // Characters don't have component_characters
-            ))
-        })?
-        .collect::<Result<Vec<_>>>()?;
+        let result = stmt
+            .query_map([batch_size * 2], |row| {
+                Ok((
+                    Character {
+                        id: row.get(0)?,
+                        character: row.get(1)?,
+                        simplified: row.get(2)?,
+                        traditional: row.get(3)?,
+                        mandarin_pinyin: row.get(4)?,
+                        definition: row.get(5)?,
+                        frequency_rank: row.get(6)?,
+                        is_word: row.get(7)?,
+                    },
+                    None, // Characters don't have component_characters
+                ))
+            })?
+            .collect::<Result<Vec<_>>>()?;
         result
     };
 
     // Get eligible words (all components introduced)
     let eligible_words = get_eligible_words(conn, batch_size * 2)?;
     let eligible_words_with_components: Vec<(Character, Option<String>)> = {
-        eligible_words.into_iter()
-            .filter_map(|word| {
-                let components: Option<String> = conn.query_row(
-                    "SELECT component_characters FROM characters WHERE id = ?1",
-                    [word.id],
-                    |row| row.get(0)
-                ).ok().flatten();
-                Some((word, components))
+        eligible_words
+            .into_iter()
+            .map(|word| {
+                let components: Option<String> = conn
+                    .query_row(
+                        "SELECT component_characters FROM characters WHERE id = ?1",
+                        [word.id],
+                        |row| row.get(0),
+                    )
+                    .ok()
+                    .flatten();
+                (word, components)
             })
             .collect()
     };
@@ -722,7 +756,7 @@ pub fn get_next_introduction_batch_mixed(
     // Combine and score all eligible items
     let mut all_eligible: Vec<(Character, f64)> = eligible_chars
         .into_iter()
-        .chain(eligible_words_with_components.into_iter())
+        .chain(eligible_words_with_components)
         .map(|(item, components)| {
             let score = calculate_introduction_score(&item, &components, conn);
             (item, score)
@@ -748,7 +782,7 @@ pub fn mark_character_introduced(conn: &Connection, character_id: i32) -> Result
          SET introduced = 1,
              updated_at = datetime('now')
          WHERE character_id = ?1",
-        [character_id]
+        [character_id],
     )?;
 
     // Check if the queue is now empty after this introduction
@@ -782,7 +816,7 @@ pub fn get_self_study_cards(conn: &Connection, limit: usize) -> Result<Vec<DueCa
               WHERE character_id = c.id AND practice_mode = 'self-study'),
              datetime('1970-01-01')
            ) ASC
-         LIMIT ?1"
+         LIMIT ?1",
     )?;
 
     let cards = stmt.query_map([limit], |row| {
@@ -818,7 +852,7 @@ pub fn record_practice_history(
             arrow_tested,
             user_answer,
             is_correct,
-        ]
+        ],
     )?;
     Ok(())
 }
@@ -829,7 +863,7 @@ pub fn get_setting(conn: &Connection, key: &str) -> Result<String> {
     conn.query_row(
         "SELECT value FROM app_settings WHERE key = ?1",
         [key],
-        |row| row.get(0)
+        |row| row.get(0),
     )
 }
 
@@ -837,7 +871,7 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
     conn.execute(
         "INSERT OR REPLACE INTO app_settings (key, value, updated_at)
          VALUES (?1, ?2, datetime('now'))",
-        rusqlite::params![key, value]
+        rusqlite::params![key, value],
     )?;
     Ok(())
 }
@@ -849,7 +883,7 @@ pub fn get_ready_to_learn_count(conn: &Connection) -> Result<usize> {
     let count: usize = conn.query_row(
         "SELECT COUNT(*) FROM user_progress WHERE introduced = 0",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
     Ok(count)
 }
@@ -859,7 +893,7 @@ pub fn get_introduced_count(conn: &Connection) -> Result<usize> {
     let count: usize = conn.query_row(
         "SELECT COUNT(*) FROM user_progress WHERE introduced = 1",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
     Ok(count)
 }
@@ -867,8 +901,8 @@ pub fn get_introduced_count(conn: &Connection) -> Result<usize> {
 /// Initialize new user with first 30 characters
 pub fn initialize_new_user_characters(conn: &Connection) -> Result<usize> {
     // Check if already initialized
-    let initial_unlock_completed = get_setting(conn, "initial_unlock_completed")
-        .unwrap_or_else(|_| "false".to_string());
+    let initial_unlock_completed =
+        get_setting(conn, "initial_unlock_completed").unwrap_or_else(|_| "false".to_string());
 
     if initial_unlock_completed == "true" {
         println!("[DB] Initial characters already unlocked");
@@ -887,10 +921,11 @@ pub fn initialize_new_user_characters(conn: &Connection) -> Result<usize> {
                WHERE p.character_id = c.id
            )
          ORDER BY c.frequency_rank ASC
-         LIMIT 100"
+         LIMIT 100",
     )?;
 
-    let character_ids: Vec<i32> = stmt.query_map([], |row| row.get(0))?
+    let character_ids: Vec<i32> = stmt
+        .query_map([], |row| row.get(0))?
         .collect::<Result<Vec<i32>>>()?;
 
     let count = character_ids.len();
@@ -916,11 +951,11 @@ pub fn initialize_new_user_characters(conn: &Connection) -> Result<usize> {
 /// Returns: (number_unlocked, can_unlock_more)
 /// Unlock conditions: max(20 days after last unlock, 2 days after queue emptied)
 pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
-    use chrono::{DateTime, Utc, Duration, NaiveDateTime};
+    use chrono::{DateTime, NaiveDateTime, Utc};
 
     // Check if initial unlock is done
-    let initial_unlock_completed = get_setting(conn, "initial_unlock_completed")
-        .unwrap_or_else(|_| "false".to_string());
+    let initial_unlock_completed =
+        get_setting(conn, "initial_unlock_completed").unwrap_or_else(|_| "false".to_string());
 
     if initial_unlock_completed != "true" {
         // Initialize new user
@@ -931,17 +966,19 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
     // Check if ready-to-learn queue is empty
     let ready_to_learn = get_ready_to_learn_count(conn)?;
     if ready_to_learn > 0 {
-        println!("[DB] Still have {} characters ready to learn. Not unlocking more.", ready_to_learn);
+        println!(
+            "[DB] Still have {} characters ready to learn. Not unlocking more.",
+            ready_to_learn
+        );
         return Ok((0, false));
     }
 
     // Get last unlock date
-    let last_unlock_str = get_setting(conn, "last_unlock_date")
-        .unwrap_or_else(|_| "".to_string());
+    let last_unlock_str = get_setting(conn, "last_unlock_date").unwrap_or_else(|_| "".to_string());
 
     // Get queue emptied date
-    let queue_emptied_str = get_setting(conn, "queue_emptied_date")
-        .unwrap_or_else(|_| "".to_string());
+    let queue_emptied_str =
+        get_setting(conn, "queue_emptied_date").unwrap_or_else(|_| "".to_string());
 
     let now = Utc::now();
 
@@ -951,8 +988,9 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
         true
     } else {
         // Parse last unlock date (YYYY-MM-DD HH:MM:SS)
-        let last_unlock_result = NaiveDateTime::parse_from_str(&last_unlock_str, "%Y-%m-%d %H:%M:%S")
-            .map(|naive_dt| DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
+        let last_unlock_result =
+            NaiveDateTime::parse_from_str(&last_unlock_str, "%Y-%m-%d %H:%M:%S")
+                .map(|naive_dt| DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
 
         let queue_emptied_result = if !queue_emptied_str.is_empty() {
             NaiveDateTime::parse_from_str(&queue_emptied_str, "%Y-%m-%d %H:M:%S")
@@ -968,12 +1006,19 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
                 let hours_since_unlock = now.signed_duration_since(last_unlock).num_hours();
                 let condition1_met = hours_since_unlock >= 480;
 
-                println!("[DB] Last unlock was {} hours ago (need 480 for unlock)", hours_since_unlock);
+                println!(
+                    "[DB] Last unlock was {} hours ago (need 480 for unlock)",
+                    hours_since_unlock
+                );
 
                 // Condition 2: 2 days (48 hours) after queue emptied
                 let condition2_met = if let Some(queue_emptied) = queue_emptied_result {
-                    let hours_since_queue_empty = now.signed_duration_since(queue_emptied).num_hours();
-                    println!("[DB] Queue emptied {} hours ago (need 48 for unlock)", hours_since_queue_empty);
+                    let hours_since_queue_empty =
+                        now.signed_duration_since(queue_emptied).num_hours();
+                    println!(
+                        "[DB] Queue emptied {} hours ago (need 48 for unlock)",
+                        hours_since_queue_empty
+                    );
                     hours_since_queue_empty >= 48
                 } else {
                     println!("[DB] No queue_emptied_date recorded");
@@ -985,13 +1030,18 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
 
                 if !can_unlock {
                     if !condition1_met {
-                        println!("[DB] Cannot unlock: need to wait {} more hours since last unlock",
-                                 480 - hours_since_unlock);
+                        println!(
+                            "[DB] Cannot unlock: need to wait {} more hours since last unlock",
+                            480 - hours_since_unlock
+                        );
                     }
-                    if !condition2_met && queue_emptied_result.is_some() {
-                        let hours_since_empty = now.signed_duration_since(queue_emptied_result.unwrap()).num_hours();
-                        println!("[DB] Cannot unlock: need to wait {} more hours since queue emptied",
-                                 48 - hours_since_empty);
+                    if !condition2_met {
+                        if let Some(queue_emptied) = queue_emptied_result {
+                            let hours_since_empty =
+                                now.signed_duration_since(queue_emptied).num_hours();
+                            println!("[DB] Cannot unlock: need to wait {} more hours since queue emptied",
+                                     48 - hours_since_empty);
+                        }
                     }
                 }
 
@@ -1020,10 +1070,11 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
                WHERE p.character_id = c.id
            )
          ORDER BY c.frequency_rank ASC
-         LIMIT 100"
+         LIMIT 100",
     )?;
 
-    let character_ids: Vec<i32> = stmt.query_map([], |row| row.get(0))?
+    let character_ids: Vec<i32> = stmt
+        .query_map([], |row| row.get(0))?
         .collect::<Result<Vec<i32>>>()?;
 
     let count = character_ids.len();
@@ -1055,7 +1106,7 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
 /// Returns None if queue is not empty or characters can be unlocked now
 /// Uses max(20 days after last unlock, 2 days after queue emptied) logic
 pub fn get_hours_until_next_unlock(conn: &Connection) -> Result<Option<i64>> {
-    use chrono::{DateTime, Utc, NaiveDateTime};
+    use chrono::{DateTime, NaiveDateTime, Utc};
 
     // Check if ready-to-learn queue is empty
     let ready_to_learn = get_ready_to_learn_count(conn)?;
@@ -1064,12 +1115,11 @@ pub fn get_hours_until_next_unlock(conn: &Connection) -> Result<Option<i64>> {
     }
 
     // Check last unlock date
-    let last_unlock_str = get_setting(conn, "last_unlock_date")
-        .unwrap_or_else(|_| "".to_string());
+    let last_unlock_str = get_setting(conn, "last_unlock_date").unwrap_or_else(|_| "".to_string());
 
     // Check queue emptied date
-    let queue_emptied_str = get_setting(conn, "queue_emptied_date")
-        .unwrap_or_else(|_| "".to_string());
+    let queue_emptied_str =
+        get_setting(conn, "queue_emptied_date").unwrap_or_else(|_| "".to_string());
 
     if last_unlock_str.is_empty() {
         return Ok(Some(0)); // Can unlock now
@@ -1091,7 +1141,9 @@ pub fn get_hours_until_next_unlock(conn: &Connection) -> Result<Option<i64>> {
 
         // Condition 2: 2 days (48 hours) after queue emptied
         let hours_until_condition2 = if !queue_emptied_str.is_empty() {
-            if let Ok(naive_dt) = NaiveDateTime::parse_from_str(&queue_emptied_str, "%Y-%m-%d %H:%M:%S") {
+            if let Ok(naive_dt) =
+                NaiveDateTime::parse_from_str(&queue_emptied_str, "%Y-%m-%d %H:%M:%S")
+            {
                 let queue_emptied = DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc);
                 let hours_since_empty = now.signed_duration_since(queue_emptied).num_hours();
 
@@ -1125,7 +1177,7 @@ pub fn start_study_session(conn: &Connection, mode: &str) -> Result<i32> {
     conn.execute(
         "INSERT INTO study_sessions (mode, started_at)
          VALUES (?1, datetime('now'))",
-        [mode]
+        [mode],
     )?;
 
     let session_id = conn.last_insert_rowid() as i32;
@@ -1155,23 +1207,24 @@ pub fn end_study_session(
 
 /// Calculate study streak (consecutive days with study sessions)
 pub fn calculate_study_streak(conn: &Connection) -> Result<i32> {
-    use chrono::{NaiveDate, Utc, Duration};
+    use chrono::{Duration, NaiveDate, Utc};
 
     // Get all unique study dates, ordered by date descending
     let mut stmt = conn.prepare(
         "SELECT DISTINCT DATE(started_at) as study_date
          FROM study_sessions
          WHERE started_at IS NOT NULL
-         ORDER BY study_date DESC"
+         ORDER BY study_date DESC",
     )?;
 
-    let dates: Vec<NaiveDate> = stmt.query_map([], |row| {
-        let date_str: String = row.get(0)?;
-        // Parse SQLite date format (YYYY-MM-DD)
-        NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-    })?
-    .collect::<Result<Vec<_>>>()?;
+    let dates: Vec<NaiveDate> = stmt
+        .query_map([], |row| {
+            let date_str: String = row.get(0)?;
+            // Parse SQLite date format (YYYY-MM-DD)
+            NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        })?
+        .collect::<Result<Vec<_>>>()?;
 
     if dates.is_empty() {
         return Ok(0);
@@ -1195,7 +1248,7 @@ pub fn calculate_study_streak(conn: &Connection) -> Result<i32> {
     for date in dates.iter().skip(1) {
         if *date == expected_date {
             streak += 1;
-            expected_date = expected_date - Duration::days(1);
+            expected_date -= Duration::days(1);
         } else {
             // Gap found, streak broken
             break;
@@ -1208,7 +1261,7 @@ pub fn calculate_study_streak(conn: &Connection) -> Result<i32> {
 /// Build the database automatically from dataset files
 fn build_database_if_needed() -> std::result::Result<PathBuf, Box<dyn std::error::Error>> {
     use data_processing::parsers::{cedict, subtlex};
-    use data_processing::{merge_cedict_with_frequency_separated, database as db_builder};
+    use data_processing::{database as db_builder, merge_cedict_with_frequency_separated};
 
     // Get project root and datasets directory
     let project_root = if cfg!(debug_assertions) {
@@ -1239,7 +1292,11 @@ fn build_database_if_needed() -> std::result::Result<PathBuf, Box<dyn std::error
     println!("[DB BUILD] Parsing SUBTLEX-CH...");
     let char_freq_path = datasets_dir.join("SUBTLEX-CH").join("SUBTLEX-CH-CHR");
     if !char_freq_path.exists() {
-        return Err(format!("SUBTLEX-CH character file not found at: {:?}", char_freq_path).into());
+        return Err(format!(
+            "SUBTLEX-CH character file not found at: {:?}",
+            char_freq_path
+        )
+        .into());
     }
     let char_freq = subtlex::parse_subtlex_character_file(char_freq_path.to_str().unwrap())?;
 
@@ -1249,8 +1306,11 @@ fn build_database_if_needed() -> std::result::Result<PathBuf, Box<dyn std::error
     }
     let word_freq = subtlex::parse_subtlex_word_file(word_freq_path.to_str().unwrap())?;
 
-    println!("[DB BUILD] Loaded {} character frequencies and {} word frequencies",
-        char_freq.len(), word_freq.len());
+    println!(
+        "[DB BUILD] Loaded {} character frequencies and {} word frequencies",
+        char_freq.len(),
+        word_freq.len()
+    );
 
     println!("[DB BUILD] Merging data...");
     let enriched = merge_cedict_with_frequency_separated(cedict_entries, char_freq, word_freq);
@@ -1276,11 +1336,19 @@ fn apply_definition_overrides(conn: &Connection) -> Result<()> {
     };
 
     if !overrides_path.exists() {
-        println!("[DB] No definition overrides found at {:?}", overrides_path.canonicalize().unwrap_or(overrides_path.clone()));
+        println!(
+            "[DB] No definition overrides found at {:?}",
+            overrides_path
+                .canonicalize()
+                .unwrap_or(overrides_path.clone())
+        );
         return Ok(());
     }
 
-    println!("[DB] Applying definition overrides from {:?}", overrides_path);
+    println!(
+        "[DB] Applying definition overrides from {:?}",
+        overrides_path
+    );
 
     #[derive(serde::Deserialize)]
     struct DefinitionOverride {
@@ -1291,7 +1359,10 @@ fn apply_definition_overrides(conn: &Connection) -> Result<()> {
     let file_content = match fs::read_to_string(&overrides_path) {
         Ok(content) => content,
         Err(e) => {
-            println!("[DB] Warning: Could not read definition overrides file: {}", e);
+            println!(
+                "[DB] Warning: Could not read definition overrides file: {}",
+                e
+            );
             return Ok(());
         }
     };
@@ -1299,7 +1370,10 @@ fn apply_definition_overrides(conn: &Connection) -> Result<()> {
     let overrides: Vec<DefinitionOverride> = match serde_json::from_str(&file_content) {
         Ok(overrides) => overrides,
         Err(e) => {
-            println!("[DB] Warning: Could not parse definition overrides JSON: {}", e);
+            println!(
+                "[DB] Warning: Could not parse definition overrides JSON: {}",
+                e
+            );
             return Ok(());
         }
     };
@@ -1315,11 +1389,14 @@ fn apply_definition_overrides(conn: &Connection) -> Result<()> {
     for override_item in &overrides {
         match conn.execute(
             "UPDATE characters SET definition = ?1, updated_at = datetime('now') WHERE id = ?2",
-            rusqlite::params![&override_item.updated_definition, override_item.character_id]
+            rusqlite::params![
+                &override_item.updated_definition,
+                override_item.character_id
+            ],
         ) {
             Ok(rows) if rows > 0 => {
                 applied += 1;
-            },
+            }
             _ => {
                 skipped += 1;
             }
@@ -1379,7 +1456,10 @@ fn generate_definition_review_if_needed() -> std::result::Result<(), Box<dyn std
     };
 
     if !cedict_path.exists() {
-        println!("[DB] Warning: CEDICT file not found at {:?}, skipping review generation", cedict_path);
+        println!(
+            "[DB] Warning: CEDICT file not found at {:?}, skipping review generation",
+            cedict_path
+        );
         return Ok(());
     }
 
@@ -1400,7 +1480,7 @@ fn generate_definition_review_if_needed() -> std::result::Result<(), Box<dyn std
         let stripped = strip_parentheses(&def);
         character_entries
             .entry(entry.simplified.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((def, stripped));
     }
 
@@ -1421,7 +1501,10 @@ fn generate_definition_review_if_needed() -> std::result::Result<(), Box<dyn std
         }
     }
 
-    println!("[DB] Found {} characters with multiple CEDICT entries", duplicates.len());
+    println!(
+        "[DB] Found {} characters with multiple CEDICT entries",
+        duplicates.len()
+    );
 
     // Query database for items needing review
     let db_path = if cfg!(debug_assertions) {
@@ -1436,7 +1519,10 @@ fn generate_definition_review_if_needed() -> std::result::Result<(), Box<dyn std
     let conn = match Connection::open(&db_path) {
         Ok(c) => c,
         Err(e) => {
-            println!("[DB] Warning: Could not open database for review generation: {}", e);
+            println!(
+                "[DB] Warning: Could not open database for review generation: {}",
+                e
+            );
             return Ok(());
         }
     };
@@ -1444,7 +1530,7 @@ fn generate_definition_review_if_needed() -> std::result::Result<(), Box<dyn std
     let mut stmt = conn.prepare(
         "SELECT id, character, simplified, mandarin_pinyin, definition, is_word, frequency_rank
          FROM characters
-         ORDER BY frequency_rank ASC"
+         ORDER BY frequency_rank ASC",
     )?;
 
     let items: Vec<(i32, String, String, String, String, bool, i32)> = stmt

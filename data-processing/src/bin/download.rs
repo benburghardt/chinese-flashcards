@@ -32,7 +32,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Download and extract CC-CEDICT dictionary
-async fn download_cedict(datasets_dir: &std::path::PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+async fn download_cedict(
+    datasets_dir: &std::path::PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("📥 Downloading CC-CEDICT...");
     println!("   Source: https://www.mdbg.net/chinese/dictionary?page=cedict");
     println!("   License: CC BY-SA 4.0\n");

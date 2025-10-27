@@ -1,18 +1,21 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useApp } from '../../context/AppContext';
-import { StudyModeGenerator } from '../../algorithms/studyModes';
-import { SpacedRepetitionAlgorithm } from '../../algorithms/spacedRepetition';
-import { ProgressService } from '../../services/ProgressService';
+import React, { useState, useCallback, useEffect } from "react";
+import { useApp } from "../../context/AppContext";
+import { StudyModeGenerator } from "../../algorithms/studyModes";
+import { SpacedRepetitionAlgorithm } from "../../algorithms/spacedRepetition";
+import { ProgressService } from "../../services/ProgressService";
 
 interface StudySessionProps {
   onEndSession: () => void;
   flashcardSetFilePath?: string;
 }
 
-export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashcardSetFilePath }) => {
+export const StudySession: React.FC<StudySessionProps> = ({
+  onEndSession,
+  flashcardSetFilePath,
+}) => {
   const { state } = useApp();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswer, setUserAnswer] = useState('');
+  const [userAnswer, setUserAnswer] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [flashAnswerRevealed, setFlashAnswerRevealed] = useState(false);
@@ -37,9 +40,11 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
 
   // Initialize custom path mode
   useEffect(() => {
-    if (studySession.mode === 'custom-path' && state.currentSet && currentQuestion) {
+    if (studySession.mode === "custom-path" && state.currentSet && currentQuestion) {
       // Find the flashcard
-      const flashcard = state.currentSet.flashcards.find(f => f.id === currentQuestion.flashcardId);
+      const flashcard = state.currentSet.flashcards.find(
+        (f) => f.id === currentQuestion.flashcardId
+      );
       if (flashcard && !customPathCurrentSideId) {
         // Find the most connected side as starting point
         const startingSideId = StudyModeGenerator.findMostConnectedSide(flashcard);
@@ -53,7 +58,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
 
     let correct = false;
 
-    if (currentQuestion.mode === 'multiple-choice') {
+    if (currentQuestion.mode === "multiple-choice") {
       correct = userAnswer === currentQuestion.correctAnswer;
     } else {
       correct = StudyModeGenerator.validateAnswer(currentQuestion, userAnswer);
@@ -61,7 +66,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
 
     setIsCorrect(correct);
     setShowFeedback(true);
-    setSessionStats(prev => ({
+    setSessionStats((prev) => ({
       ...prev,
       total: prev.total + 1,
       correct: prev.correct + (correct ? 1 : 0),
@@ -69,7 +74,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
     }));
 
     // Update progress if using spaced repetition
-    if (studySession.mode === 'spaced-repetition') {
+    if (studySession.mode === "spaced-repetition") {
       updateProgress(currentQuestion.arrowId, correct);
     }
   }, [currentQuestion, userAnswer, studySession.mode]);
@@ -98,7 +103,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
           flashcardSetFilePath
         );
       } catch (error) {
-        console.error('Failed to save progress after answer:', error);
+        console.error("Failed to save progress after answer:", error);
       }
     }
   };
@@ -107,8 +112,8 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
     if (isLastQuestion) {
       handleEndSession();
     } else {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setUserAnswer('');
+      setCurrentQuestionIndex((prev) => prev + 1);
+      setUserAnswer("");
       setShowFeedback(false);
       setIsCorrect(false);
       setFlashAnswerRevealed(false);
@@ -117,7 +122,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
 
   const handleEndSession = async () => {
     // Save progress if using spaced repetition
-    if (studySession.mode === 'spaced-repetition' && studySession.progressMap && state.currentSet) {
+    if (studySession.mode === "spaced-repetition" && studySession.progressMap && state.currentSet) {
       try {
         await ProgressService.saveProgress(
           state.currentSet.id,
@@ -126,7 +131,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
           flashcardSetFilePath
         );
       } catch (error) {
-        console.error('Failed to save progress:', error);
+        console.error("Failed to save progress:", error);
       }
     }
 
@@ -140,7 +145,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !showFeedback) {
+    if (e.key === "Enter" && !showFeedback) {
       handleSubmitAnswer();
     }
   };
@@ -154,9 +159,13 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
             <p>Questions Answered: {sessionStats.total}</p>
             <p>Correct: {sessionStats.correct}</p>
             <p>Incorrect: {sessionStats.incorrect}</p>
-            <p>Accuracy: {sessionStats.total > 0
-              ? ((sessionStats.correct / sessionStats.total) * 100).toFixed(1)
-              : 0}%</p>
+            <p>
+              Accuracy:{" "}
+              {sessionStats.total > 0
+                ? ((sessionStats.correct / sessionStats.total) * 100).toFixed(1)
+                : 0}
+              %
+            </p>
           </div>
           <button onClick={onEndSession}>Return to Flashcards</button>
         </div>
@@ -167,7 +176,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
   return (
     <div className="study-session">
       <div className="study-header">
-        {studySession.mode !== 'custom-path' && (
+        {studySession.mode !== "custom-path" && (
           <>
             <div className="study-progress">
               Question {currentQuestionIndex + 1} of {studySession.questions.length}
@@ -177,7 +186,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
             </div>
           </>
         )}
-        {studySession.mode === 'custom-path' && (
+        {studySession.mode === "custom-path" && (
           <div className="custom-path-title">
             <h3>Network Explorer</h3>
           </div>
@@ -189,106 +198,123 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
 
       <div className="study-content">
         <div className="question-card">
-          {studySession.mode !== 'custom-path' && (
+          {studySession.mode !== "custom-path" && (
             <div className="question-prompt">
               <h3>{currentQuestion.sourceValue}</h3>
-              <p className="arrow-label-question">
-                {currentQuestion.arrowLabel}?
-              </p>
+              <p className="arrow-label-question">{currentQuestion.arrowLabel}?</p>
             </div>
           )}
 
-          {studySession.mode === 'custom-path' && state.currentSet && customPathCurrentSideId ? (() => {
-            // Custom path mode - interactive network browser
-            const flashcard = state.currentSet.flashcards.find(f => f.id === currentQuestion?.flashcardId);
-            if (!flashcard) return null;
+          {studySession.mode === "custom-path" && state.currentSet && customPathCurrentSideId ? (
+            (() => {
+              // Custom path mode - interactive network browser
+              const flashcard = state.currentSet.flashcards.find(
+                (f) => f.id === currentQuestion?.flashcardId
+              );
+              if (!flashcard) return null;
 
-            const currentSide = flashcard.sides.find(s => s.id === customPathCurrentSideId);
-            if (!currentSide) return null;
+              const currentSide = flashcard.sides.find((s) => s.id === customPathCurrentSideId);
+              if (!currentSide) return null;
 
-            const outgoingArrows = StudyModeGenerator.getOutgoingArrows(flashcard, customPathCurrentSideId);
-            // Get incoming arrows (for back navigation)
-            const incomingArrows = flashcard.arrows.filter(arrow => arrow.destinationId === customPathCurrentSideId);
+              const outgoingArrows = StudyModeGenerator.getOutgoingArrows(
+                flashcard,
+                customPathCurrentSideId
+              );
+              // Get incoming arrows (for back navigation)
+              const incomingArrows = flashcard.arrows.filter(
+                (arrow) => arrow.destinationId === customPathCurrentSideId
+              );
 
-            // Calculate positions for arrows around the center
-            const allArrows = [...outgoingArrows.map(a => ({ ...a, isOutgoing: true })), ...incomingArrows.map(a => ({ ...a, isOutgoing: false }))];
-            const angleStep = (2 * Math.PI) / Math.max(allArrows.length, 1);
+              // Calculate positions for arrows around the center
+              const allArrows = [
+                ...outgoingArrows.map((a) => ({ ...a, isOutgoing: true })),
+                ...incomingArrows.map((a) => ({ ...a, isOutgoing: false })),
+              ];
+              const angleStep = (2 * Math.PI) / Math.max(allArrows.length, 1);
 
-            return (
-              <div className="custom-path-browser">
-                <div className="network-container">
-                  {/* Central side */}
-                  <div className="central-side">
-                    <h2>{currentSide.value}</h2>
-                    <p className="side-info">{allArrows.length} connection(s)</p>
-                  </div>
+              return (
+                <div className="custom-path-browser">
+                  <div className="network-container">
+                    {/* Central side */}
+                    <div className="central-side">
+                      <h2>{currentSide.value}</h2>
+                      <p className="side-info">{allArrows.length} connection(s)</p>
+                    </div>
 
-                  {/* Arrows positioned around the center */}
-                  {allArrows.map((arrow, index) => {
-                    const angle = index * angleStep - Math.PI / 2; // Start from top
-                    const radius = 250; // Distance from center
-                    const x = Math.cos(angle) * radius;
-                    const y = Math.sin(angle) * radius;
+                    {/* Arrows positioned around the center */}
+                    {allArrows.map((arrow, index) => {
+                      const angle = index * angleStep - Math.PI / 2; // Start from top
+                      const radius = 250; // Distance from center
+                      const x = Math.cos(angle) * radius;
+                      const y = Math.sin(angle) * radius;
 
-                    const targetSide = flashcard.sides.find(s =>
-                      s.id === (arrow.isOutgoing ? arrow.destinationId : arrow.sourceId)
-                    );
-                    if (!targetSide) return null;
+                      const targetSide = flashcard.sides.find(
+                        (s) => s.id === (arrow.isOutgoing ? arrow.destinationId : arrow.sourceId)
+                      );
+                      if (!targetSide) return null;
 
-                    return (
-                      <div
-                        key={arrow.id}
-                        className="arrow-node"
-                        style={{
-                          transform: `translate(${x}px, ${y}px)`
-                        }}
-                      >
-                        <button
-                          className={`arrow-button ${arrow.isOutgoing ? 'outgoing' : 'incoming'}`}
-                          onClick={() => setCustomPathCurrentSideId(arrow.isOutgoing ? arrow.destinationId : arrow.sourceId)}
+                      return (
+                        <div
+                          key={arrow.id}
+                          className="arrow-node"
+                          style={{
+                            transform: `translate(${x}px, ${y}px)`,
+                          }}
                         >
-                          <div className="arrow-content">
-                            {!arrow.isOutgoing && <span className="arrow-icon incoming-icon">←</span>}
-                            <span className="arrow-label-text">{arrow.label}</span>
-                            {arrow.isOutgoing && <span className="arrow-icon outgoing-icon">→</span>}
-                          </div>
+                          <button
+                            className={`arrow-button ${arrow.isOutgoing ? "outgoing" : "incoming"}`}
+                            onClick={() =>
+                              setCustomPathCurrentSideId(
+                                arrow.isOutgoing ? arrow.destinationId : arrow.sourceId
+                              )
+                            }
+                          >
+                            <div className="arrow-content">
+                              {!arrow.isOutgoing && (
+                                <span className="arrow-icon incoming-icon">←</span>
+                              )}
+                              <span className="arrow-label-text">{arrow.label}</span>
+                              {arrow.isOutgoing && (
+                                <span className="arrow-icon outgoing-icon">→</span>
+                              )}
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {allArrows.length === 0 && (
+                      <div className="no-connections">
+                        <p>No connections from this side</p>
+                        <button
+                          className="reset-path-btn"
+                          onClick={() => {
+                            const startingSideId =
+                              StudyModeGenerator.findMostConnectedSide(flashcard);
+                            setCustomPathCurrentSideId(startingSideId);
+                          }}
+                        >
+                          Return to Start
                         </button>
                       </div>
-                    );
-                  })}
-
-                  {allArrows.length === 0 && (
-                    <div className="no-connections">
-                      <p>No connections from this side</p>
-                      <button
-                        className="reset-path-btn"
-                        onClick={() => {
-                          const startingSideId = StudyModeGenerator.findMostConnectedSide(flashcard);
-                          setCustomPathCurrentSideId(startingSideId);
-                        }}
-                      >
-                        Return to Start
-                      </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })() : studySession.mode === 'multiple-choice' ? (
+              );
+            })()
+          ) : studySession.mode === "multiple-choice" ? (
             <div className="multiple-choice-options">
               {currentQuestion.options?.map((option: string, index: number) => (
                 <button
                   key={index}
-                  className={`choice-option ${
-                    userAnswer === option ? 'selected' : ''
-                  } ${
+                  className={`choice-option ${userAnswer === option ? "selected" : ""} ${
                     showFeedback
                       ? option === currentQuestion.correctAnswer
-                        ? 'correct'
+                        ? "correct"
                         : userAnswer === option
-                        ? 'incorrect'
-                        : ''
-                      : ''
+                          ? "incorrect"
+                          : ""
+                      : ""
                   }`}
                   onClick={() => handleMultipleChoiceSelect(option)}
                   disabled={showFeedback}
@@ -297,7 +323,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
                 </button>
               ))}
             </div>
-          ) : studySession.mode === 'flash' ? (
+          ) : studySession.mode === "flash" ? (
             <div className="flash-mode">
               {flashAnswerRevealed ? (
                 <>
@@ -306,15 +332,12 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
                   </div>
                   <div className="flash-controls">
                     <button onClick={() => handleNextQuestion()}>
-                      {isLastQuestion ? 'Complete Session' : 'Next Card'}
+                      {isLastQuestion ? "Complete Session" : "Next Card"}
                     </button>
                   </div>
                 </>
               ) : (
-                <div
-                  className="answer-reveal hidden"
-                  onClick={() => setFlashAnswerRevealed(true)}
-                >
+                <div className="answer-reveal hidden" onClick={() => setFlashAnswerRevealed(true)}>
                   <p>Click to reveal answer</p>
                 </div>
               )}
@@ -334,26 +357,28 @@ export const StudySession: React.FC<StudySessionProps> = ({ onEndSession, flashc
             </div>
           )}
 
-          {!showFeedback && studySession.mode !== 'flash' && studySession.mode !== 'custom-path' && (
-            <button
-              className="submit-answer-btn"
-              onClick={handleSubmitAnswer}
-              disabled={!userAnswer.trim()}
-            >
-              Submit Answer
-            </button>
-          )}
+          {!showFeedback &&
+            studySession.mode !== "flash" &&
+            studySession.mode !== "custom-path" && (
+              <button
+                className="submit-answer-btn"
+                onClick={handleSubmitAnswer}
+                disabled={!userAnswer.trim()}
+              >
+                Submit Answer
+              </button>
+            )}
 
-          {showFeedback && studySession.mode !== 'flash' && studySession.mode !== 'custom-path' && (
-            <div className={`feedback ${isCorrect ? 'correct' : 'incorrect'}`}>
-              <h4>{isCorrect ? '✓ Correct!' : '✗ Incorrect'}</h4>
+          {showFeedback && studySession.mode !== "flash" && studySession.mode !== "custom-path" && (
+            <div className={`feedback ${isCorrect ? "correct" : "incorrect"}`}>
+              <h4>{isCorrect ? "✓ Correct!" : "✗ Incorrect"}</h4>
               {!isCorrect && (
                 <p>
                   The correct answer was: <strong>{currentQuestion.correctAnswer}</strong>
                 </p>
               )}
               <button className="next-question-btn" onClick={handleNextQuestion}>
-                {isLastQuestion ? 'Complete Session' : 'Next Question'}
+                {isLastQuestion ? "Complete Session" : "Next Question"}
               </button>
             </div>
           )}

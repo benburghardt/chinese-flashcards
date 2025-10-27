@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import Dashboard from './components/Dashboard/Dashboard';
-import IntroductionScreen from './components/Introduction/IntroductionScreen';
-import SpacedRepetition from './components/Study/SpacedRepetition';
-import SelfStudy from './components/Study/SelfStudy';
-import Dictionary from './components/Dictionary/Dictionary';
-import './App.css'
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import Dashboard from "./components/Dashboard/Dashboard";
+import IntroductionScreen from "./components/Introduction/IntroductionScreen";
+import SpacedRepetition from "./components/Study/SpacedRepetition";
+import SelfStudy from "./components/Study/SelfStudy";
+import Dictionary from "./components/Dictionary/Dictionary";
+import "./App.css";
 
 interface Character {
   id: number;
@@ -18,22 +18,30 @@ interface Character {
   is_word: boolean;
 }
 
-type ViewMode = 'dashboard' | 'introduction' | 'initial-srs' | 'srs-session' | 'self-study' | 'dictionary';
+type ViewMode =
+  | "dashboard"
+  | "introduction"
+  | "initial-srs"
+  | "mini-srs"
+  | "srs-session"
+  | "self-study"
+  | "dictionary";
 
 function App() {
-  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+  const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
   const [newCharacter, setNewCharacter] = useState<Character | null>(null);
   const [learningBatch, setLearningBatch] = useState<Character[]>([]);
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
   const [skippedCharacterIds, setSkippedCharacterIds] = useState<number[]>([]);
+  const [introducedSinceLastSrs, setIntroducedSinceLastSrs] = useState<number[]>([]);
 
   const handleStartLearnNew = async () => {
     try {
-      // Get a batch of unlocked characters (up to 10)
-      const batch = await invoke<Character[]>('get_unlocked_characters_batch', { batchSize: 10 });
+      // Get a batch of unlocked characters (up to 100)
+      const batch = await invoke<Character[]>("get_unlocked_characters_batch", { batchSize: 100 });
 
       if (batch.length === 0) {
-        alert('No characters available to learn yet! Keep reviewing to unlock more.');
+        alert("No characters available to learn yet! Keep reviewing to unlock more.");
         return;
       }
 
@@ -41,49 +49,60 @@ function App() {
       setLearningBatch(batch);
       setCurrentBatchIndex(0);
       setSkippedCharacterIds([]); // Reset skipped characters for new batch
+      setIntroducedSinceLastSrs([]); // Reset mini-batch tracker
       setNewCharacter(batch[0]);
-      setViewMode('introduction');
+      setViewMode("introduction");
     } catch (error) {
-      console.error('Failed to start learning:', error);
+      console.error("Failed to start learning:", error);
     }
   };
 
   const handleStartSrsSession = () => {
-    setViewMode('srs-session');
+    setViewMode("srs-session");
   };
 
   const handleStartSelfStudy = () => {
-    setViewMode('self-study');
+    setViewMode("self-study");
   };
 
   const handleBrowseDictionary = () => {
-    setViewMode('dictionary');
+    setViewMode("dictionary");
   };
 
   const handleDictionaryClose = () => {
-    setViewMode('dashboard');
+    setViewMode("dashboard");
   };
 
   const handleIntroductionComplete = () => {
-    // If we're in a learning batch, move to next character or start initial SRS
+    // If we're in a learning batch, move to next character or start SRS session
     if (learningBatch.length > 0) {
+      // Track this character as introduced (if not skipped)
+      const currentCharId = learningBatch[currentBatchIndex].id;
+      const updatedIntroduced = [...introducedSinceLastSrs, currentCharId];
+      setIntroducedSinceLastSrs(updatedIntroduced);
+
       const nextIndex = currentBatchIndex + 1;
 
-      if (nextIndex < learningBatch.length) {
-        // More characters to introduce
+      // Check if we've introduced 5 characters (trigger mini SRS session)
+      if (updatedIntroduced.length === 5 && nextIndex < learningBatch.length) {
+        console.log("5 characters introduced. Starting mini SRS session...");
+        setNewCharacter(null);
+        setViewMode("mini-srs");
+      } else if (nextIndex < learningBatch.length) {
+        // More characters to introduce (haven't hit 5 yet)
         setCurrentBatchIndex(nextIndex);
         setNewCharacter(learningBatch[nextIndex]);
         // Stay in introduction mode
       } else {
-        // All characters introduced, start initial SRS session
-        console.log('All characters introduced. Starting initial SRS session...');
+        // All characters introduced, start final SRS session
+        console.log("All characters introduced. Starting final SRS session...");
         setNewCharacter(null);
-        setViewMode('initial-srs');
+        setViewMode("initial-srs");
       }
     } else {
       // Single character introduction (from SRS unlock)
       setNewCharacter(null);
-      setViewMode('dashboard');
+      setViewMode("dashboard");
     }
   };
 
@@ -92,42 +111,80 @@ function App() {
 
     try {
       // Mark character as introduced and immediately reviewable
-      await invoke('introduce_character_immediately_reviewable', {
-        characterId: newCharacter.id
+      await invoke("introduce_character_immediately_reviewable", {
+        characterId: newCharacter.id,
       });
 
       console.log(`Character ${newCharacter.id} skipped and marked as immediately reviewable`);
 
       // Track this character as skipped (don't include in initial study)
-      setSkippedCharacterIds(prev => [...prev, newCharacter.id]);
+      setSkippedCharacterIds((prev) => [...prev, newCharacter.id]);
 
       // Move to next character or finish
       handleIntroductionComplete();
     } catch (error) {
-      console.error('Failed to skip character:', error);
+      console.error("Failed to skip character:", error);
       alert(`Error skipping character: ${error}`);
     }
   };
 
+  const handleIntroductionExit = () => {
+    // User wants to exit introduction early
+    console.log("Exiting introduction early. Progress saved.");
+
+    // Clear batch state
+    setLearningBatch([]);
+    setCurrentBatchIndex(0);
+    setSkippedCharacterIds([]);
+    setIntroducedSinceLastSrs([]);
+    setNewCharacter(null);
+
+    // Return to dashboard
+    setViewMode("dashboard");
+  };
+
   const handleSrsComplete = () => {
-    setViewMode('dashboard');
+    setViewMode("dashboard");
   };
 
   const handleSelfStudyComplete = () => {
-    setViewMode('dashboard');
+    setViewMode("dashboard");
+  };
+
+  const handleMiniSrsComplete = async () => {
+    // Mini SRS session complete, continue with next batch of characters
+    console.log("Mini SRS session complete. Continuing with next characters...");
+
+    // Reset the mini-batch counter
+    setIntroducedSinceLastSrs([]);
+
+    // Move to next character
+    const nextIndex = currentBatchIndex + 1;
+    if (nextIndex < learningBatch.length) {
+      setCurrentBatchIndex(nextIndex);
+      setNewCharacter(learningBatch[nextIndex]);
+      setViewMode("introduction");
+    } else {
+      // This shouldn't happen (we should have gone to initial-srs instead)
+      // But just in case, return to dashboard
+      setLearningBatch([]);
+      setCurrentBatchIndex(0);
+      setSkippedCharacterIds([]);
+      setViewMode("dashboard");
+    }
   };
 
   const handleInitialSrsComplete = async () => {
     try {
       // The SpacedRepetition component now handles marking characters as completed/incomplete
       // We just need to start the 2-day timer for next unlock (if all ready characters are introduced)
-      console.log('Initial SRS session complete. Updating unlock timer...');
+      console.log("Initial SRS session complete. Updating unlock timer...");
 
       try {
-        const result = await invoke<string>('mark_all_ready_characters_introduced');
-        console.log('Timer update result:', result);
+        const result = await invoke<string>("mark_all_ready_characters_introduced");
+        console.log("Timer update result:", result);
       } catch (timerError) {
-        console.error('Failed to update unlock timer:', timerError);
+        console.error("Failed to update unlock timer:", timerError);
         // Non-critical error, continue anyway
       }
 
@@ -135,19 +192,36 @@ function App() {
       setLearningBatch([]);
       setCurrentBatchIndex(0);
       setSkippedCharacterIds([]);
-      setViewMode('dashboard');
+      setIntroducedSinceLastSrs([]);
+      setViewMode("dashboard");
     } catch (error) {
-      console.error('Failed to complete initial SRS:', error);
+      console.error("Failed to complete initial SRS:", error);
       alert(`Error completing initial SRS: ${error}`);
     }
   };
 
+  // Show mini SRS session (every 5 characters)
+  if (viewMode === "mini-srs") {
+    // Study only the characters introduced since last SRS (should be 5)
+    const characterIdsToStudy = introducedSinceLastSrs.filter(
+      (id) => !skippedCharacterIds.includes(id)
+    );
+
+    return (
+      <SpacedRepetition
+        onComplete={handleMiniSrsComplete}
+        isInitialStudy={true}
+        initialStudyCharacterIds={characterIdsToStudy}
+      />
+    );
+  }
+
   // Show initial SRS session (for newly learned batch) - now uses actual study!
-  if (viewMode === 'initial-srs') {
+  if (viewMode === "initial-srs") {
     // Filter out skipped characters from initial study
     const characterIdsToStudy = learningBatch
-      .filter(c => !skippedCharacterIds.includes(c.id))
-      .map(c => c.id);
+      .filter((c) => !skippedCharacterIds.includes(c.id))
+      .map((c) => c.id);
 
     return (
       <SpacedRepetition
@@ -159,50 +233,44 @@ function App() {
   }
 
   // Show SRS session
-  if (viewMode === 'srs-session') {
-    return (
-      <SpacedRepetition
-        onComplete={handleSrsComplete}
-      />
-    );
+  if (viewMode === "srs-session") {
+    return <SpacedRepetition onComplete={handleSrsComplete} />;
   }
 
   // Show self-study session
-  if (viewMode === 'self-study') {
-    return (
-      <SelfStudy
-        onComplete={handleSelfStudyComplete}
-      />
-    );
+  if (viewMode === "self-study") {
+    return <SelfStudy onComplete={handleSelfStudyComplete} />;
   }
 
   // Show dictionary
-  if (viewMode === 'dictionary') {
-    return (
-      <Dictionary
-        onClose={handleDictionaryClose}
-      />
-    );
+  if (viewMode === "dictionary") {
+    return <Dictionary onClose={handleDictionaryClose} />;
   }
 
   // Show introduction screen
-  if (viewMode === 'introduction' && newCharacter) {
-    const isLastInBatch = learningBatch.length > 0 && currentBatchIndex === learningBatch.length - 1;
+  if (viewMode === "introduction" && newCharacter) {
+    // Check if this is the last character before an SRS session (every 5th or the actual last)
+    const isLastBeforeSrs =
+      learningBatch.length > 0 &&
+      (currentBatchIndex === learningBatch.length - 1 || // Last character overall
+        (introducedSinceLastSrs.length + 1) % 5 === 0); // Every 5th character
+
     return (
       <IntroductionScreen
         character={newCharacter}
         onComplete={handleIntroductionComplete}
         onSkip={handleIntroductionSkip}
+        onExit={handleIntroductionExit}
         totalCharacters={11008}
         currentIndex={currentBatchIndex}
         batchSize={learningBatch.length || 1}
-        isLastInBatch={isLastInBatch}
+        isLastInBatch={isLastBeforeSrs}
       />
     );
   }
 
   // Show Dashboard (default view)
-  if (viewMode === 'dashboard') {
+  if (viewMode === "dashboard") {
     return (
       <Dashboard
         onStartLearnNew={handleStartLearnNew}

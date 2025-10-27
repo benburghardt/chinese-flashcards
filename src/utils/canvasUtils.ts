@@ -1,4 +1,4 @@
-import { Position, FlashcardSide, Arrow, CanvasState } from '../types';
+import { Position, FlashcardSide, Arrow, CanvasState } from "../types";
 
 export class CanvasUtils {
   static screenToCanvas(
@@ -13,10 +13,7 @@ export class CanvasUtils {
     };
   }
 
-  static canvasToScreen(
-    canvasPos: Position,
-    canvasState: CanvasState
-  ): Position {
+  static canvasToScreen(canvasPos: Position, canvasState: CanvasState): Position {
     return {
       x: canvasPos.x * canvasState.zoom + canvasState.panOffset.x,
       y: canvasPos.y * canvasState.zoom + canvasState.panOffset.y,
@@ -75,7 +72,10 @@ export class CanvasUtils {
     };
   }
 
-  static determineEdgeFromVector(fromSide: FlashcardSide, toSide: FlashcardSide): 'top' | 'bottom' | 'left' | 'right' {
+  static determineEdgeFromVector(
+    fromSide: FlashcardSide,
+    toSide: FlashcardSide
+  ): "top" | "bottom" | "left" | "right" {
     const fromCenter = this.getSideCenter(fromSide);
     const toCenter = this.getSideCenter(toSide);
 
@@ -88,15 +88,15 @@ export class CanvasUtils {
 
     // Calculate intersection points with each edge
     const edges = {
-      right: { distance: Infinity, edge: 'right' as const },
-      left: { distance: Infinity, edge: 'left' as const },
-      bottom: { distance: Infinity, edge: 'bottom' as const },
-      top: { distance: Infinity, edge: 'top' as const }
+      right: { distance: Infinity, edge: "right" as const },
+      left: { distance: Infinity, edge: "left" as const },
+      bottom: { distance: Infinity, edge: "bottom" as const },
+      top: { distance: Infinity, edge: "top" as const },
     };
 
     // Right edge intersection
     if (dx > 0) {
-      const t = (fromWidth / 2) / dx;
+      const t = fromWidth / 2 / dx;
       const intersectY = fromCenter.y + dy * t;
       if (intersectY >= fromSide.position.y && intersectY <= fromSide.position.y + fromHeight) {
         edges.right.distance = Math.sqrt((fromWidth / 2) ** 2 + (dy * t) ** 2);
@@ -105,7 +105,7 @@ export class CanvasUtils {
 
     // Left edge intersection
     if (dx < 0) {
-      const t = (-fromWidth / 2) / dx;
+      const t = -fromWidth / 2 / dx;
       const intersectY = fromCenter.y + dy * t;
       if (intersectY >= fromSide.position.y && intersectY <= fromSide.position.y + fromHeight) {
         edges.left.distance = Math.sqrt((fromWidth / 2) ** 2 + (dy * t) ** 2);
@@ -114,7 +114,7 @@ export class CanvasUtils {
 
     // Bottom edge intersection
     if (dy > 0) {
-      const t = (fromHeight / 2) / dy;
+      const t = fromHeight / 2 / dy;
       const intersectX = fromCenter.x + dx * t;
       if (intersectX >= fromSide.position.x && intersectX <= fromSide.position.x + fromWidth) {
         edges.bottom.distance = Math.sqrt((dx * t) ** 2 + (fromHeight / 2) ** 2);
@@ -123,7 +123,7 @@ export class CanvasUtils {
 
     // Top edge intersection
     if (dy < 0) {
-      const t = (-fromHeight / 2) / dy;
+      const t = -fromHeight / 2 / dy;
       const intersectX = fromCenter.x + dx * t;
       if (intersectX >= fromSide.position.x && intersectX <= fromSide.position.x + fromWidth) {
         edges.top.distance = Math.sqrt((dx * t) ** 2 + (fromHeight / 2) ** 2);
@@ -131,7 +131,7 @@ export class CanvasUtils {
     }
 
     // Find the edge with the shortest distance (where vector exits)
-    let closestEdge = 'right';
+    let closestEdge = "right";
     let minDistance = Infinity;
 
     Object.values(edges).forEach(({ distance, edge }) => {
@@ -141,9 +141,8 @@ export class CanvasUtils {
       }
     });
 
-    return closestEdge as 'top' | 'bottom' | 'left' | 'right';
+    return closestEdge as "top" | "bottom" | "left" | "right";
   }
-
 
   private static distanceToLineSegment(
     point: Position,
@@ -178,8 +177,8 @@ export class CanvasUtils {
     sides: FlashcardSide[],
     skipCollisionDetection: boolean = false
   ): Position[] {
-    const sourceSide = sides.find(s => s.id === arrow.sourceId);
-    const destSide = sides.find(s => s.id === arrow.destinationId);
+    const sourceSide = sides.find((s) => s.id === arrow.sourceId);
+    const destSide = sides.find((s) => s.id === arrow.destinationId);
 
     if (!sourceSide || !destSide) return [];
 
@@ -188,33 +187,55 @@ export class CanvasUtils {
     const destEdge = this.determineEdgeFromVector(destSide, sourceSide);
 
     // Get connection points from each side
-    const sourcePoint = this.getSideEdgeConnectionPoint(sourceSide, sourceEdge, arrow, allArrows, sides);
+    const sourcePoint = this.getSideEdgeConnectionPoint(
+      sourceSide,
+      sourceEdge,
+      arrow,
+      allArrows,
+      sides
+    );
     const destPoint = this.getSideEdgeConnectionPoint(destSide, destEdge, arrow, allArrows, sides);
 
     // Calculate path with required travel distance
-    const initialPath = this.calculateArrowPathWithTravel(sourcePoint, destPoint, sourceEdge, destEdge, sourceSide, destSide);
+    const initialPath = this.calculateArrowPathWithTravel(
+      sourcePoint,
+      destPoint,
+      sourceEdge,
+      destEdge,
+      sourceSide,
+      destSide
+    );
 
     // Apply collision avoidance only if not already in collision detection mode
     if (skipCollisionDetection) {
       return initialPath;
     }
 
-    const path = this.adjustPathForCollisions(initialPath, sides, allArrows, arrow, sourceEdge, destEdge, sourceSide, destSide);
+    const path = this.adjustPathForCollisions(
+      initialPath,
+      sides,
+      allArrows,
+      arrow,
+      sourceEdge,
+      destEdge,
+      sourceSide,
+      destSide
+    );
 
     return path;
   }
 
   static getSideEdgeConnectionPoint(
     side: FlashcardSide,
-    edge: 'top' | 'bottom' | 'left' | 'right',
+    edge: "top" | "bottom" | "left" | "right",
     currentArrow: Arrow,
     allArrows: Arrow[],
     sides: FlashcardSide[]
   ): Position {
     // Get all arrows that connect to this edge of this side (both inbound and outbound)
-    const edgeArrows = allArrows.filter(arrow => {
-      const sourceSide = sides.find(s => s.id === arrow.sourceId);
-      const destSide = sides.find(s => s.id === arrow.destinationId);
+    const edgeArrows = allArrows.filter((arrow) => {
+      const sourceSide = sides.find((s) => s.id === arrow.sourceId);
+      const destSide = sides.find((s) => s.id === arrow.destinationId);
 
       if (!sourceSide || !destSide) return false;
 
@@ -236,20 +257,22 @@ export class CanvasUtils {
     // Sort all arrows on this edge by the position of their "other end"
     const sortedEdgeArrows = edgeArrows.sort((a, b) => {
       // For each arrow, find the "other side" (the side it connects to that's not the current side)
-      const aOtherSide = a.sourceId === side.id
-        ? sides.find(s => s.id === a.destinationId)
-        : sides.find(s => s.id === a.sourceId);
+      const aOtherSide =
+        a.sourceId === side.id
+          ? sides.find((s) => s.id === a.destinationId)
+          : sides.find((s) => s.id === a.sourceId);
 
-      const bOtherSide = b.sourceId === side.id
-        ? sides.find(s => s.id === b.destinationId)
-        : sides.find(s => s.id === b.sourceId);
+      const bOtherSide =
+        b.sourceId === side.id
+          ? sides.find((s) => s.id === b.destinationId)
+          : sides.find((s) => s.id === b.sourceId);
 
       if (!aOtherSide || !bOtherSide) return 0;
 
       const aCenter = this.getSideCenter(aOtherSide);
       const bCenter = this.getSideCenter(bOtherSide);
 
-      if (edge === 'top' || edge === 'bottom') {
+      if (edge === "top" || edge === "bottom") {
         // Horizontal edge: sort by X coordinate of the other side
         const xDiff = bCenter.x - aCenter.x;
         if (Math.abs(xDiff) > 5) return xDiff; // 5px tolerance
@@ -283,17 +306,16 @@ export class CanvasUtils {
     });
 
     // Find the position of the current arrow in the sorted list
-    const arrowIndex = sortedEdgeArrows.findIndex(a => a.id === currentArrow.id);
+    const arrowIndex = sortedEdgeArrows.findIndex((a) => a.id === currentArrow.id);
     const totalArrows = sortedEdgeArrows.length;
 
     // Calculate the connection point on this edge
     return this.getArrowEdgePoint(side, edge, arrowIndex, totalArrows);
   }
 
-
   static getArrowEdgePoint(
     side: FlashcardSide,
-    edge: 'top' | 'bottom' | 'left' | 'right',
+    edge: "top" | "bottom" | "left" | "right",
     arrowIndex: number,
     totalArrows: number
   ): Position {
@@ -301,31 +323,31 @@ export class CanvasUtils {
     const height = side.height || 60;
 
     // Distribute arrows in the middle 80% of the edge
-    const distribution = totalArrows > 1 ? (arrowIndex / (totalArrows - 1)) : 0.5;
+    const distribution = totalArrows > 1 ? arrowIndex / (totalArrows - 1) : 0.5;
     const adjustedDistribution = 0.1 + distribution * 0.8; // Map to 10%-90% of edge
 
     switch (edge) {
-      case 'top':
+      case "top":
         return {
           x: side.position.x + width * adjustedDistribution,
-          y: side.position.y
+          y: side.position.y,
         };
-      case 'bottom':
+      case "bottom":
         // Bottom edge: right-to-left placement
         return {
           x: side.position.x + width * (1 - adjustedDistribution),
-          y: side.position.y + height
+          y: side.position.y + height,
         };
-      case 'left':
+      case "left":
         return {
           x: side.position.x,
-          y: side.position.y + height * adjustedDistribution
+          y: side.position.y + height * adjustedDistribution,
         };
-      case 'right':
+      case "right":
         // Right edge: bottom-to-top placement
         return {
           x: side.position.x + width,
-          y: side.position.y + height * (1 - adjustedDistribution)
+          y: side.position.y + height * (1 - adjustedDistribution),
         };
       default:
         return this.getSideCenter(side);
@@ -335,8 +357,8 @@ export class CanvasUtils {
   static calculateArrowPathWithTravel(
     sourcePoint: Position,
     destPoint: Position,
-    sourceEdge: 'top' | 'bottom' | 'left' | 'right',
-    _destEdge: 'top' | 'bottom' | 'left' | 'right',
+    sourceEdge: "top" | "bottom" | "left" | "right",
+    _destEdge: "top" | "bottom" | "left" | "right",
     _sourceSide: FlashcardSide,
     _destSide: FlashcardSide
   ): Position[] {
@@ -351,37 +373,36 @@ export class CanvasUtils {
     let secondCorner: Position;
 
     // Determine path based on source edge
-    if (sourceEdge === 'left' || sourceEdge === 'right') {
+    if (sourceEdge === "left" || sourceEdge === "right") {
       // Horizontal travel first
-      const travelX = sourceEdge === 'right' ? minTravel : -minTravel;
+      const travelX = sourceEdge === "right" ? minTravel : -minTravel;
       firstCorner = {
         x: sourcePoint.x + travelX,
-        y: sourcePoint.y
+        y: sourcePoint.y,
       };
 
       // Then vertical to align with destination
       secondCorner = {
         x: firstCorner.x,
-        y: destPoint.y
+        y: destPoint.y,
       };
     } else {
       // Vertical travel first
-      const travelY = sourceEdge === 'bottom' ? minTravel : -minTravel;
+      const travelY = sourceEdge === "bottom" ? minTravel : -minTravel;
       firstCorner = {
         x: sourcePoint.x,
-        y: sourcePoint.y + travelY
+        y: sourcePoint.y + travelY,
       };
 
       // Then horizontal to align with destination
       secondCorner = {
         x: destPoint.x,
-        y: firstCorner.y
+        y: firstCorner.y,
       };
     }
 
     return [sourcePoint, firstCorner, secondCorner, destPoint];
   }
-
 
   static drawGrid(
     ctx: CanvasRenderingContext2D,
@@ -392,7 +413,7 @@ export class CanvasUtils {
     if (!canvasState.gridSnapEnabled) return;
 
     ctx.save();
-    ctx.strokeStyle = '#e0e0e0';
+    ctx.strokeStyle = "#e0e0e0";
     ctx.lineWidth = 1;
 
     const gridSize = canvasState.gridSize * canvasState.zoom;
@@ -424,20 +445,23 @@ export class CanvasUtils {
     // Check if line intersects any of the four rectangle edges
     const edges = [
       { start: { x: rectX, y: rectY }, end: { x: rectX + rectWidth, y: rectY } }, // top
-      { start: { x: rectX + rectWidth, y: rectY }, end: { x: rectX + rectWidth, y: rectY + rectHeight } }, // right
-      { start: { x: rectX + rectWidth, y: rectY + rectHeight }, end: { x: rectX, y: rectY + rectHeight } }, // bottom
-      { start: { x: rectX, y: rectY + rectHeight }, end: { x: rectX, y: rectY } } // left
+      {
+        start: { x: rectX + rectWidth, y: rectY },
+        end: { x: rectX + rectWidth, y: rectY + rectHeight },
+      }, // right
+      {
+        start: { x: rectX + rectWidth, y: rectY + rectHeight },
+        end: { x: rectX, y: rectY + rectHeight },
+      }, // bottom
+      { start: { x: rectX, y: rectY + rectHeight }, end: { x: rectX, y: rectY } }, // left
     ];
 
-    return edges.some(edge => this.lineSegmentsIntersect(lineStart, lineEnd, edge.start, edge.end));
+    return edges.some((edge) =>
+      this.lineSegmentsIntersect(lineStart, lineEnd, edge.start, edge.end)
+    );
   }
 
-  static lineSegmentsIntersect(
-    p1: Position,
-    p2: Position,
-    p3: Position,
-    p4: Position
-  ): boolean {
+  static lineSegmentsIntersect(p1: Position, p2: Position, p3: Position, p4: Position): boolean {
     const denominator = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
 
     if (denominator === 0) return false; // Lines are parallel
@@ -468,14 +492,16 @@ export class CanvasUtils {
       const width = side.width || 100;
       const height = side.height || 60;
 
-      if (this.lineIntersectsRectangle(
-        middleSegment.start,
-        middleSegment.end,
-        side.position.x,
-        side.position.y,
-        width,
-        height
-      )) {
+      if (
+        this.lineIntersectsRectangle(
+          middleSegment.start,
+          middleSegment.end,
+          side.position.x,
+          side.position.y,
+          width,
+          height
+        )
+      ) {
         return true;
       }
     }
@@ -489,12 +515,14 @@ export class CanvasUtils {
 
       // Check intersection with each segment of the other arrow
       for (let i = 0; i < otherPath.length - 1; i++) {
-        if (this.lineSegmentsIntersect(
-          middleSegment.start,
-          middleSegment.end,
-          otherPath[i],
-          otherPath[i + 1]
-        )) {
+        if (
+          this.lineSegmentsIntersect(
+            middleSegment.start,
+            middleSegment.end,
+            otherPath[i],
+            otherPath[i + 1]
+          )
+        ) {
           return true;
         }
       }
@@ -508,8 +536,8 @@ export class CanvasUtils {
     allSides: FlashcardSide[],
     allArrows: Arrow[],
     currentArrow: Arrow,
-    sourceEdge: 'top' | 'bottom' | 'left' | 'right',
-    _destEdge: 'top' | 'bottom' | 'left' | 'right',
+    sourceEdge: "top" | "bottom" | "left" | "right",
+    _destEdge: "top" | "bottom" | "left" | "right",
     _sourceSide: FlashcardSide,
     _destSide: FlashcardSide
   ): Position[] {
@@ -531,32 +559,32 @@ export class CanvasUtils {
     const maxAttempts = 5;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const travelMultiplier = 1 + (attempt * 0.5); // 1.5x, 2x, 2.5x, 3x, 3.5x
+      const travelMultiplier = 1 + attempt * 0.5; // 1.5x, 2x, 2.5x, 3x, 3.5x
       const adjustedTravel = baseTravelDistance * travelMultiplier;
 
       let firstCorner: Position;
       let secondCorner: Position;
 
       // Calculate adjusted path with larger travel distance
-      if (sourceEdge === 'left' || sourceEdge === 'right') {
-        const travelX = sourceEdge === 'right' ? adjustedTravel : -adjustedTravel;
+      if (sourceEdge === "left" || sourceEdge === "right") {
+        const travelX = sourceEdge === "right" ? adjustedTravel : -adjustedTravel;
         firstCorner = {
           x: sourcePoint.x + travelX,
-          y: sourcePoint.y
+          y: sourcePoint.y,
         };
         secondCorner = {
           x: firstCorner.x,
-          y: destPoint.y
+          y: destPoint.y,
         };
       } else {
-        const travelY = sourceEdge === 'bottom' ? adjustedTravel : -adjustedTravel;
+        const travelY = sourceEdge === "bottom" ? adjustedTravel : -adjustedTravel;
         firstCorner = {
           x: sourcePoint.x,
-          y: sourcePoint.y + travelY
+          y: sourcePoint.y + travelY,
         };
         secondCorner = {
           x: destPoint.x,
-          y: firstCorner.y
+          y: firstCorner.y,
         };
       }
 
@@ -570,32 +598,32 @@ export class CanvasUtils {
 
     // If we still have collisions, try the opposite direction
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const travelMultiplier = 1 + (attempt * 0.5);
+      const travelMultiplier = 1 + attempt * 0.5;
       const adjustedTravel = baseTravelDistance * travelMultiplier;
 
       let firstCorner: Position;
       let secondCorner: Position;
 
       // Calculate path in opposite direction
-      if (sourceEdge === 'left' || sourceEdge === 'right') {
-        const travelX = sourceEdge === 'left' ? adjustedTravel : -adjustedTravel; // Opposite direction
+      if (sourceEdge === "left" || sourceEdge === "right") {
+        const travelX = sourceEdge === "left" ? adjustedTravel : -adjustedTravel; // Opposite direction
         firstCorner = {
           x: sourcePoint.x + travelX,
-          y: sourcePoint.y
+          y: sourcePoint.y,
         };
         secondCorner = {
           x: firstCorner.x,
-          y: destPoint.y
+          y: destPoint.y,
         };
       } else {
-        const travelY = sourceEdge === 'top' ? adjustedTravel : -adjustedTravel; // Opposite direction
+        const travelY = sourceEdge === "top" ? adjustedTravel : -adjustedTravel; // Opposite direction
         firstCorner = {
           x: sourcePoint.x,
-          y: sourcePoint.y + travelY
+          y: sourcePoint.y + travelY,
         };
         secondCorner = {
           x: destPoint.x,
-          y: firstCorner.y
+          y: firstCorner.y,
         };
       }
 
@@ -634,7 +662,17 @@ export class CanvasUtils {
 
     // First try the preferred center position
     const centerPos = this.getPositionAtPercent(arrowPath, preferredPercent);
-    if (!this.labelCollidesWithElements(centerPos, labelWidth, labelHeight, allSides, allArrows, currentArrow, sides)) {
+    if (
+      !this.labelCollidesWithElements(
+        centerPos,
+        labelWidth,
+        labelHeight,
+        allSides,
+        allArrows,
+        currentArrow,
+        sides
+      )
+    ) {
       return centerPos;
     }
 
@@ -645,7 +683,17 @@ export class CanvasUtils {
       const beforePercent = preferredPercent - offset;
       if (beforePercent >= startPercent) {
         const beforePos = this.getPositionAtPercent(arrowPath, beforePercent);
-        if (!this.labelCollidesWithElements(beforePos, labelWidth, labelHeight, allSides, allArrows, currentArrow, sides)) {
+        if (
+          !this.labelCollidesWithElements(
+            beforePos,
+            labelWidth,
+            labelHeight,
+            allSides,
+            allArrows,
+            currentArrow,
+            sides
+          )
+        ) {
           return beforePos;
         }
       }
@@ -654,7 +702,17 @@ export class CanvasUtils {
       const afterPercent = preferredPercent + offset;
       if (afterPercent <= endPercent) {
         const afterPos = this.getPositionAtPercent(arrowPath, afterPercent);
-        if (!this.labelCollidesWithElements(afterPos, labelWidth, labelHeight, allSides, allArrows, currentArrow, sides)) {
+        if (
+          !this.labelCollidesWithElements(
+            afterPos,
+            labelWidth,
+            labelHeight,
+            allSides,
+            allArrows,
+            currentArrow,
+            sides
+          )
+        ) {
           return afterPos;
         }
       }
@@ -663,11 +721,27 @@ export class CanvasUtils {
     // If no collision-free position found, find position with least severe collision
     // Prefer colliding with arrows over sides
     let bestPosition = centerPos;
-    let bestScore = this.calculateCollisionScore(centerPos, labelWidth, labelHeight, allSides, allArrows, currentArrow, sides);
+    let bestScore = this.calculateCollisionScore(
+      centerPos,
+      labelWidth,
+      labelHeight,
+      allSides,
+      allArrows,
+      currentArrow,
+      sides
+    );
 
     for (let percent = startPercent; percent <= endPercent; percent += increment) {
       const pos = this.getPositionAtPercent(arrowPath, percent);
-      const score = this.calculateCollisionScore(pos, labelWidth, labelHeight, allSides, allArrows, currentArrow, sides);
+      const score = this.calculateCollisionScore(
+        pos,
+        labelWidth,
+        labelHeight,
+        allSides,
+        allArrows,
+        currentArrow,
+        sides
+      );
 
       if (score < bestScore) {
         bestScore = score;
@@ -711,7 +785,7 @@ export class CanvasUtils {
 
         return {
           x: segmentStart.x + dx * segmentPercent,
-          y: segmentStart.y + dy * segmentPercent
+          y: segmentStart.y + dy * segmentPercent,
         };
       }
 
@@ -735,7 +809,7 @@ export class CanvasUtils {
       x: labelPos.x - labelWidth / 2,
       y: labelPos.y - labelHeight / 2,
       width: labelWidth,
-      height: labelHeight
+      height: labelHeight,
     };
 
     // Check collision with sides (excluding source and destination of current arrow)
@@ -745,10 +819,18 @@ export class CanvasUtils {
       const sideWidth = side.width || 100;
       const sideHeight = side.height || 60;
 
-      if (this.rectanglesOverlap(
-        labelRect.x, labelRect.y, labelRect.width, labelRect.height,
-        side.position.x, side.position.y, sideWidth, sideHeight
-      )) {
+      if (
+        this.rectanglesOverlap(
+          labelRect.x,
+          labelRect.y,
+          labelRect.width,
+          labelRect.height,
+          side.position.x,
+          side.position.y,
+          sideWidth,
+          sideHeight
+        )
+      ) {
         return true;
       }
     }
@@ -762,14 +844,16 @@ export class CanvasUtils {
 
       // Check if label overlaps with any segment of the other arrow
       for (let i = 0; i < otherPath.length - 1; i++) {
-        if (this.lineIntersectsRectangle(
-          otherPath[i],
-          otherPath[i + 1],
-          labelRect.x,
-          labelRect.y,
-          labelRect.width,
-          labelRect.height
-        )) {
+        if (
+          this.lineIntersectsRectangle(
+            otherPath[i],
+            otherPath[i + 1],
+            labelRect.x,
+            labelRect.y,
+            labelRect.width,
+            labelRect.height
+          )
+        ) {
           return true;
         }
       }
@@ -792,7 +876,7 @@ export class CanvasUtils {
       x: labelPos.x - labelWidth / 2,
       y: labelPos.y - labelHeight / 2,
       width: labelWidth,
-      height: labelHeight
+      height: labelHeight,
     };
 
     // Higher penalty for colliding with sides
@@ -802,10 +886,18 @@ export class CanvasUtils {
       const sideWidth = side.width || 100;
       const sideHeight = side.height || 60;
 
-      if (this.rectanglesOverlap(
-        labelRect.x, labelRect.y, labelRect.width, labelRect.height,
-        side.position.x, side.position.y, sideWidth, sideHeight
-      )) {
+      if (
+        this.rectanglesOverlap(
+          labelRect.x,
+          labelRect.y,
+          labelRect.width,
+          labelRect.height,
+          side.position.x,
+          side.position.y,
+          sideWidth,
+          sideHeight
+        )
+      ) {
         score += 100; // High penalty for side collision
       }
     }
@@ -818,14 +910,16 @@ export class CanvasUtils {
       if (otherPath.length < 2) continue;
 
       for (let i = 0; i < otherPath.length - 1; i++) {
-        if (this.lineIntersectsRectangle(
-          otherPath[i],
-          otherPath[i + 1],
-          labelRect.x,
-          labelRect.y,
-          labelRect.width,
-          labelRect.height
-        )) {
+        if (
+          this.lineIntersectsRectangle(
+            otherPath[i],
+            otherPath[i + 1],
+            labelRect.x,
+            labelRect.y,
+            labelRect.width,
+            labelRect.height
+          )
+        ) {
           score += 10; // Lower penalty for arrow collision
         }
       }
@@ -835,8 +929,14 @@ export class CanvasUtils {
   }
 
   static rectanglesOverlap(
-    x1: number, y1: number, w1: number, h1: number,
-    x2: number, y2: number, w2: number, h2: number
+    x1: number,
+    y1: number,
+    w1: number,
+    h1: number,
+    x2: number,
+    y2: number,
+    w2: number,
+    h2: number
   ): boolean {
     return !(x1 + w1 < x2 || x2 + w2 < x1 || y1 + h1 < y2 || y2 + h2 < y1);
   }

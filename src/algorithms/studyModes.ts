@@ -1,5 +1,5 @@
 // Phase 3: Study Mode Generator
-import { StudyQuestion, Flashcard, Arrow, StudyMode } from '../types';
+import { StudyQuestion, Flashcard, Arrow, StudyMode } from "../types";
 
 export class StudyModeGenerator {
   static generateQuestions(
@@ -7,18 +7,14 @@ export class StudyModeGenerator {
     mode: StudyMode,
     count: number = 20
   ): StudyQuestion[] {
-    const allArrows = flashcards.flatMap(card =>
-      card.arrows.map(arrow => ({ card, arrow }))
-    );
+    const allArrows = flashcards.flatMap((card) => card.arrows.map((arrow) => ({ card, arrow })));
 
     if (allArrows.length === 0) return [];
 
     const shuffled = this.shuffleArray(allArrows);
     const selected = shuffled.slice(0, Math.min(count, shuffled.length));
 
-    return selected.map((item, index) =>
-      this.createQuestion(item.card, item.arrow, mode, index)
-    );
+    return selected.map((item, index) => this.createQuestion(item.card, item.arrow, mode, index));
   }
 
   private static createQuestion(
@@ -27,8 +23,8 @@ export class StudyModeGenerator {
     mode: StudyMode,
     questionId: number
   ): StudyQuestion {
-    const sourceSide = flashcard.sides.find(s => s.id === arrow.sourceId)!;
-    const destinationSide = flashcard.sides.find(s => s.id === arrow.destinationId)!;
+    const sourceSide = flashcard.sides.find((s) => s.id === arrow.sourceId)!;
+    const destinationSide = flashcard.sides.find((s) => s.id === arrow.destinationId)!;
 
     const baseQuestion: StudyQuestion = {
       id: `q${questionId}`,
@@ -40,7 +36,7 @@ export class StudyModeGenerator {
       mode,
     };
 
-    if (mode === 'multiple-choice') {
+    if (mode === "multiple-choice") {
       baseQuestion.options = this.generateMultipleChoiceOptions(
         destinationSide.value,
         flashcard,
@@ -57,12 +53,12 @@ export class StudyModeGenerator {
     arrowLabel: string
   ): string[] {
     // Get potential wrong answers from the same flashcard
-    const sameLabelArrows = flashcard.arrows.filter(a => a.label === arrowLabel);
+    const sameLabelArrows = flashcard.arrows.filter((a) => a.label === arrowLabel);
     const potentialAnswers = new Set<string>();
 
     // Add answers from arrows with same label
-    sameLabelArrows.forEach(arrow => {
-      const destinationSide = flashcard.sides.find(s => s.id === arrow.destinationId);
+    sameLabelArrows.forEach((arrow) => {
+      const destinationSide = flashcard.sides.find((s) => s.id === arrow.destinationId);
       if (destinationSide && destinationSide.value !== correctAnswer) {
         potentialAnswers.add(destinationSide.value);
       }
@@ -70,7 +66,7 @@ export class StudyModeGenerator {
 
     // If we need more options, add random sides from the flashcard
     if (potentialAnswers.size < 3) {
-      flashcard.sides.forEach(side => {
+      flashcard.sides.forEach((side) => {
         if (side.value !== correctAnswer && potentialAnswers.size < 3) {
           potentialAnswers.add(side.value);
         }
@@ -96,11 +92,11 @@ export class StudyModeGenerator {
 
       visited.add(currentSideId);
 
-      const outgoingArrows = flashcard.arrows.filter(a => a.sourceId === currentSideId);
+      const outgoingArrows = flashcard.arrows.filter((a) => a.sourceId === currentSideId);
 
       outgoingArrows.forEach((arrow, index) => {
-        const sourceSide = flashcard.sides.find(s => s.id === arrow.sourceId)!;
-        const destinationSide = flashcard.sides.find(s => s.id === arrow.destinationId)!;
+        const sourceSide = flashcard.sides.find((s) => s.id === arrow.sourceId)!;
+        const destinationSide = flashcard.sides.find((s) => s.id === arrow.destinationId)!;
 
         path.push({
           id: `path${depth}-${index}`,
@@ -109,7 +105,7 @@ export class StudyModeGenerator {
           sourceValue: sourceSide.value,
           arrowLabel: arrow.label,
           correctAnswer: destinationSide.value,
-          mode: 'custom-path',
+          mode: "custom-path",
         });
 
         traverse(arrow.destinationId, depth + 1);
@@ -130,14 +126,17 @@ export class StudyModeGenerator {
     const connectionCounts = new Map<string, number>();
 
     // Initialize counts
-    flashcard.sides.forEach(side => {
+    flashcard.sides.forEach((side) => {
       connectionCounts.set(side.id, 0);
     });
 
     // Count arrows
-    flashcard.arrows.forEach(arrow => {
+    flashcard.arrows.forEach((arrow) => {
       connectionCounts.set(arrow.sourceId, (connectionCounts.get(arrow.sourceId) || 0) + 1);
-      connectionCounts.set(arrow.destinationId, (connectionCounts.get(arrow.destinationId) || 0) + 1);
+      connectionCounts.set(
+        arrow.destinationId,
+        (connectionCounts.get(arrow.destinationId) || 0) + 1
+      );
     });
 
     // Find side with most connections
@@ -159,7 +158,7 @@ export class StudyModeGenerator {
    * Get all outgoing arrows from a specific side
    */
   static getOutgoingArrows(flashcard: Flashcard, sideId: string): Arrow[] {
-    return flashcard.arrows.filter(arrow => arrow.sourceId === sideId);
+    return flashcard.arrows.filter((arrow) => arrow.sourceId === sideId);
   }
 
   static validateAnswer(question: StudyQuestion, userAnswer: string): boolean {
@@ -174,11 +173,13 @@ export class StudyModeGenerator {
   }
 
   private static normalizeAnswer(answer: string): string {
-    return answer.toLowerCase().trim().replace(/\s+/g, ' ');
+    return answer.toLowerCase().trim().replace(/\s+/g, " ");
   }
 
   private static calculateLevenshteinDistance(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+    const matrix = Array(str2.length + 1)
+      .fill(null)
+      .map(() => Array(str1.length + 1).fill(null));
 
     for (let i = 0; i <= str1.length; i += 1) {
       matrix[0][i] = i;
@@ -221,7 +222,7 @@ export class StudyModeGenerator {
     const accuracy = timesCorrect / timesStudied;
 
     // Base difficulty on accuracy (0-5 scale)
-    let difficulty = 5 - (accuracy * 4); // 1.0 accuracy = 1 difficulty, 0.0 accuracy = 5 difficulty
+    let difficulty = 5 - accuracy * 4; // 1.0 accuracy = 1 difficulty, 0.0 accuracy = 5 difficulty
 
     // Adjust for time (longer time = harder)
     if (averageTime > 10000) difficulty += 0.5; // 10+ seconds

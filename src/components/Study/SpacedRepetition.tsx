@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { verifyAnswer, convertToneNumbersToMarks, hasCorrectSyllablesButWrongTones } from '../../utils/answerVerification';
-import './SpacedRepetition.css';
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  verifyAnswer,
+  convertToneNumbersToMarks,
+  hasCorrectSyllablesButWrongTones,
+} from "../../utils/answerVerification";
+import "./SpacedRepetition.css";
 
 interface DueCard {
   character_id: number;
@@ -12,7 +16,7 @@ interface DueCard {
   times_reviewed: number;
 }
 
-type QuestionType = 'definition' | 'pinyin';
+type QuestionType = "definition" | "pinyin";
 
 interface Question {
   id: string; // Unique ID for this question
@@ -41,11 +45,17 @@ interface SpacedRepetitionProps {
   initialStudyCharacterIds?: number[];
 }
 
-function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyCharacterIds = [] }: SpacedRepetitionProps) {
+function SpacedRepetition({
+  onComplete,
+  isInitialStudy = false,
+  initialStudyCharacterIds = [],
+}: SpacedRepetitionProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [characterProgress, setCharacterProgress] = useState<Map<number, CharacterProgress>>(new Map());
+  const [characterProgress, setCharacterProgress] = useState<Map<number, CharacterProgress>>(
+    new Map()
+  );
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswer, setUserAnswer] = useState('');
+  const [userAnswer, setUserAnswer] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -76,7 +86,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
   // Global keyboard handler for Enter key
   useEffect(() => {
     const handleGlobalKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         if (showFeedback && wrongTonesOnly) {
           // For wrong tones, Enter key triggers retry
           handleRetry();
@@ -88,8 +98,8 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       }
     };
 
-    window.addEventListener('keydown', handleGlobalKeyPress);
-    return () => window.removeEventListener('keydown', handleGlobalKeyPress);
+    window.addEventListener("keydown", handleGlobalKeyPress);
+    return () => window.removeEventListener("keydown", handleGlobalKeyPress);
   }, [showFeedback, submitting, userAnswer, wrongTonesOnly]);
 
   // End session when naturally completed
@@ -105,19 +115,31 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           const questionsCorrect = questionsTotal - firstTimeErrors;
           const questionsIncorrect = firstTimeErrors;
 
-          console.log('[SRS] Session stats - Cards:', actualCardsStudied, 'First-time errors:', firstTimeErrors);
-          console.log('[SRS] Accuracy:', questionsCorrect, '/', questionsTotal, '=', Math.round((questionsCorrect / questionsTotal) * 100) + '%');
+          console.log(
+            "[SRS] Session stats - Cards:",
+            actualCardsStudied,
+            "First-time errors:",
+            firstTimeErrors
+          );
+          console.log(
+            "[SRS] Accuracy:",
+            questionsCorrect,
+            "/",
+            questionsTotal,
+            "=",
+            Math.round((questionsCorrect / questionsTotal) * 100) + "%"
+          );
 
-          await invoke('end_session', {
+          await invoke("end_session", {
             sessionId,
             cardsStudied: actualCardsStudied,
             cardsCorrect: questionsCorrect,
-            cardsIncorrect: questionsIncorrect
+            cardsIncorrect: questionsIncorrect,
           });
-          console.log('[SRS] Session naturally completed and ended:', sessionId);
+          console.log("[SRS] Session naturally completed and ended:", sessionId);
           setSessionEnded(true); // Mark as ended to prevent duplicate calls
         } catch (error) {
-          console.error('[SRS] Error ending completed session:', error);
+          console.error("[SRS] Error ending completed session:", error);
         }
       };
       endSession();
@@ -139,21 +161,21 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       setLoading(true);
 
       // Start session recording
-      const mode = isInitialStudy ? 'initial_study' : 'spaced_repetition';
-      const newSessionId = await invoke<number>('start_session', { mode });
+      const mode = isInitialStudy ? "initial_study" : "spaced_repetition";
+      const newSessionId = await invoke<number>("start_session", { mode });
       setSessionId(newSessionId);
-      console.log('[SRS] Started session:', newSessionId);
+      console.log("[SRS] Started session:", newSessionId);
 
       let cards: DueCard[];
       if (isInitialStudy && initialStudyCharacterIds.length > 0) {
         // For initial study, fetch the specific characters
-        console.log('[SRS] Loading initial study cards:', initialStudyCharacterIds);
-        cards = await invoke<DueCard[]>('get_characters_for_initial_study', {
-          characterIds: initialStudyCharacterIds
+        console.log("[SRS] Loading initial study cards:", initialStudyCharacterIds);
+        cards = await invoke<DueCard[]>("get_characters_for_initial_study", {
+          characterIds: initialStudyCharacterIds,
         });
       } else {
         // Regular review session
-        cards = await invoke<DueCard[]>('get_due_cards_for_review');
+        cards = await invoke<DueCard[]>("get_due_cards_for_review");
       }
 
       if (cards.length === 0) {
@@ -161,23 +183,27 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
         setLoading(false);
         // End session with 0 cards
         if (newSessionId) {
-          await invoke('end_session', {
+          await invoke("end_session", {
             sessionId: newSessionId,
             cardsStudied: 0,
             cardsCorrect: 0,
-            cardsIncorrect: 0
+            cardsIncorrect: 0,
           });
         }
         return;
       }
 
-      console.log('[SRS] Loaded', cards.length, isInitialStudy ? 'initial study cards' : 'due cards');
+      console.log(
+        "[SRS] Loaded",
+        cards.length,
+        isInitialStudy ? "initial study cards" : "due cards"
+      );
       setTotalCharacters(cards.length);
       setTotalRequiredAnswers(cards.length * 2); // Each card needs 2 answers (definition + pinyin)
 
       // Initialize character progress tracking
       const progressMap = new Map<number, CharacterProgress>();
-      cards.forEach(card => {
+      cards.forEach((card) => {
         progressMap.set(card.character_id, {
           character_id: card.character_id,
           character: card.character,
@@ -193,7 +219,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
 
       // Create question pool: 2 questions per card (definition + pinyin)
       const questionPool: Question[] = [];
-      cards.forEach(card => {
+      cards.forEach((card) => {
         // Definition question
         questionPool.push({
           id: `${card.character_id}-definition`,
@@ -201,7 +227,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           character: card.character,
           pinyin: card.pinyin,
           definition: card.definition,
-          questionType: 'definition',
+          questionType: "definition",
           answeredCorrectly: null,
         });
 
@@ -212,19 +238,19 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           character: card.character,
           pinyin: card.pinyin,
           definition: card.definition,
-          questionType: 'pinyin',
+          questionType: "pinyin",
           answeredCorrectly: null,
         });
       });
 
       // Shuffle the question pool for completely random order
       const shuffledQuestions = shuffleArray(questionPool);
-      console.log('[SRS] Created and shuffled', shuffledQuestions.length, 'questions');
+      console.log("[SRS] Created and shuffled", shuffledQuestions.length, "questions");
 
       setQuestions(shuffledQuestions);
       setLoading(false);
     } catch (error) {
-      console.error('Failed to load due cards:', error);
+      console.error("Failed to load due cards:", error);
       setLoading(false);
     }
   };
@@ -232,7 +258,11 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
   const getCurrentQuestion = () => questions[currentQuestionIndex];
 
   // Use the new robust answer verification system
-  const checkAnswer = (answer: string, correctAnswer: string, questionType: QuestionType): boolean => {
+  const checkAnswer = (
+    answer: string,
+    correctAnswer: string,
+    questionType: QuestionType
+  ): boolean => {
     return verifyAnswer(answer, correctAnswer, questionType);
   };
 
@@ -242,7 +272,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     const currentQuestion = getCurrentQuestion();
 
     // For pinyin questions, convert tone numbers to marks in real-time
-    if (currentQuestion && currentQuestion.questionType === 'pinyin') {
+    if (currentQuestion && currentQuestion.questionType === "pinyin") {
       // Convert tone numbers to marks (ma1 -> mā)
       const withMarks = convertToneNumbersToMarks(value);
       setUserAnswer(withMarks);
@@ -258,27 +288,28 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     const currentQuestion = getCurrentQuestion();
     if (!currentQuestion) return;
 
-    const correctAnswer = currentQuestion.questionType === 'definition'
-      ? currentQuestion.definition
-      : currentQuestion.pinyin;
+    const correctAnswer =
+      currentQuestion.questionType === "definition"
+        ? currentQuestion.definition
+        : currentQuestion.pinyin;
 
     // Debug logging
-    if (currentQuestion.questionType === 'pinyin') {
-      console.log('[VERIFY] User answer:', userAnswer);
-      console.log('[VERIFY] Correct answer:', correctAnswer);
+    if (currentQuestion.questionType === "pinyin") {
+      console.log("[VERIFY] User answer:", userAnswer);
+      console.log("[VERIFY] Correct answer:", correctAnswer);
     }
 
     const correct = checkAnswer(userAnswer, correctAnswer, currentQuestion.questionType);
 
-    if (currentQuestion.questionType === 'pinyin') {
-      console.log('[VERIFY] Result:', correct);
+    if (currentQuestion.questionType === "pinyin") {
+      console.log("[VERIFY] Result:", correct);
     }
 
     // For pinyin questions, check if syllables are correct but tones are wrong
     let wrongTones = false;
-    if (currentQuestion.questionType === 'pinyin' && !correct && !isRetryAttempt) {
+    if (currentQuestion.questionType === "pinyin" && !correct && !isRetryAttempt) {
       wrongTones = hasCorrectSyllablesButWrongTones(userAnswer, correctAnswer);
-      console.log('[VERIFY] Wrong tones only:', wrongTones);
+      console.log("[VERIFY] Wrong tones only:", wrongTones);
     }
 
     setIsCorrect(correct);
@@ -299,12 +330,12 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
 
     if (isFirstTimeSeeingQuestion) {
       // Mark this question as seen
-      setSeenQuestions(prev => new Set(prev).add(questionId));
+      setSeenQuestions((prev) => new Set(prev).add(questionId));
 
       // If incorrect on first attempt, increment error counter
       if (!correct) {
-        setFirstTimeErrors(prev => prev + 1);
-        console.log('[SRS] First-time error for question:', questionId);
+        setFirstTimeErrors((prev) => prev + 1);
+        console.log("[SRS] First-time error for question:", questionId);
       }
     }
 
@@ -316,11 +347,12 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     // Update character progress
     const progress = characterProgress.get(currentQuestion.character_id);
     if (progress) {
-      const wasAlreadyCorrect = currentQuestion.questionType === 'definition'
-        ? progress.definitionCorrect
-        : progress.pinyinCorrect;
+      const wasAlreadyCorrect =
+        currentQuestion.questionType === "definition"
+          ? progress.definitionCorrect
+          : progress.pinyinCorrect;
 
-      if (currentQuestion.questionType === 'definition') {
+      if (currentQuestion.questionType === "definition") {
         progress.definitionCorrect = correct;
       } else {
         progress.pinyinCorrect = correct;
@@ -329,7 +361,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
 
       // Track successful answers for progress bar (only increment if newly correct)
       if (correct && !wasAlreadyCorrect) {
-        setSuccessfulAnswers(prev => prev + 1);
+        setSuccessfulAnswers((prev) => prev + 1);
       }
     }
 
@@ -341,7 +373,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
   const handleRetry = () => {
     // User is retrying after wrong tones - clear feedback and let them try again
     setShowFeedback(false);
-    setUserAnswer('');
+    setUserAnswer("");
     setWrongTonesOnly(false);
     // Keep isRetryAttempt = true so we know this is the second attempt
   };
@@ -350,7 +382,12 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     const currentQuestion = getCurrentQuestion();
     if (!currentQuestion) return;
 
-    console.log('[SRS] Moving to next question. Current:', currentQuestionIndex, 'Total:', questions.length);
+    console.log(
+      "[SRS] Moving to next question. Current:",
+      currentQuestionIndex,
+      "Total:",
+      questions.length
+    );
 
     // Track incorrect answers at the card level
     // Also track the updated questions array for session completion check
@@ -361,10 +398,12 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       if (progress && !progress.hadIncorrectAnswer) {
         // First time this card has been answered incorrectly
         progress.hadIncorrectAnswer = true;
-        setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
+        setCharacterProgress(
+          new Map(characterProgress.set(currentQuestion.character_id, progress))
+        );
 
         // Increment incorrect card counter
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
           cardsIncorrect: prev.cardsIncorrect + 1,
         }));
@@ -376,16 +415,21 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       updatedQuestions.push(incorrectQuestion);
       updatedQuestionsArray = updatedQuestions; // Store for session completion check
       setQuestions(updatedQuestions);
-      console.log('[SRS] Added incorrect question back to queue. Total questions:', updatedQuestions.length);
+      console.log(
+        "[SRS] Added incorrect question back to queue. Total questions:",
+        updatedQuestions.length
+      );
 
       // Reset character progress for this question type
       if (progress) {
-        if (currentQuestion.questionType === 'definition') {
+        if (currentQuestion.questionType === "definition") {
           progress.definitionCorrect = false;
         } else {
           progress.pinyinCorrect = false;
         }
-        setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
+        setCharacterProgress(
+          new Map(characterProgress.set(currentQuestion.character_id, progress))
+        );
       }
     }
 
@@ -401,41 +445,43 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
         // Submit to backend
         try {
           setSubmitting(true);
-          console.log('[SRS] Character fully answered. Submitting:', currentQuestion.character_id);
+          console.log("[SRS] Character fully answered. Submitting:", currentQuestion.character_id);
 
-          const reachedWeek = await invoke<boolean>('submit_srs_answer', {
+          const reachedWeek = await invoke<boolean>("submit_srs_answer", {
             characterId: currentQuestion.character_id,
             correct: true,
           });
 
-          console.log('[SRS] Answer submitted. Reached week:', reachedWeek);
+          console.log("[SRS] Answer submitted. Reached week:", reachedWeek);
 
           // Mark as submitted
           progress.submitted = true;
-          setCharacterProgress(new Map(characterProgress.set(currentQuestion.character_id, progress)));
+          setCharacterProgress(
+            new Map(characterProgress.set(currentQuestion.character_id, progress))
+          );
 
           // Character reached week milestone (tracked for analytics)
           if (reachedWeek) {
-            console.log('[SRS] Character reached week milestone (mastery tracked)');
+            console.log("[SRS] Character reached week milestone (mastery tracked)");
           }
 
           setSubmitting(false);
         } catch (error) {
-          console.error('[SRS] CRITICAL ERROR during answer submission:', error);
+          console.error("[SRS] CRITICAL ERROR during answer submission:", error);
           alert(`Error submitting answer: ${error}. Please check the console.`);
           setSubmitting(false);
         }
       } else {
         // For initial study, just mark as completed (will be submitted at end)
-        console.log('[SRS] Initial study: Character fully answered:', currentQuestion.character_id);
+        console.log("[SRS] Initial study: Character fully answered:", currentQuestion.character_id);
       }
 
       // Update stats: increment completed characters counter
-      setCompletedCharacters(prev => prev + 1);
+      setCompletedCharacters((prev) => prev + 1);
 
       // Update correct card counter only if this card never had an incorrect answer
       if (!progress.hadIncorrectAnswer) {
-        setStats(prev => ({
+        setStats((prev) => ({
           ...prev,
           cardsCorrect: prev.cardsCorrect + 1,
         }));
@@ -444,7 +490,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
 
     // Check if session complete - use updatedQuestionsArray which includes any re-queued incorrect questions
     if (nextIndex >= updatedQuestionsArray.length) {
-      console.log('[SRS] Session complete!');
+      console.log("[SRS] Session complete!");
 
       // Process all characters for initial study mode
       if (isInitialStudy) {
@@ -455,16 +501,16 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     } else {
       // Move to next question
       setCurrentQuestionIndex(nextIndex);
-      setUserAnswer('');
+      setUserAnswer("");
       setShowFeedback(false);
-      console.log('[SRS] Moving to question', nextIndex);
+      console.log("[SRS] Moving to question", nextIndex);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !showFeedback) {
+    if (e.key === "Enter" && !showFeedback) {
       handleSubmit();
-    } else if (e.key === 'Enter' && showFeedback) {
+    } else if (e.key === "Enter" && showFeedback) {
       handleNext();
     }
   };
@@ -486,34 +532,48 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       }
     });
 
-    console.log('[SRS] Initial study completion:', completedCharactersList.length, 'completed,', incompleteCharactersList.length, 'incomplete');
+    console.log(
+      "[SRS] Initial study completion:",
+      completedCharactersList.length,
+      "completed,",
+      incompleteCharactersList.length,
+      "incomplete"
+    );
 
     // Mark completed characters with 1-hour interval (if not already submitted)
-    const notYetSubmitted = completedCharactersList.filter(id => {
+    const notYetSubmitted = completedCharactersList.filter((id) => {
       const progress = characterProgress.get(id);
       return progress && !progress.submitted;
     });
 
     if (notYetSubmitted.length > 0) {
       try {
-        await invoke('complete_initial_srs_session', {
-          characterIds: notYetSubmitted
+        await invoke("complete_initial_srs_session", {
+          characterIds: notYetSubmitted,
         });
-        console.log('[SRS] Marked', notYetSubmitted.length, 'completed characters (1-hour interval)');
+        console.log(
+          "[SRS] Marked",
+          notYetSubmitted.length,
+          "completed characters (1-hour interval)"
+        );
       } catch (error) {
-        console.error('[SRS] Error marking completed characters:', error);
+        console.error("[SRS] Error marking completed characters:", error);
       }
     }
 
     // Mark incomplete characters as immediately reviewable
     if (incompleteCharactersList.length > 0) {
       try {
-        await invoke('mark_incomplete_characters_reviewable', {
-          characterIds: incompleteCharactersList
+        await invoke("mark_incomplete_characters_reviewable", {
+          characterIds: incompleteCharactersList,
         });
-        console.log('[SRS] Marked', incompleteCharactersList.length, 'incomplete characters as immediately reviewable');
+        console.log(
+          "[SRS] Marked",
+          incompleteCharactersList.length,
+          "incomplete characters as immediately reviewable"
+        );
       } catch (error) {
-        console.error('[SRS] Error marking incomplete characters:', error);
+        console.error("[SRS] Error marking incomplete characters:", error);
       }
     }
   };
@@ -533,7 +593,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     setIsExiting(true);
 
     try {
-      console.log('[SRS] Exiting study session early. Processing character states...');
+      console.log("[SRS] Exiting study session early. Processing character states...");
 
       // For initial study mode, process all characters
       if (isInitialStudy) {
@@ -556,20 +616,20 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           }
         });
 
-        console.log('[SRS] Submitting', completedCharactersList.length, 'completed characters');
-        console.log('[SRS] Submitting', incorrectCharactersList.length, 'incorrect characters');
+        console.log("[SRS] Submitting", completedCharactersList.length, "completed characters");
+        console.log("[SRS] Submitting", incorrectCharactersList.length, "incorrect characters");
 
         // Submit completed characters
         for (const characterId of completedCharactersList) {
           if (!characterProgress.get(characterId)?.submitted) {
             try {
-              await invoke('submit_srs_answer', {
+              await invoke("submit_srs_answer", {
                 characterId,
                 correct: true,
               });
-              console.log('[SRS] Submitted completed character:', characterId);
+              console.log("[SRS] Submitted completed character:", characterId);
             } catch (error) {
-              console.error('[SRS] Error submitting completed character:', characterId, error);
+              console.error("[SRS] Error submitting completed character:", characterId, error);
             }
           }
         }
@@ -577,13 +637,13 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
         // Submit incorrect characters
         for (const characterId of incorrectCharactersList) {
           try {
-            await invoke('submit_srs_answer', {
+            await invoke("submit_srs_answer", {
               characterId,
               correct: false,
             });
-            console.log('[SRS] Submitted incorrect character:', characterId);
+            console.log("[SRS] Submitted incorrect character:", characterId);
           } catch (error) {
-            console.error('[SRS] Error submitting incorrect character:', characterId, error);
+            console.error("[SRS] Error submitting incorrect character:", characterId, error);
           }
         }
       }
@@ -599,25 +659,30 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           const questionsCorrect = questionsTotal - firstTimeErrors;
           const questionsIncorrect = firstTimeErrors;
 
-          console.log('[SRS] Exit - Cards:', actualCardsStudied, 'First-time errors:', firstTimeErrors);
+          console.log(
+            "[SRS] Exit - Cards:",
+            actualCardsStudied,
+            "First-time errors:",
+            firstTimeErrors
+          );
 
-          await invoke('end_session', {
+          await invoke("end_session", {
             sessionId,
             cardsStudied: actualCardsStudied,
             cardsCorrect: questionsCorrect,
-            cardsIncorrect: questionsIncorrect
+            cardsIncorrect: questionsIncorrect,
           });
-          console.log('[SRS] Session ended:', sessionId);
+          console.log("[SRS] Session ended:", sessionId);
           setSessionEnded(true); // Mark as ended to prevent duplicate calls
         } catch (error) {
-          console.error('[SRS] Error ending session:', error);
+          console.error("[SRS] Error ending session:", error);
         }
       }
 
-      console.log('[SRS] Exit complete. Returning to dashboard.');
+      console.log("[SRS] Exit complete. Returning to dashboard.");
       onComplete();
     } catch (error) {
-      console.error('[SRS] Error during exit:', error);
+      console.error("[SRS] Error during exit:", error);
       alert(`Error saving progress: ${error}`);
       setIsExiting(false);
     }
@@ -653,7 +718,9 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
               <div className="stat-label">Cards Reviewed</div>
             </div>
             <div className="stat-item">
-              <div className="stat-number correct">{questionsCorrect} / {questionsTotal}</div>
+              <div className="stat-number correct">
+                {questionsCorrect} / {questionsTotal}
+              </div>
               <div className="stat-label">Questions Correct</div>
             </div>
             <div className="stat-item">
@@ -665,8 +732,8 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
             {actualCardsStudied === 0
               ? "No cards due for review. Great job staying on top of your studies!"
               : isInitialStudy
-              ? "Great work! Continue learning more characters."
-              : "Great work! Your next review session will be ready when cards become due."}
+                ? "Great work! Continue learning more characters."
+                : "Great work! Your next review session will be ready when cards become due."}
           </p>
           <button className="btn-primary" onClick={onComplete}>
             {isInitialStudy ? "Continue" : "Return to Dashboard"}
@@ -680,7 +747,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
 
   // Safety check: if no current question, session must be complete
   if (!currentQuestion) {
-    console.log('[SRS] No current question available, marking session complete');
+    console.log("[SRS] No current question available, marking session complete");
     if (!sessionComplete) {
       setSessionComplete(true);
     }
@@ -705,17 +772,19 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           <div className="modal-content">
             <div className="modal-icon">⚠️</div>
             <h2 className="modal-title">Exit Study Session?</h2>
-            <p className="modal-message">
-              Your progress on completed characters will be saved.
-            </p>
+            <p className="modal-message">Your progress on completed characters will be saved.</p>
             <div className="modal-stats">
               <div className="modal-stat-item">
                 <span className="modal-stat-label">Completed:</span>
-                <span className="modal-stat-value">{completedCharacters} / {totalCharacters}</span>
+                <span className="modal-stat-value">
+                  {completedCharacters} / {totalCharacters}
+                </span>
               </div>
               <div className="modal-stat-item">
                 <span className="modal-stat-label">Successful answers:</span>
-                <span className="modal-stat-value">{successfulAnswers} / {totalRequiredAnswers}</span>
+                <span className="modal-stat-value">
+                  {successfulAnswers} / {totalRequiredAnswers}
+                </span>
               </div>
             </div>
             <div className="modal-actions">
@@ -733,7 +802,9 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       {/* Progress Bar */}
       <div className="progress-bar">
         <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-        <div className="progress-text">{successfulAnswers} / {totalRequiredAnswers}</div>
+        <div className="progress-text">
+          {successfulAnswers} / {totalRequiredAnswers}
+        </div>
       </div>
 
       {/* Session Header */}
@@ -751,19 +822,19 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           disabled={isExiting}
           title="Exit study session"
         >
-          {isExiting ? 'Exiting...' : '🚪 Exit'}
+          {isExiting ? "Exiting..." : "🚪 Exit"}
         </button>
       </div>
 
       {/* Question Card */}
       <div className={`question-card question-type-${currentQuestion.questionType}`}>
         <div className="question-label">
-          {currentQuestion.questionType === 'definition' ? '📖 What does this mean?' : '🔊 How do you pronounce this?'}
+          {currentQuestion.questionType === "definition"
+            ? "📖 What does this mean?"
+            : "🔊 How do you pronounce this?"}
         </div>
 
-        <div className="character-display-large">
-          {currentQuestion.character}
-        </div>
+        <div className="character-display-large">{currentQuestion.character}</div>
 
         {!showFeedback ? (
           <div className="answer-section">
@@ -773,7 +844,11 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
               value={userAnswer}
               onChange={handleAnswerChange}
               onKeyPress={handleKeyPress}
-              placeholder={currentQuestion.questionType === 'definition' ? 'Type the meaning...' : 'Type the pinyin...'}
+              placeholder={
+                currentQuestion.questionType === "definition"
+                  ? "Type the meaning..."
+                  : "Type the pinyin..."
+              }
               autoFocus
               disabled={submitting}
             />
@@ -782,21 +857,24 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
               onClick={handleSubmit}
               disabled={!userAnswer.trim() || submitting}
             >
-              {submitting ? 'Checking...' : 'Submit'}
+              {submitting ? "Checking..." : "Submit"}
             </button>
           </div>
         ) : (
-          <div className={`feedback-section ${isCorrect ? 'correct' : wrongTonesOnly ? 'partial' : 'incorrect'}`}>
-            <div className="feedback-icon">
-              {isCorrect ? '✓' : wrongTonesOnly ? '⚠' : '✗'}
-            </div>
+          <div
+            className={`feedback-section ${isCorrect ? "correct" : wrongTonesOnly ? "partial" : "incorrect"}`}
+          >
+            <div className="feedback-icon">{isCorrect ? "✓" : wrongTonesOnly ? "⚠" : "✗"}</div>
             <div className="feedback-message">
-              {isCorrect ? 'Correct!' : wrongTonesOnly ? 'Wrong Tones!' : 'Incorrect'}
+              {isCorrect ? "Correct!" : wrongTonesOnly ? "Wrong Tones!" : "Incorrect"}
             </div>
             {wrongTonesOnly && (
               <>
                 <div className="partial-feedback">
-                  <p><strong>Close!</strong> You have the right syllables, but the tones are incorrect.</p>
+                  <p>
+                    <strong>Close!</strong> You have the right syllables, but the tones are
+                    incorrect.
+                  </p>
                   <p>Try again and pay attention to the tone marks!</p>
                 </div>
                 <button className="btn-retry" onClick={handleRetry}>
@@ -810,11 +888,10 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
                   <strong>Your answer:</strong> {userAnswer}
                 </div>
                 <div className="correct-answer">
-                  <strong>Correct answer:</strong> {
-                    currentQuestion.questionType === 'definition'
-                      ? currentQuestion.definition
-                      : convertToneNumbersToMarks(currentQuestion.pinyin)
-                  }
+                  <strong>Correct answer:</strong>{" "}
+                  {currentQuestion.questionType === "definition"
+                    ? currentQuestion.definition
+                    : convertToneNumbersToMarks(currentQuestion.pinyin)}
                 </div>
                 <div className="card-info">
                   <div className="info-row">
@@ -823,7 +900,9 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
                   </div>
                   <div className="info-row">
                     <span className="label">Pinyin:</span>
-                    <span className="value">{convertToneNumbersToMarks(currentQuestion.pinyin)}</span>
+                    <span className="value">
+                      {convertToneNumbersToMarks(currentQuestion.pinyin)}
+                    </span>
                   </div>
                   <div className="info-row">
                     <span className="label">Meaning:</span>

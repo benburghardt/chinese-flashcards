@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { convertToneNumbersToMarks } from '../../utils/answerVerification';
-import './IntroductionScreen.css';
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { convertToneNumbersToMarks } from "../../utils/answerVerification";
+import "./IntroductionScreen.css";
 
 interface Character {
   id: number;
@@ -18,6 +18,7 @@ interface IntroductionScreenProps {
   character: Character;
   onComplete: () => void;
   onSkip?: () => void;
+  onExit?: () => void;
   totalCharacters?: number;
   currentIndex?: number;
   batchSize?: number;
@@ -28,28 +29,29 @@ function IntroductionScreen({
   character,
   onComplete,
   onSkip,
-  totalCharacters = 3000,
+  onExit,
+  totalCharacters: _totalCharacters = 3000,
   currentIndex = 0,
   batchSize = 1,
-  isLastInBatch = false
+  isLastInBatch = false,
 }: IntroductionScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   // Reset loading state when character changes
   useEffect(() => {
     setIsLoading(false);
-    setError('');
+    setError("");
   }, [character.id]);
 
   const handleNext = async () => {
     setIsLoading(true);
-    setError('');
+    setError("");
 
     try {
       // Mark character as introduced in the database
-      await invoke('introduce_character', {
-        characterId: character.id
+      await invoke("introduce_character", {
+        characterId: character.id,
       });
 
       // Call completion callback
@@ -67,12 +69,12 @@ function IntroductionScreen({
     if (!onSkip) return;
 
     setIsLoading(true);
-    setError('');
+    setError("");
 
     try {
       // Mark as introduced immediately (skipping study)
-      await invoke('introduce_character', {
-        characterId: character.id
+      await invoke("introduce_character", {
+        characterId: character.id,
       });
 
       onSkip();
@@ -85,19 +87,44 @@ function IntroductionScreen({
     }
   };
 
-  const buttonText = isLoading
-    ? 'Loading...'
-    : isLastInBatch
-    ? 'Study New Characters'
-    : 'Next';
+  const buttonText = isLoading ? "Loading..." : isLastInBatch ? "Study New Characters" : "Next";
 
   return (
     <div className="introduction-screen">
-      <div className="introduction-container" style={{ overflowY: 'auto', maxHeight: '90vh' }}>
+      <div
+        className="introduction-container"
+        style={{ overflowY: "auto", maxHeight: "90vh", position: "relative", paddingTop: "60px" }}
+      >
+        {/* Exit button in top right corner - positioned above header */}
+        {onExit && (
+          <button
+            onClick={onExit}
+            disabled={isLoading}
+            style={{
+              position: "absolute",
+              top: "16px",
+              right: "16px",
+              padding: "8px 16px",
+              background: "#dc2626",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: "600",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              opacity: isLoading ? 0.6 : 1,
+              zIndex: 10,
+            }}
+          >
+            Exit
+          </button>
+        )}
+
         {/* Header with progress indicator */}
         <div className="introduction-header">
           <div className="progress-indicator">
-            Character {currentIndex + 1} of {batchSize} | Rank: <strong>{character.frequency_rank}</strong>
+            Character {currentIndex + 1} of {batchSize} | Rank:{" "}
+            <strong>{character.frequency_rank}</strong>
           </div>
           <div className="learning-stage">New Character</div>
         </div>
@@ -106,16 +133,16 @@ function IntroductionScreen({
         <div className="character-display">
           <div className="character-large">{character.character}</div>
           {character.traditional && character.traditional !== character.simplified && (
-            <div className="character-traditional">
-              Traditional: {character.traditional}
-            </div>
+            <div className="character-traditional">Traditional: {character.traditional}</div>
           )}
         </div>
 
         {/* Pinyin section */}
         <div className="info-card pinyin-card">
           <div className="card-label">Pronunciation</div>
-          <div className="card-content pinyin">{convertToneNumbersToMarks(character.mandarin_pinyin)}</div>
+          <div className="card-content pinyin">
+            {convertToneNumbersToMarks(character.mandarin_pinyin)}
+          </div>
         </div>
 
         {/* Definition section */}
@@ -125,38 +152,56 @@ function IntroductionScreen({
         </div>
 
         {/* Error display */}
-        {error && (
-          <div className="error-message">{error}</div>
-        )}
+        {error && <div className="error-message">{error}</div>}
 
         {/* Action buttons */}
-        <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '20px' }}>
+        <div style={{ display: "flex", gap: "12px", width: "100%", marginTop: "20px" }}>
           {onSkip && (
             <button
-              className="skip-button"
               onClick={handleSkip}
               disabled={isLoading}
               style={{
-                flex: '0 0 auto',
-                padding: '12px 24px',
-                background: '#999',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
+                flex: "1",
+                padding: "16px 24px",
+                background: "#999",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "16px",
+                fontWeight: "600",
+                cursor: isLoading ? "not-allowed" : "pointer",
                 opacity: isLoading ? 0.6 : 1,
+                margin: 0,
+                height: "52px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               Skip & Study Later
             </button>
           )}
           <button
-            className="start-learning-button"
             onClick={handleNext}
             disabled={isLoading}
-            style={{ flex: '1' }}
+            style={{
+              flex: "1",
+              padding: "16px 24px",
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "16px",
+              fontWeight: "600",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              opacity: isLoading ? 0.6 : 1,
+              margin: 0,
+              height: "52px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
+            }}
           >
             {buttonText}
           </button>
@@ -165,8 +210,8 @@ function IntroductionScreen({
         {/* Helper text */}
         <div className="helper-text">
           {isLastInBatch
-            ? 'Ready to practice all new characters!'
-            : 'Take your time to study this character before moving on.'}
+            ? "Ready to practice all new characters!"
+            : "Take your time to study this character before moving on."}
         </div>
       </div>
     </div>

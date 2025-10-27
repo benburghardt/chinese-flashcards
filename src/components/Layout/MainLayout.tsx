@@ -1,19 +1,26 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useApp } from '../../context/AppContext';
-import { useCanvas } from '../../context/CanvasContext';
-import { FlashcardCanvas } from '../Canvas/FlashcardCanvas';
-import { CanvasToolbar } from '../Toolbar/CanvasToolbar';
-import { FlashcardListPanel } from '../FlashcardList/FlashcardListPanel';
-import { StudySetup } from '../Study/StudySetup';
-import { StudySession } from '../Study/StudySession';
-import { FileManager } from '../FileManager/FileManager';
-import { SaveTemplateDialog } from '../Template/SaveTemplateDialog';
-import { TemplateSelectionDialog } from '../Template/TemplateSelectionDialog';
-import { StudyMode, FlashcardSide, Arrow, Flashcard, StudySession as StudySessionType, FlashcardTemplate } from '../../types';
-import { TauriFileService } from '../../services/TauriFileService';
-import { ProgressService } from '../../services/ProgressService';
-import { TemplateService } from '../../services/TemplateService';
-import { HistoryService } from '../../services/HistoryService';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useApp } from "../../context/AppContext";
+import { useCanvas } from "../../context/CanvasContext";
+import { FlashcardCanvas } from "../Canvas/FlashcardCanvas";
+import { CanvasToolbar } from "../Toolbar/CanvasToolbar";
+import { FlashcardListPanel } from "../FlashcardList/FlashcardListPanel";
+import { StudySetup } from "../Study/StudySetup";
+import { StudySession } from "../Study/StudySession";
+import { FileManager } from "../FileManager/FileManager";
+import { SaveTemplateDialog } from "../Template/SaveTemplateDialog";
+import { TemplateSelectionDialog } from "../Template/TemplateSelectionDialog";
+import {
+  StudyMode,
+  FlashcardSide,
+  Arrow,
+  Flashcard,
+  StudySession as StudySessionType,
+  FlashcardTemplate,
+} from "../../types";
+import { TauriFileService } from "../../services/TauriFileService";
+import { ProgressService } from "../../services/ProgressService";
+import { TemplateService } from "../../services/TemplateService";
+import { HistoryService } from "../../services/HistoryService";
 
 export const MainLayout: React.FC = () => {
   const { state: appState, dispatch: appDispatch } = useApp();
@@ -22,13 +29,13 @@ export const MainLayout: React.FC = () => {
   const [showStudySetup, setShowStudySetup] = useState(false);
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
   const [showTemplateSelectionDialog, setShowTemplateSelectionDialog] = useState(false);
-  const [selectedStudyMode, setSelectedStudyMode] = useState<StudyMode>('self-test');
+  const [selectedStudyMode, setSelectedStudyMode] = useState<StudyMode>("self-test");
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSavedState, setLastSavedState] = useState<string | null>(null);
-  const [readyCardsCount, setReadyCardsCount] = useState(0);
+  const [_readyCardsCount, setReadyCardsCount] = useState(0);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Phase 4.4: Undo/Redo history management
@@ -39,14 +46,14 @@ export const MainLayout: React.FC = () => {
   const generateId = () => `id-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
   const getDisplayName = () => {
-    if (!appState.currentSet) return '';
+    if (!appState.currentSet) return "";
 
-    let name = '';
+    let name = "";
     if (currentFilePath) {
       // Extract filename from path (handle both Windows and Unix paths)
       const filename = currentFilePath.split(/[/\\]/).pop() || currentFilePath;
       // Remove .json extension if present
-      name = filename.replace(/\.json$/, '');
+      name = filename.replace(/\.json$/, "");
     } else {
       name = appState.currentSet.name;
     }
@@ -64,7 +71,7 @@ export const MainLayout: React.FC = () => {
 
     const currentState = JSON.stringify({
       set: appState.currentSet,
-      flashcard: appState.currentFlashcard
+      flashcard: appState.currentFlashcard,
     });
 
     if (lastSavedState && currentState !== lastSavedState) {
@@ -93,13 +100,16 @@ export const MainLayout: React.FC = () => {
     setSaveError(null);
 
     try {
-      const filePath = await TauriFileService.saveFlashcardSet(appState.currentSet, currentFilePath || undefined);
+      const filePath = await TauriFileService.saveFlashcardSet(
+        appState.currentSet,
+        currentFilePath || undefined
+      );
       setCurrentFilePath(filePath);
 
       // Update saved state tracking
       const newState = JSON.stringify({
         set: appState.currentSet,
-        flashcard: appState.currentFlashcard
+        flashcard: appState.currentFlashcard,
       });
       setLastSavedState(newState);
       setHasUnsavedChanges(false);
@@ -110,10 +120,10 @@ export const MainLayout: React.FC = () => {
         autoSaveTimeoutRef.current = null;
       }
 
-      console.log('Flashcard set saved successfully');
+      console.log("Flashcard set saved successfully");
     } catch (error) {
-      console.error('Error saving flashcard set:', error);
-      setSaveError(error instanceof Error ? error.message : 'Failed to save flashcard set');
+      console.error("Error saving flashcard set:", error);
+      setSaveError(error instanceof Error ? error.message : "Failed to save flashcard set");
     } finally {
       setIsSaving(false);
     }
@@ -132,7 +142,7 @@ export const MainLayout: React.FC = () => {
       // Update saved state tracking
       const newState = JSON.stringify({
         set: appState.currentSet,
-        flashcard: appState.currentFlashcard
+        flashcard: appState.currentFlashcard,
       });
       setLastSavedState(newState);
       setHasUnsavedChanges(false);
@@ -143,10 +153,10 @@ export const MainLayout: React.FC = () => {
         autoSaveTimeoutRef.current = null;
       }
 
-      console.log('Flashcard set saved successfully');
+      console.log("Flashcard set saved successfully");
     } catch (error) {
-      console.error('Error saving flashcard set:', error);
-      setSaveError(error instanceof Error ? error.message : 'Failed to save flashcard set');
+      console.error("Error saving flashcard set:", error);
+      setSaveError(error instanceof Error ? error.message : "Failed to save flashcard set");
     } finally {
       setIsSaving(false);
     }
@@ -160,13 +170,13 @@ export const MainLayout: React.FC = () => {
       await TauriFileService.saveFlashcardSet(appState.currentSet, currentFilePath);
       const newState = JSON.stringify({
         set: appState.currentSet,
-        flashcard: appState.currentFlashcard
+        flashcard: appState.currentFlashcard,
       });
       setLastSavedState(newState);
       setHasUnsavedChanges(false);
-      console.log('Auto-saved successfully');
+      console.log("Auto-saved successfully");
     } catch (error) {
-      console.error('Auto-save failed:', error);
+      console.error("Auto-save failed:", error);
       // Don't show error for auto-save failures, just log them
     }
   }, [appState.currentSet, appState.currentFlashcard, currentFilePath, isSaving]);
@@ -192,7 +202,7 @@ export const MainLayout: React.FC = () => {
         const count = ProgressService.getReadyCardsCount(progress);
         setReadyCardsCount(count);
       } catch (error) {
-        console.error('Error loading ready cards count:', error);
+        console.error("Error loading ready cards count:", error);
         setReadyCardsCount(0);
       }
     };
@@ -213,7 +223,7 @@ export const MainLayout: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Ctrl+S (or Cmd+S on Mac)
-      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+      if ((event.ctrlKey || event.metaKey) && event.key === "s") {
         event.preventDefault();
         if (appState.currentSet) {
           handleSave();
@@ -221,7 +231,7 @@ export const MainLayout: React.FC = () => {
       }
 
       // Ctrl+Shift+S for Save As
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'S') {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === "S") {
         event.preventDefault();
         if (appState.currentSet) {
           handleSaveAs();
@@ -229,25 +239,25 @@ export const MainLayout: React.FC = () => {
       }
 
       // Ctrl+O for Open
-      if ((event.ctrlKey || event.metaKey) && event.key === 'o') {
+      if ((event.ctrlKey || event.metaKey) && event.key === "o") {
         event.preventDefault();
         setShowFileManager(true);
       }
 
       // Ctrl+N for New
-      if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
+      if ((event.ctrlKey || event.metaKey) && event.key === "n") {
         event.preventDefault();
         const newSet = TauriFileService.createNewSet();
-        appDispatch({ type: 'SET_CURRENT_SET', payload: newSet, filePath: undefined });
-        appDispatch({ type: 'SET_EDIT_MODE', payload: 'edit' });
-        appDispatch({ type: 'SET_CURRENT_FLASHCARD', payload: null });
+        appDispatch({ type: "SET_CURRENT_SET", payload: newSet, filePath: undefined });
+        appDispatch({ type: "SET_EDIT_MODE", payload: "edit" });
+        appDispatch({ type: "SET_CURRENT_FLASHCARD", payload: null });
         setCurrentFilePath(null);
         setLastSavedState(null);
         setHasUnsavedChanges(true);
       }
 
       // Phase 4.4: Ctrl+Z for Undo
-      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+      if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
         event.preventDefault();
         if (canUndo) {
           handleUndo();
@@ -255,8 +265,10 @@ export const MainLayout: React.FC = () => {
       }
 
       // Phase 4.4: Ctrl+Y or Ctrl+Shift+Z for Redo
-      if (((event.ctrlKey || event.metaKey) && event.key === 'y') ||
-          ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'z')) {
+      if (
+        ((event.ctrlKey || event.metaKey) && event.key === "y") ||
+        ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === "z")
+      ) {
         event.preventDefault();
         if (canRedo) {
           handleRedo();
@@ -264,8 +276,8 @@ export const MainLayout: React.FC = () => {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [appState.currentSet, handleSave, handleSaveAs, canUndo, canRedo]);
 
   // Warn before closing with unsaved changes
@@ -273,66 +285,66 @@ export const MainLayout: React.FC = () => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         event.preventDefault();
-        event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
         return event.returnValue;
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
   const handleToolSelect = (tool: string) => {
-    appDispatch({ type: 'SET_SELECTED_TOOL', payload: tool as any });
-    if (tool === 'add-arrow') {
-      canvasDispatch({ type: 'FINISH_ARROW_CREATION' });
+    appDispatch({ type: "SET_SELECTED_TOOL", payload: tool as any });
+    if (tool === "add-arrow") {
+      canvasDispatch({ type: "FINISH_ARROW_CREATION" });
     }
   };
 
-  const handleStudyModeSelect = (mode: StudyMode) => {
-    // Open study setup dialog with selected mode
-    if (appState.currentSet) {
-      setSelectedStudyMode(mode);
-      setShowStudySetup(true);
-    }
-  };
+  // const _handleStudyModeSelect = (mode: StudyMode) => {
+  //   // Open study setup dialog with selected mode
+  //   if (appState.currentSet) {
+  //     setSelectedStudyMode(mode);
+  //     setShowStudySetup(true);
+  //   }
+  // };
 
   const handleStartStudySession = (session: StudySessionType) => {
-    appDispatch({ type: 'START_STUDY_SESSION', payload: session });
+    appDispatch({ type: "START_STUDY_SESSION", payload: session });
     setShowStudySetup(false);
   };
 
   const handleEndStudySession = () => {
-    appDispatch({ type: 'END_STUDY_SESSION' });
+    appDispatch({ type: "END_STUDY_SESSION" });
   };
 
   const handleSideSelect = (sideId: string, multiSelect?: boolean) => {
-    if (appState.selectedTool === 'add-arrow') {
+    if (appState.selectedTool === "add-arrow") {
       if (!canvasState.isCreatingArrow) {
-        canvasDispatch({ type: 'START_ARROW_CREATION', payload: sideId });
+        canvasDispatch({ type: "START_ARROW_CREATION", payload: sideId });
       }
       return;
     }
 
-    if (sideId === '') {
-      canvasDispatch({ type: 'CLEAR_SELECTION' });
+    if (sideId === "") {
+      canvasDispatch({ type: "CLEAR_SELECTION" });
       return;
     }
 
     if (multiSelect && canvasState.selectedSideIds.includes(sideId)) {
       canvasDispatch({
-        type: 'SELECT_SIDES',
-        payload: canvasState.selectedSideIds.filter(id => id !== sideId)
+        type: "SELECT_SIDES",
+        payload: canvasState.selectedSideIds.filter((id) => id !== sideId),
       });
     } else if (multiSelect) {
       canvasDispatch({
-        type: 'SELECT_SIDES',
-        payload: [...canvasState.selectedSideIds, sideId]
+        type: "SELECT_SIDES",
+        payload: [...canvasState.selectedSideIds, sideId],
       });
     } else {
       canvasDispatch({
-        type: 'SELECT_SIDES',
-        payload: [sideId]
+        type: "SELECT_SIDES",
+        payload: [sideId],
       });
     }
   };
@@ -342,14 +354,18 @@ export const MainLayout: React.FC = () => {
 
     const updatedSet = {
       ...appState.currentSet,
-      flashcards: appState.currentSet.flashcards.map(card =>
+      flashcards: appState.currentSet.flashcards.map((card) =>
         card.id === updatedFlashcard.id ? updatedFlashcard : card
       ),
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
-    appDispatch({ type: 'SET_CURRENT_SET', payload: updatedSet, filePath: currentFilePath || undefined });
-    appDispatch({ type: 'UPDATE_FLASHCARD', payload: updatedFlashcard });
+    appDispatch({
+      type: "SET_CURRENT_SET",
+      payload: updatedSet,
+      filePath: currentFilePath || undefined,
+    });
+    appDispatch({ type: "UPDATE_FLASHCARD", payload: updatedFlashcard });
 
     // Push to history (unless this is from undo/redo)
     if (!skipHistory) {
@@ -395,23 +411,25 @@ export const MainLayout: React.FC = () => {
     if (!appState.currentFlashcard) return;
 
     // Remove the sides and all arrows connected to them
-    const updatedSides = appState.currentFlashcard.sides.filter(side => !sideIds.includes(side.id));
-    const updatedArrows = appState.currentFlashcard.arrows.filter(arrow =>
-      !sideIds.includes(arrow.sourceId) && !sideIds.includes(arrow.destinationId)
+    const updatedSides = appState.currentFlashcard.sides.filter(
+      (side) => !sideIds.includes(side.id)
+    );
+    const updatedArrows = appState.currentFlashcard.arrows.filter(
+      (arrow) => !sideIds.includes(arrow.sourceId) && !sideIds.includes(arrow.destinationId)
     );
 
     const updatedFlashcard = {
       ...appState.currentFlashcard,
       sides: updatedSides,
-      arrows: updatedArrows
+      arrows: updatedArrows,
     };
 
     updateCurrentFlashcard(updatedFlashcard);
 
     // Clear selection of deleted sides
-    const remainingSideIds = canvasState.selectedSideIds.filter(id => !sideIds.includes(id));
+    const remainingSideIds = canvasState.selectedSideIds.filter((id) => !sideIds.includes(id));
     if (remainingSideIds.length !== canvasState.selectedSideIds.length) {
-      canvasDispatch({ type: 'SELECT_SIDES', payload: remainingSideIds });
+      canvasDispatch({ type: "SELECT_SIDES", payload: remainingSideIds });
     }
   };
 
@@ -419,33 +437,39 @@ export const MainLayout: React.FC = () => {
     if (!appState.currentFlashcard) return;
 
     // Remove the arrows
-    const updatedArrows = appState.currentFlashcard.arrows.filter(arrow => !arrowIds.includes(arrow.id));
+    const updatedArrows = appState.currentFlashcard.arrows.filter(
+      (arrow) => !arrowIds.includes(arrow.id)
+    );
 
     const updatedFlashcard = {
       ...appState.currentFlashcard,
-      arrows: updatedArrows
+      arrows: updatedArrows,
     };
 
     updateCurrentFlashcard(updatedFlashcard);
 
     // Clear selection of deleted arrows
-    const remainingArrowIds = canvasState.selectedArrowIds.filter(id => !arrowIds.includes(id));
+    const remainingArrowIds = canvasState.selectedArrowIds.filter((id) => !arrowIds.includes(id));
     if (remainingArrowIds.length !== canvasState.selectedArrowIds.length) {
-      canvasDispatch({ type: 'SELECT_ARROWS', payload: remainingArrowIds });
+      canvasDispatch({ type: "SELECT_ARROWS", payload: remainingArrowIds });
     }
   };
 
-  const handleSideMove = (sideId: string, newPosition: { x: number; y: number }, isComplete?: boolean) => {
+  const handleSideMove = (
+    sideId: string,
+    newPosition: { x: number; y: number },
+    isComplete?: boolean
+  ) => {
     if (!appState.currentFlashcard) return;
 
-    const updatedSides = appState.currentFlashcard.sides.map(side =>
+    const updatedSides = appState.currentFlashcard.sides.map((side) =>
       side.id === sideId ? { ...side, position: newPosition } : side
     );
 
     const updatedFlashcard = {
       ...appState.currentFlashcard,
       sides: updatedSides,
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
     // Only push to history when the move is complete (not intermediate drag positions)
@@ -456,14 +480,14 @@ export const MainLayout: React.FC = () => {
   const handleSideTextUpdate = (sideId: string, newText: string) => {
     if (!appState.currentFlashcard) return;
 
-    const updatedSides = appState.currentFlashcard.sides.map(side =>
+    const updatedSides = appState.currentFlashcard.sides.map((side) =>
       side.id === sideId ? { ...side, value: newText } : side
     );
 
     const updatedFlashcard = {
       ...appState.currentFlashcard,
       sides: updatedSides,
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
     updateCurrentFlashcard(updatedFlashcard);
@@ -473,15 +497,15 @@ export const MainLayout: React.FC = () => {
     if (!appState.currentFlashcard) return;
 
     // Check if an arrow already exists between these two sides
-    const existingArrow = appState.currentFlashcard.arrows.find(arrow =>
-      arrow.sourceId === sourceId && arrow.destinationId === destinationId
+    const existingArrow = appState.currentFlashcard.arrows.find(
+      (arrow) => arrow.sourceId === sourceId && arrow.destinationId === destinationId
     );
 
     if (existingArrow) {
       // Arrow already exists, just select it and start editing
-      canvasDispatch({ type: 'SELECT_ARROWS', payload: [existingArrow.id] });
+      canvasDispatch({ type: "SELECT_ARROWS", payload: [existingArrow.id] });
       setNewArrowForEditing(existingArrow.id);
-      canvasDispatch({ type: 'FINISH_ARROW_CREATION' });
+      canvasDispatch({ type: "FINISH_ARROW_CREATION" });
       return;
     }
 
@@ -490,59 +514,59 @@ export const MainLayout: React.FC = () => {
       id: generateId(),
       sourceId,
       destinationId,
-      label: '', // Start with empty label
-      color: '#6c757d'
+      label: "", // Start with empty label
+      color: "#6c757d",
     };
 
     const updatedFlashcard = {
       ...appState.currentFlashcard,
       arrows: [...appState.currentFlashcard.arrows, newArrow],
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
     updateCurrentFlashcard(updatedFlashcard);
 
     // Trigger inline editing for the new arrow
     setNewArrowForEditing(newArrow.id);
-    canvasDispatch({ type: 'FINISH_ARROW_CREATION' });
+    canvasDispatch({ type: "FINISH_ARROW_CREATION" });
   };
 
   const handleArrowTextUpdate = (arrowId: string, newText: string) => {
     if (!appState.currentFlashcard) return;
 
-    const updatedArrows = appState.currentFlashcard.arrows.map(arrow =>
+    const updatedArrows = appState.currentFlashcard.arrows.map((arrow) =>
       arrow.id === arrowId ? { ...arrow, label: newText } : arrow
     );
 
     const updatedFlashcard = {
       ...appState.currentFlashcard,
       arrows: updatedArrows,
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
     updateCurrentFlashcard(updatedFlashcard);
   };
 
   const handleArrowSelect = (arrowId: string, multiSelect?: boolean) => {
-    if (arrowId === '') {
-      canvasDispatch({ type: 'CLEAR_SELECTION' });
+    if (arrowId === "") {
+      canvasDispatch({ type: "CLEAR_SELECTION" });
       return;
     }
 
     if (multiSelect && canvasState.selectedArrowIds.includes(arrowId)) {
       canvasDispatch({
-        type: 'SELECT_ARROWS',
-        payload: canvasState.selectedArrowIds.filter(id => id !== arrowId)
+        type: "SELECT_ARROWS",
+        payload: canvasState.selectedArrowIds.filter((id) => id !== arrowId),
       });
     } else if (multiSelect) {
       canvasDispatch({
-        type: 'SELECT_ARROWS',
-        payload: [...canvasState.selectedArrowIds, arrowId]
+        type: "SELECT_ARROWS",
+        payload: [...canvasState.selectedArrowIds, arrowId],
       });
     } else {
       canvasDispatch({
-        type: 'SELECT_ARROWS',
-        payload: [arrowId]
+        type: "SELECT_ARROWS",
+        payload: [arrowId],
       });
     }
   };
@@ -551,35 +575,35 @@ export const MainLayout: React.FC = () => {
   const [newArrowForEditing, setNewArrowForEditing] = useState<string | null>(null);
 
   const handleCanvasClick = (position: { x: number; y: number }) => {
-    if (appState.selectedTool === 'add-side') {
+    if (appState.selectedTool === "add-side") {
       if (!appState.currentFlashcard) return;
 
       const newSide: FlashcardSide = {
         id: generateId(),
-        value: '',
+        value: "",
         position,
         width: 120,
         height: 80,
-        color: '#ffffff',
-        fontSize: 14
+        color: "#ffffff",
+        fontSize: 14,
       };
 
       const updatedFlashcard = {
         ...appState.currentFlashcard,
         sides: [...appState.currentFlashcard.sides, newSide],
-        modifiedAt: new Date()
+        modifiedAt: new Date(),
       };
 
       updateCurrentFlashcard(updatedFlashcard);
 
       // Auto-select the new side for immediate editing
-      canvasDispatch({ type: 'SELECT_SIDES', payload: [newSide.id] });
+      canvasDispatch({ type: "SELECT_SIDES", payload: [newSide.id] });
 
       // Trigger immediate text editing
       setNewSideForEditing(newSide.id);
-    } else if (appState.selectedTool === 'add-arrow') {
+    } else if (appState.selectedTool === "add-arrow") {
       // Cancel arrow creation
-      canvasDispatch({ type: 'FINISH_ARROW_CREATION' });
+      canvasDispatch({ type: "FINISH_ARROW_CREATION" });
     }
   };
 
@@ -592,18 +616,22 @@ export const MainLayout: React.FC = () => {
       sides: [],
       arrows: [],
       createdAt: new Date(),
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
     const updatedSet = {
       ...appState.currentSet,
       flashcards: [...appState.currentSet.flashcards, newFlashcard],
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
-    appDispatch({ type: 'SET_CURRENT_SET', payload: updatedSet, filePath: currentFilePath || undefined });
-    appDispatch({ type: 'SET_CURRENT_FLASHCARD', payload: newFlashcard });
-    appDispatch({ type: 'SET_EDIT_MODE', payload: 'edit' });
+    appDispatch({
+      type: "SET_CURRENT_SET",
+      payload: updatedSet,
+      filePath: currentFilePath || undefined,
+    });
+    appDispatch({ type: "SET_CURRENT_FLASHCARD", payload: newFlashcard });
+    appDispatch({ type: "SET_EDIT_MODE", payload: "edit" });
   };
 
   // Phase 4.5: Duplicate current flashcard as template (same structure, empty values)
@@ -612,7 +640,7 @@ export const MainLayout: React.FC = () => {
 
     // Validate that the flashcard has content to duplicate
     if (appState.currentFlashcard.sides.length === 0) {
-      setSaveError('Cannot duplicate empty flashcard. Add at least one side first.');
+      setSaveError("Cannot duplicate empty flashcard. Add at least one side first.");
       return;
     }
 
@@ -626,26 +654,30 @@ export const MainLayout: React.FC = () => {
     const updatedSet = {
       ...appState.currentSet,
       flashcards: [...appState.currentSet.flashcards, newFlashcard],
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
-    appDispatch({ type: 'SET_CURRENT_SET', payload: updatedSet, filePath: currentFilePath || undefined });
-    appDispatch({ type: 'SET_CURRENT_FLASHCARD', payload: newFlashcard });
-    appDispatch({ type: 'SET_EDIT_MODE', payload: 'edit' });
+    appDispatch({
+      type: "SET_CURRENT_SET",
+      payload: updatedSet,
+      filePath: currentFilePath || undefined,
+    });
+    appDispatch({ type: "SET_CURRENT_FLASHCARD", payload: newFlashcard });
+    appDispatch({ type: "SET_EDIT_MODE", payload: "edit" });
 
-    console.log('Flashcard duplicated as template:', newFlashcard.name);
+    console.log("Flashcard duplicated as template:", newFlashcard.name);
   };
 
   // Phase 4.1: Save current flashcard as template
   const handleSaveAsTemplate = async (templateName: string, description?: string) => {
     if (!appState.currentFlashcard) {
-      setSaveError('No flashcard selected to save as template');
+      setSaveError("No flashcard selected to save as template");
       return;
     }
 
     // Validate that the flashcard has content
     if (appState.currentFlashcard.sides.length === 0) {
-      setSaveError('Cannot save empty flashcard as template. Add at least one side first.');
+      setSaveError("Cannot save empty flashcard as template. Add at least one side first.");
       return;
     }
 
@@ -667,10 +699,10 @@ export const MainLayout: React.FC = () => {
       setShowSaveTemplateDialog(false);
 
       // Success feedback (you could add a success banner here)
-      console.log('Template saved successfully:', template.name);
+      console.log("Template saved successfully:", template.name);
     } catch (error) {
-      console.error('Error saving template:', error);
-      setSaveError(error instanceof Error ? error.message : 'Failed to save template');
+      console.error("Error saving template:", error);
+      setSaveError(error instanceof Error ? error.message : "Failed to save template");
     } finally {
       setIsSaving(false);
     }
@@ -682,7 +714,7 @@ export const MainLayout: React.FC = () => {
     let targetSet = appState.currentSet;
     if (!targetSet) {
       targetSet = TauriFileService.createNewSet();
-      appDispatch({ type: 'SET_CURRENT_SET', payload: targetSet, filePath: undefined });
+      appDispatch({ type: "SET_CURRENT_SET", payload: targetSet, filePath: undefined });
       setCurrentFilePath(null);
       setLastSavedState(null);
       setHasUnsavedChanges(true);
@@ -690,59 +722,66 @@ export const MainLayout: React.FC = () => {
 
     // Apply template to create new flashcard
     const flashcardName = `Card ${targetSet.flashcards.length + 1}`;
-    const newFlashcard = TemplateService.applyTemplateToNewFlashcard(
-      template,
-      flashcardName
-    );
+    const newFlashcard = TemplateService.applyTemplateToNewFlashcard(template, flashcardName);
 
     // Add flashcard to set
     const updatedSet = {
       ...targetSet,
       flashcards: [...targetSet.flashcards, newFlashcard],
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
-    appDispatch({ type: 'SET_CURRENT_SET', payload: updatedSet, filePath: currentFilePath || undefined });
-    appDispatch({ type: 'SET_CURRENT_FLASHCARD', payload: newFlashcard });
-    appDispatch({ type: 'SET_EDIT_MODE', payload: 'edit' });
+    appDispatch({
+      type: "SET_CURRENT_SET",
+      payload: updatedSet,
+      filePath: currentFilePath || undefined,
+    });
+    appDispatch({ type: "SET_CURRENT_FLASHCARD", payload: newFlashcard });
+    appDispatch({ type: "SET_EDIT_MODE", payload: "edit" });
 
     // Close dialogs
     setShowTemplateSelectionDialog(false);
     setShowFileManager(false);
 
-    console.log('Flashcard created from template:', template.name);
+    console.log("Flashcard created from template:", template.name);
   };
 
   // Flashcard list management handlers
   const handleFlashcardSelect = (flashcard: Flashcard) => {
-    appDispatch({ type: 'SET_CURRENT_FLASHCARD', payload: flashcard });
+    appDispatch({ type: "SET_CURRENT_FLASHCARD", payload: flashcard });
     // Clear canvas selections when switching flashcards
-    canvasDispatch({ type: 'CLEAR_SELECTION' });
-    canvasDispatch({ type: 'FINISH_ARROW_CREATION' });
+    canvasDispatch({ type: "CLEAR_SELECTION" });
+    canvasDispatch({ type: "FINISH_ARROW_CREATION" });
   };
 
   const handleFlashcardDelete = (flashcardId: string) => {
     if (!appState.currentSet) return;
 
     // Store the current state before deletion for potential undo
-    const deletedFlashcard = appState.currentSet.flashcards.find(card => card.id === flashcardId);
+    const deletedFlashcard = appState.currentSet.flashcards.find((card) => card.id === flashcardId);
     if (!deletedFlashcard) return;
 
-    const deletedIndex = appState.currentSet.flashcards.findIndex(card => card.id === flashcardId);
+    // const _deletedIndex = appState.currentSet.flashcards.findIndex(card => card.id === flashcardId);
 
-    const updatedFlashcards = appState.currentSet.flashcards.filter(card => card.id !== flashcardId);
+    const updatedFlashcards = appState.currentSet.flashcards.filter(
+      (card) => card.id !== flashcardId
+    );
     const updatedSet = {
       ...appState.currentSet,
       flashcards: updatedFlashcards,
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
-    appDispatch({ type: 'SET_CURRENT_SET', payload: updatedSet, filePath: currentFilePath || undefined });
+    appDispatch({
+      type: "SET_CURRENT_SET",
+      payload: updatedSet,
+      filePath: currentFilePath || undefined,
+    });
 
     // If we deleted the current flashcard, select another one or null
     if (appState.currentFlashcard?.id === flashcardId) {
       const newCurrent = updatedFlashcards.length > 0 ? updatedFlashcards[0] : null;
-      appDispatch({ type: 'SET_CURRENT_FLASHCARD', payload: newCurrent });
+      appDispatch({ type: "SET_CURRENT_FLASHCARD", payload: newCurrent });
 
       // Push the new state to history (or clear if no flashcards remain)
       if (newCurrent) {
@@ -758,23 +797,27 @@ export const MainLayout: React.FC = () => {
   const handleFlashcardRename = (flashcardId: string, newName: string) => {
     if (!appState.currentSet) return;
 
-    const updatedFlashcards = appState.currentSet.flashcards.map(card =>
+    const updatedFlashcards = appState.currentSet.flashcards.map((card) =>
       card.id === flashcardId ? { ...card, name: newName, modifiedAt: new Date() } : card
     );
 
     const updatedSet = {
       ...appState.currentSet,
       flashcards: updatedFlashcards,
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
-    appDispatch({ type: 'SET_CURRENT_SET', payload: updatedSet, filePath: currentFilePath || undefined });
+    appDispatch({
+      type: "SET_CURRENT_SET",
+      payload: updatedSet,
+      filePath: currentFilePath || undefined,
+    });
 
     // Update current flashcard if it's the one being renamed
     if (appState.currentFlashcard?.id === flashcardId) {
-      const updatedFlashcard = updatedFlashcards.find(card => card.id === flashcardId);
+      const updatedFlashcard = updatedFlashcards.find((card) => card.id === flashcardId);
       if (updatedFlashcard) {
-        appDispatch({ type: 'UPDATE_FLASHCARD', payload: updatedFlashcard });
+        appDispatch({ type: "UPDATE_FLASHCARD", payload: updatedFlashcard });
       }
     }
   };
@@ -789,17 +832,26 @@ export const MainLayout: React.FC = () => {
     const updatedSet = {
       ...appState.currentSet,
       flashcards,
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
-    appDispatch({ type: 'SET_CURRENT_SET', payload: updatedSet, filePath: currentFilePath || undefined });
+    appDispatch({
+      type: "SET_CURRENT_SET",
+      payload: updatedSet,
+      filePath: currentFilePath || undefined,
+    });
   };
 
   const renderMainContent = () => {
     // Debug: console.log('Rendering main content:', { editMode: appState.editMode, hasCurrentSet: !!appState.currentSet });
 
-    if (appState.editMode === 'study' && appState.studySession) {
-      return <StudySession onEndSession={handleEndStudySession} flashcardSetFilePath={currentFilePath || undefined} />;
+    if (appState.editMode === "study" && appState.studySession) {
+      return (
+        <StudySession
+          onEndSession={handleEndStudySession}
+          flashcardSetFilePath={currentFilePath || undefined}
+        />
+      );
     }
 
     if (!appState.currentSet) {
@@ -807,9 +859,7 @@ export const MainLayout: React.FC = () => {
         <div className="welcome-screen">
           <h2>Welcome to Extended Flashcards</h2>
           <p>Create a new flashcard set or open an existing one to get started.</p>
-          <button onClick={() => setShowFileManager(true)}>
-            Open File Manager
-          </button>
+          <button onClick={() => setShowFileManager(true)}>Open File Manager</button>
         </div>
       );
     }
@@ -819,9 +869,7 @@ export const MainLayout: React.FC = () => {
         <div className="empty-set">
           <h2>{getDisplayName()}</h2>
           <p>This set is empty. Create your first flashcard to get started.</p>
-          <button onClick={handleCreateFlashcard}>
-            Create First Flashcard
-          </button>
+          <button onClick={handleCreateFlashcard}>Create First Flashcard</button>
         </div>
       );
     }
@@ -835,11 +883,15 @@ export const MainLayout: React.FC = () => {
               onToolSelect={handleToolSelect}
               onUndo={handleUndo}
               onRedo={handleRedo}
-              onZoomIn={() => canvasDispatch({ type: 'SET_ZOOM', payload: Math.min(5, canvasState.zoom + 0.2) })}
-              onZoomOut={() => canvasDispatch({ type: 'SET_ZOOM', payload: Math.max(0.1, canvasState.zoom - 0.2) })}
+              onZoomIn={() =>
+                canvasDispatch({ type: "SET_ZOOM", payload: Math.min(5, canvasState.zoom + 0.2) })
+              }
+              onZoomOut={() =>
+                canvasDispatch({ type: "SET_ZOOM", payload: Math.max(0.1, canvasState.zoom - 0.2) })
+              }
               onZoomReset={() => {
-                canvasDispatch({ type: 'SET_ZOOM', payload: 1 });
-                canvasDispatch({ type: 'SET_PAN_OFFSET', payload: { x: 0, y: 0 } });
+                canvasDispatch({ type: "SET_ZOOM", payload: 1 });
+                canvasDispatch({ type: "SET_PAN_OFFSET", payload: { x: 0, y: 0 } });
               }}
               canUndo={canUndo}
               canRedo={canRedo}
@@ -861,8 +913,10 @@ export const MainLayout: React.FC = () => {
                 onArrowSelect={handleArrowSelect}
                 onArrowDelete={handleArrowDelete}
                 onCanvasClick={handleCanvasClick}
-                onZoomChange={(newZoom) => canvasDispatch({ type: 'SET_ZOOM', payload: newZoom })}
-                onPanChange={(newOffset) => canvasDispatch({ type: 'SET_PAN_OFFSET', payload: newOffset })}
+                onZoomChange={(newZoom) => canvasDispatch({ type: "SET_ZOOM", payload: newZoom })}
+                onPanChange={(newOffset) =>
+                  canvasDispatch({ type: "SET_PAN_OFFSET", payload: newOffset })
+                }
                 newSideForEditing={newSideForEditing}
                 newArrowForEditing={newArrowForEditing}
                 onEditingComplete={() => {
@@ -896,14 +950,12 @@ export const MainLayout: React.FC = () => {
       <header className="app-header">
         <h1>Extended Flashcards</h1>
         <div className="header-actions">
-          <button onClick={() => setShowFileManager(true)}>
-            File Manager
-          </button>
+          <button onClick={() => setShowFileManager(true)}>File Manager</button>
           {appState.currentSet && (
             <>
               <button
                 onClick={() => {
-                  setSelectedStudyMode('self-test');
+                  setSelectedStudyMode("self-test");
                   setShowStudySetup(true);
                 }}
                 disabled={appState.currentSet.flashcards.length === 0}
@@ -912,30 +964,26 @@ export const MainLayout: React.FC = () => {
               >
                 Start Study
               </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="save-button"
-              >
-                {isSaving ? 'Saving...' : 'Save'}
+              <button onClick={handleSave} disabled={isSaving} className="save-button">
+                {isSaving ? "Saving..." : "Save"}
               </button>
-              <button
-                onClick={handleSaveAs}
-                disabled={isSaving}
-                className="save-as-button"
-              >
+              <button onClick={handleSaveAs} disabled={isSaving} className="save-as-button">
                 Save As...
               </button>
               <button
                 onClick={() => setShowSaveTemplateDialog(true)}
-                disabled={!appState.currentFlashcard || appState.currentFlashcard.sides.length === 0}
+                disabled={
+                  !appState.currentFlashcard || appState.currentFlashcard.sides.length === 0
+                }
                 className="save-template-button"
               >
                 Save as Template
               </button>
               <button
                 onClick={handleDuplicateAsTemplate}
-                disabled={!appState.currentFlashcard || appState.currentFlashcard.sides.length === 0}
+                disabled={
+                  !appState.currentFlashcard || appState.currentFlashcard.sides.length === 0
+                }
                 className="duplicate-template-button"
               >
                 Duplicate Structure
@@ -953,9 +1001,7 @@ export const MainLayout: React.FC = () => {
         </div>
       )}
 
-      <main className="app-main">
-        {renderMainContent()}
-      </main>
+      <main className="app-main">{renderMainContent()}</main>
 
       {showFileManager && (
         <FileManager
@@ -963,12 +1009,12 @@ export const MainLayout: React.FC = () => {
           onFileOpened={(filePath, set) => {
             setCurrentFilePath(filePath);
             // Clear canvas selections when opening a new file
-            canvasDispatch({ type: 'CLEAR_SELECTION' });
-            canvasDispatch({ type: 'FINISH_ARROW_CREATION' });
+            canvasDispatch({ type: "CLEAR_SELECTION" });
+            canvasDispatch({ type: "FINISH_ARROW_CREATION" });
             // Set saved state when file is opened
             const state = JSON.stringify({
               set,
-              flashcard: set.flashcards.length > 0 ? set.flashcards[0] : null
+              flashcard: set.flashcards.length > 0 ? set.flashcards[0] : null,
             });
             setLastSavedState(state);
             setHasUnsavedChanges(false);
@@ -1005,7 +1051,6 @@ export const MainLayout: React.FC = () => {
           onCancel={() => setShowTemplateSelectionDialog(false)}
         />
       )}
-
     </div>
   );
 };

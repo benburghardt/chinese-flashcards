@@ -1,7 +1,7 @@
 use rusqlite::Connection;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DefinitionOverride {
@@ -15,14 +15,17 @@ struct DefinitionOverride {
 }
 
 /// Apply definition updates from CSV or JSON override file
-pub fn apply_definition_updates_from_csv(csv_path: &str, db_path: &str) -> Result<Vec<DefinitionOverride>, Box<dyn std::error::Error>> {
+pub fn apply_definition_updates_from_csv(
+    csv_path: &str,
+    db_path: &str,
+) -> Result<Vec<DefinitionOverride>, Box<dyn std::error::Error>> {
     if !std::path::Path::new(csv_path).exists() {
         println!("  ⊗ CSV file not found: {}", csv_path);
         return Ok(Vec::new());
     }
 
     let mut reader = csv::ReaderBuilder::new()
-        .flexible(true)  // Handle variable column counts
+        .flexible(true) // Handle variable column counts
         .from_path(csv_path)?;
 
     let mut updates = Vec::new();
@@ -72,7 +75,7 @@ pub fn apply_definition_updates_from_csv(csv_path: &str, db_path: &str) -> Resul
         // Update database
         conn.execute(
             "UPDATE characters SET definition = ?1, updated_at = datetime('now') WHERE id = ?2",
-            rusqlite::params![&updated_def, id]
+            rusqlite::params![&updated_def, id],
         )?;
 
         // Track override
@@ -86,14 +89,21 @@ pub fn apply_definition_updates_from_csv(csv_path: &str, db_path: &str) -> Resul
             updated_at: timestamp.clone(),
         });
 
-        println!("  ✓ Updated: {} → {}", character, &updated_def[..updated_def.len().min(60)]);
+        println!(
+            "  ✓ Updated: {} → {}",
+            character,
+            &updated_def[..updated_def.len().min(60)]
+        );
     }
 
     Ok(overrides)
 }
 
 /// Apply definition overrides from JSON file
-pub fn apply_definition_overrides_from_json(json_path: &str, db_path: &str) -> Result<usize, Box<dyn std::error::Error>> {
+pub fn apply_definition_overrides_from_json(
+    json_path: &str,
+    db_path: &str,
+) -> Result<usize, Box<dyn std::error::Error>> {
     if !std::path::Path::new(json_path).exists() {
         println!("  ⊗ Override file not found: {}", json_path);
         return Ok(0);
@@ -112,18 +122,26 @@ pub fn apply_definition_overrides_from_json(json_path: &str, db_path: &str) -> R
     for override_item in &overrides {
         match conn.execute(
             "UPDATE characters SET definition = ?1, updated_at = datetime('now') WHERE id = ?2",
-            rusqlite::params![&override_item.updated_definition, override_item.character_id]
+            rusqlite::params![
+                &override_item.updated_definition,
+                override_item.character_id
+            ],
         ) {
             Ok(rows) if rows > 0 => {
                 applied += 1;
-                println!("  ✓ Applied: {} → {}",
+                println!(
+                    "  ✓ Applied: {} → {}",
                     override_item.character,
-                    &override_item.updated_definition[..override_item.updated_definition.len().min(60)]
+                    &override_item.updated_definition
+                        [..override_item.updated_definition.len().min(60)]
                 );
-            },
+            }
             Ok(_) => {
-                println!("  ⚠ Skipped: {} (ID {} not found)", override_item.character, override_item.character_id);
-            },
+                println!(
+                    "  ⚠ Skipped: {} (ID {} not found)",
+                    override_item.character, override_item.character_id
+                );
+            }
             Err(e) => {
                 println!("  ✗ Error updating {}: {}", override_item.character, e);
             }
@@ -152,12 +170,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let overrides_path = "../definition_overrides.json";
 
     // Load existing overrides if file exists
-    let mut all_overrides: Vec<DefinitionOverride> = if std::path::Path::new(overrides_path).exists() {
-        let file_content = std::fs::read_to_string(overrides_path)?;
-        serde_json::from_str(&file_content).unwrap_or_else(|_| Vec::new())
-    } else {
-        Vec::new()
-    };
+    let mut all_overrides: Vec<DefinitionOverride> =
+        if std::path::Path::new(overrides_path).exists() {
+            let file_content = std::fs::read_to_string(overrides_path)?;
+            serde_json::from_str(&file_content).unwrap_or_else(|_| Vec::new())
+        } else {
+            Vec::new()
+        };
 
     // Add new overrides
     all_overrides.extend(new_overrides);

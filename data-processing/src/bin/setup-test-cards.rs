@@ -7,11 +7,7 @@ fn main() -> Result<()> {
     println!("Setting up test cards for SRS session...\n");
 
     // First, check current state
-    let total: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress",
-        [],
-        |row| row.get(0),
-    )?;
+    let total: i32 = conn.query_row("SELECT COUNT(*) FROM user_progress", [], |row| row.get(0))?;
     println!("Total characters in user_progress: {}", total);
 
     let introduced_before: i32 = conn.query_row(
@@ -59,7 +55,7 @@ fn main() -> Result<()> {
          JOIN characters c ON up.character_id = c.id
          WHERE up.introduced = 1 AND up.next_review_date <= datetime('now')
          ORDER BY c.frequency_rank
-         LIMIT 10"
+         LIMIT 10",
     )?;
 
     let cards = stmt.query_map([], |row| {
@@ -73,7 +69,14 @@ fn main() -> Result<()> {
 
     for (i, card) in cards.enumerate() {
         let (id, character, pinyin, definition) = card?;
-        println!("  {}. {} ({}) - {} [ID: {}]", i + 1, character, pinyin, definition, id);
+        println!(
+            "  {}. {} ({}) - {} [ID: {}]",
+            i + 1,
+            character,
+            pinyin,
+            definition,
+            id
+        );
     }
 
     println!("\n✓ Ready for SRS testing! Reload the app to see due cards.");

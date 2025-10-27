@@ -24,21 +24,23 @@ fn main() -> Result<()> {
          FROM characters
          WHERE is_word = 0
          ORDER BY frequency_rank ASC
-         LIMIT 1000"
+         LIMIT 1000",
     )?;
 
-    let chars: Vec<ScoredItem> = char_stmt.query_map([], |row| {
-        let freq_rank: i32 = row.get(2)?;
-        Ok(ScoredItem {
-            id: row.get(0)?,
-            character: row.get(1)?,
-            frequency_rank: freq_rank,
-            is_word: false,
-            score: freq_rank as f64,
-            component_characters: None,
-            component_info: None,
-        })
-    })?.collect::<Result<Vec<_>>>()?;
+    let chars: Vec<ScoredItem> = char_stmt
+        .query_map([], |row| {
+            let freq_rank: i32 = row.get(2)?;
+            Ok(ScoredItem {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                frequency_rank: freq_rank,
+                is_word: false,
+                score: freq_rank as f64,
+                component_characters: None,
+                component_info: None,
+            })
+        })?
+        .collect::<Result<Vec<_>>>()?;
 
     println!("Loaded {} characters", chars.len());
 
@@ -48,7 +50,7 @@ fn main() -> Result<()> {
          FROM characters
          WHERE is_word = 1
          ORDER BY frequency_rank ASC
-         LIMIT 5000"
+         LIMIT 5000",
     )?;
 
     let words: Vec<(i32, String, i32, Option<String>)> = word_stmt
@@ -78,7 +80,7 @@ fn main() -> Result<()> {
                     if let Ok(rank) = conn.query_row(
                         "SELECT frequency_rank, character FROM characters WHERE id = ?1",
                         [comp_id],
-                        |row| Ok((row.get::<_, i32>(0)?, row.get::<_, String>(1)?))
+                        |row| Ok((row.get::<_, i32>(0)?, row.get::<_, String>(1)?)),
                     ) {
                         component_ranks.push(rank.0);
                         comp_chars.push(format!("{}({})", rank.1, rank.0));
@@ -107,30 +109,37 @@ fn main() -> Result<()> {
     println!("Scored {} words with valid components\n", words_with_scores);
 
     // Combine all items
-    let mut all_items: Vec<ScoredItem> = chars.into_iter()
-        .chain(scored_words.into_iter())
-        .collect();
+    let mut all_items: Vec<ScoredItem> =
+        chars.into_iter().chain(scored_words.into_iter()).collect();
 
     // Sort by score
-    all_items.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+    all_items.sort_by(|a, b| {
+        a.score
+            .partial_cmp(&b.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Display first 100 items
     println!("=== FIRST 100 INTRODUCTIONS (by score) ===\n");
-    println!("{:<4} {:<8} {:<6} {:<10} {:<10} {}",
-             "Rank", "Type", "Char", "FreqRank", "Score", "Components");
+    println!(
+        "{:<4} {:<8} {:<6} {:<10} {:<10} {}",
+        "Rank", "Type", "Char", "FreqRank", "Score", "Components"
+    );
     println!("{}", "=".repeat(80));
 
     for (i, item) in all_items.iter().take(100).enumerate() {
         let item_type = if item.is_word { "WORD" } else { "CHAR" };
         let comp_info = item.component_info.as_deref().unwrap_or("-");
 
-        println!("{:<4} {:<8} {:<6} {:<10} {:<10.2} {}",
-                 i + 1,
-                 item_type,
-                 item.character,
-                 item.frequency_rank,
-                 item.score,
-                 comp_info);
+        println!(
+            "{:<4} {:<8} {:<6} {:<10} {:<10.2} {}",
+            i + 1,
+            item_type,
+            item.character,
+            item.frequency_rank,
+            item.score,
+            comp_info
+        );
     }
 
     // Count words in first 50

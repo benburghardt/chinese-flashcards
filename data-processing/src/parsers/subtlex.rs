@@ -1,26 +1,33 @@
+use encoding_rs::GBK;
+use encoding_rs_io::DecodeReaderBytesBuilder;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use encoding_rs::GBK;
-use encoding_rs_io::DecodeReaderBytesBuilder;
 
 #[derive(Debug, Clone)]
 pub struct FrequencyData {
-    pub item: String,  // Character or word
+    pub item: String, // Character or word
     pub frequency_rank: i32,
     pub count: i32,
     pub is_word: bool,
 }
 
-pub fn parse_subtlex_character_file(path: &str) -> Result<HashMap<String, FrequencyData>, Box<dyn std::error::Error>> {
+pub fn parse_subtlex_character_file(
+    path: &str,
+) -> Result<HashMap<String, FrequencyData>, Box<dyn std::error::Error>> {
     parse_subtlex_file(path, false)
 }
 
-pub fn parse_subtlex_word_file(path: &str) -> Result<HashMap<String, FrequencyData>, Box<dyn std::error::Error>> {
+pub fn parse_subtlex_word_file(
+    path: &str,
+) -> Result<HashMap<String, FrequencyData>, Box<dyn std::error::Error>> {
     parse_subtlex_file(path, true)
 }
 
-fn parse_subtlex_file(path: &str, is_word: bool) -> Result<HashMap<String, FrequencyData>, Box<dyn std::error::Error>> {
+fn parse_subtlex_file(
+    path: &str,
+    is_word: bool,
+) -> Result<HashMap<String, FrequencyData>, Box<dyn std::error::Error>> {
     // Real SUBTLEX-CH files use GBK encoding
     // We always use GBK decoder which also handles UTF-8 correctly
     let file = File::open(path)?;
@@ -75,9 +82,11 @@ fn parse_subtlex_file(path: &str, is_word: bool) -> Result<HashMap<String, Frequ
         rank += 1;
     }
 
-    println!("Parsed {} {} from SUBTLEX-CH",
-             data.len(),
-             if is_word { "words" } else { "characters" });
+    println!(
+        "Parsed {} {} from SUBTLEX-CH",
+        data.len(),
+        if is_word { "words" } else { "characters" }
+    );
     Ok(data)
 }
 

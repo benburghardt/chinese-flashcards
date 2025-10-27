@@ -1,5 +1,5 @@
 // Phase 4: Template Management Service
-import { Flashcard, FlashcardTemplate, FlashcardSide, Arrow } from '../types';
+import { Flashcard, FlashcardTemplate, FlashcardSide, Arrow } from "../types";
 
 export class TemplateService {
   /**
@@ -12,7 +12,7 @@ export class TemplateService {
     templateDescription?: string
   ): FlashcardTemplate {
     // Map sides to template format (without id and value)
-    const templateSides = flashcard.sides.map(side => ({
+    const templateSides = flashcard.sides.map((side) => ({
       position: { ...side.position },
       color: side.color,
       fontSize: side.fontSize,
@@ -21,9 +21,9 @@ export class TemplateService {
     }));
 
     // Map arrows to template format (using indices instead of IDs)
-    const templateArrows = flashcard.arrows.map(arrow => {
-      const sourceIndex = flashcard.sides.findIndex(s => s.id === arrow.sourceId);
-      const destinationIndex = flashcard.sides.findIndex(s => s.id === arrow.destinationId);
+    const templateArrows = flashcard.arrows.map((arrow) => {
+      const sourceIndex = flashcard.sides.findIndex((s) => s.id === arrow.sourceId);
+      const destinationIndex = flashcard.sides.findIndex((s) => s.id === arrow.destinationId);
 
       return {
         sourceIndex,
@@ -57,7 +57,7 @@ export class TemplateService {
     // Create sides from template with generated IDs
     const sides: FlashcardSide[] = template.sides.map((templateSide) => ({
       id: this.generateId(),
-      value: '', // Start with empty values
+      value: "", // Start with empty values
       position: { ...templateSide.position },
       color: templateSide.color,
       fontSize: templateSide.fontSize,
@@ -66,7 +66,7 @@ export class TemplateService {
     }));
 
     // Create arrows from template using the new side IDs
-    const arrows: Arrow[] = template.arrows.map(templateArrow => ({
+    const arrows: Arrow[] = template.arrows.map((templateArrow) => ({
       id: this.generateId(),
       sourceId: sides[templateArrow.sourceIndex].id,
       destinationId: sides[templateArrow.destinationIndex].id,
@@ -115,7 +115,7 @@ export class TemplateService {
 
       return true;
     } catch (error) {
-      console.error('Template validation error:', error);
+      console.error("Template validation error:", error);
       return false;
     }
   }
@@ -151,14 +151,14 @@ export class TemplateService {
 
     // Create a mapping from old IDs to new IDs
     const idMap = new Map<string, string>();
-    sourceFlashcard.sides.forEach(side => {
+    sourceFlashcard.sides.forEach((side) => {
       idMap.set(side.id, this.generateId());
     });
 
     // Clone sides with empty values but same positions
-    const newSides: FlashcardSide[] = sourceFlashcard.sides.map(side => ({
+    const newSides: FlashcardSide[] = sourceFlashcard.sides.map((side) => ({
       id: idMap.get(side.id)!,
-      value: '', // Empty value
+      value: "", // Empty value
       position: { ...side.position },
       color: side.color,
       fontSize: side.fontSize,
@@ -167,11 +167,11 @@ export class TemplateService {
     }));
 
     // Clone arrows with empty labels but same relationships
-    const newArrows: Arrow[] = sourceFlashcard.arrows.map(arrow => ({
+    const newArrows: Arrow[] = sourceFlashcard.arrows.map((arrow) => ({
       id: this.generateId(),
       sourceId: idMap.get(arrow.sourceId)!,
       destinationId: idMap.get(arrow.destinationId)!,
-      label: '', // Empty label
+      label: "", // Empty label
       color: arrow.color,
       style: arrow.style,
     }));
@@ -197,6 +197,6 @@ export class TemplateService {
    * Generate a unique template ID
    */
   private static generateTemplateId(): string {
-    return 'template-' + Math.random().toString(36).substring(2, 11);
+    return "template-" + Math.random().toString(36).substring(2, 11);
   }
 }

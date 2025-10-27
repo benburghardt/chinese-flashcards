@@ -4,12 +4,21 @@ A desktop application for learning Mandarin and Cantonese Chinese with integrate
 
 ## Features
 
-### Phase 1: Core Mandarin Learning (MVP)
-- Integrated Chinese-English dictionary (CC-CEDICT)
-- Frequency-ranked vocabulary (SUBTLEX-CH)
-- Spaced repetition flashcard system
-- Pinyin pronunciation guide
-- Character and word lookup
+### Phase 1: Core Mandarin Learning (✅ Complete)
+- **Spaced Repetition System:** SM-2 based algorithm with half-hour scheduling precision
+- **Character Introduction:** Frequency-based learning with 100-character initial unlock
+- **Study Modes:**
+  - SRS sessions with intelligent answer verification
+  - Self-study practice mode for additional review
+  - Mini-SRS sessions every 5 characters during learning
+- **Progress Tracking:**
+  - Comprehensive dashboard with statistics (learned, mastered, due cards, study streak)
+  - Session history with accurate question-based metrics
+  - Review calendar showing upcoming scheduled reviews
+- **Dictionary & Browse:** Search and browse 100,000+ characters and words
+- **Answer Verification:** Supports pinyin (tone marks or numbers), simplified/traditional Chinese
+- **Character Unlocking:** Automatic unlock of 100 new characters every 20 days
+- **Mastery System:** Graduate characters after 9 correct reviews
 
 ### Phase 2: Enhanced Learning Features (Planned)
 - Stroke order animations

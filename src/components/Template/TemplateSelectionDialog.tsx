@@ -1,9 +1,9 @@
 // Phase 4.2: Template Selection Dialog Component
-import React, { useState, useEffect } from 'react';
-import { FlashcardTemplate } from '../../types';
-import { TauriFileService } from '../../services/TauriFileService';
-import { TemplateService } from '../../services/TemplateService';
-import { TemplateHistoryService } from '../../services/TemplateHistoryService';
+import React, { useState, useEffect } from "react";
+import { FlashcardTemplate } from "../../types";
+import { TauriFileService } from "../../services/TauriFileService";
+import { TemplateService } from "../../services/TemplateService";
+import { TemplateHistoryService } from "../../services/TemplateHistoryService";
 
 interface TemplateSelectionDialogProps {
   onSelectTemplate: (template: FlashcardTemplate) => void;
@@ -35,15 +35,15 @@ export const TemplateSelectionDialog: React.FC<TemplateSelectionDialogProps> = (
       if (template) {
         // Validate template
         if (!TemplateService.validateTemplate(template)) {
-          setError('Invalid template file format');
+          setError("Invalid template file format");
           return;
         }
 
         setSelectedTemplate(template);
       }
     } catch (err) {
-      console.error('Error loading template:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load template');
+      console.error("Error loading template:", err);
+      setError(err instanceof Error ? err.message : "Failed to load template");
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +74,9 @@ export const TemplateSelectionDialog: React.FC<TemplateSelectionDialogProps> = (
       <div className="template-selection-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="template-selection-header">
           <h2>Select Template</h2>
-          <button className="close-btn" onClick={onCancel}>×</button>
+          <button className="close-btn" onClick={onCancel}>
+            ×
+          </button>
         </div>
 
         <div className="template-selection-content">
@@ -82,11 +84,7 @@ export const TemplateSelectionDialog: React.FC<TemplateSelectionDialogProps> = (
             <p>Choose a template to create a new flashcard with a predefined structure.</p>
           </div>
 
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
+          {error && <div className="error-message">{error}</div>}
 
           {recentTemplates.length > 0 && (
             <div className="recent-templates-section">
@@ -98,7 +96,7 @@ export const TemplateSelectionDialog: React.FC<TemplateSelectionDialogProps> = (
                   return (
                     <div
                       key={template.id}
-                      className={`recent-template-item ${isSelected ? 'selected' : ''}`}
+                      className={`recent-template-item ${isSelected ? "selected" : ""}`}
                       onClick={() => handleSelectRecentTemplate(template)}
                     >
                       <div className="recent-template-name">{preview.name}</div>
@@ -118,7 +116,7 @@ export const TemplateSelectionDialog: React.FC<TemplateSelectionDialogProps> = (
               disabled={isLoading}
               className="browse-template-btn"
             >
-              {isLoading ? 'Loading...' : 'Browse for Template...'}
+              {isLoading ? "Loading..." : "Browse for Template..."}
             </button>
           </div>
 
@@ -134,10 +132,12 @@ export const TemplateSelectionDialog: React.FC<TemplateSelectionDialogProps> = (
                 )}
                 <div className="template-stats">
                   <span className="template-stat">
-                    <strong>{preview.sideCount}</strong> {preview.sideCount === 1 ? 'side' : 'sides'}
+                    <strong>{preview.sideCount}</strong>{" "}
+                    {preview.sideCount === 1 ? "side" : "sides"}
                   </span>
                   <span className="template-stat">
-                    <strong>{preview.arrowCount}</strong> {preview.arrowCount === 1 ? 'arrow' : 'arrows'}
+                    <strong>{preview.arrowCount}</strong>{" "}
+                    {preview.arrowCount === 1 ? "arrow" : "arrows"}
                   </span>
                 </div>
               </div>
