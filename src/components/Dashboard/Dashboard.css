@@ -449,17 +449,18 @@
 }
 
 .calendar-day {
-  background: white;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   text-align: center;
   transition: all 0.2s ease;
+  color: white;
 }
 
 .calendar-day.today {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: white;
+  color: #333;
 }
 
 .calendar-day:hover {
@@ -471,46 +472,43 @@
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 8px;
-  color: inherit;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .calendar-day.today .calendar-date {
-  color: rgba(255, 255, 255, 0.9);
+  color: #333;
 }
 
 .calendar-time {
   font-size: 14px;
   font-weight: 600;
-  color: #667eea;
+  color: rgba(255, 255, 255, 0.9);
   margin: 4px 0;
   font-family: 'Courier New', monospace;
 }
 
 .calendar-day.today .calendar-time {
-  color: rgba(255, 255, 255, 0.85);
+  color: #667eea;
 }
 
 .calendar-count {
   font-size: 32px;
   font-weight: 700;
   margin-bottom: 4px;
-}
-
-.calendar-day.today .calendar-count {
   color: white;
 }
 
-.calendar-day:not(.today) .calendar-count {
+.calendar-day.today .calendar-count {
   color: #667eea;
 }
 
 .calendar-label {
   font-size: 12px;
-  color: #999;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .calendar-day.today .calendar-label {
-  color: rgba(255, 255, 255, 0.8);
+  color: #999;
 }
 
 /* Study Sessions Section */

@@ -41,7 +41,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   const [totalCards, setTotalCards] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [incorrectAnswers, setIncorrectAnswers] = useState(0);
-  const [firstAttemptCorrect, setFirstAttemptCorrect] = useState(0); // Correct on first try
+  const [_firstAttemptCorrect, setFirstAttemptCorrect] = useState(0); // Correct on first try
   const [totalQuestions, setTotalQuestions] = useState(0); // Total questions asked
   const [completedCards, setCompletedCards] = useState(0);
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -264,11 +264,15 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     const currentQuestion = getCurrentQuestion();
     if (!currentQuestion) return;
 
+    // Track the updated questions array for session completion check
+    let updatedQuestionsArray = questions;
+
     // If incorrect, add question back to the end
     if (!isCorrect) {
       const updatedQuestions = [...questions];
       const incorrectQuestion = { ...currentQuestion, answeredCorrectly: null };
       updatedQuestions.push(incorrectQuestion);
+      updatedQuestionsArray = updatedQuestions; // Store for session completion check
       setQuestions(updatedQuestions);
 
       // Reset progress for this question type
@@ -292,7 +296,8 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     // Move to next question
     const nextIndex = currentQuestionIndex + 1;
 
-    if (nextIndex >= questions.length) {
+    // Use updatedQuestionsArray which includes any re-queued incorrect questions
+    if (nextIndex >= updatedQuestionsArray.length) {
       setSessionComplete(true);
     } else {
       setCurrentQuestionIndex(nextIndex);
@@ -353,11 +358,16 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
             // End session recording
             if (sessionId) {
               try {
+                // Calculate actual cards studied (unique cards that had questions answered)
+                // Each card has 2 questions, so divide totalQuestions by 2 (rounding up for partial cards)
+                const actualCardsStudied = Math.ceil(totalQuestions / 2);
+                // For correct/incorrect, we track at card level
+                // completedCards = cards with both questions correct
                 await invoke('end_session', {
                   sessionId,
-                  cardsStudied: totalQuestions,
-                  cardsCorrect: firstAttemptCorrect,
-                  cardsIncorrect: totalQuestions - firstAttemptCorrect
+                  cardsStudied: actualCardsStudied,
+                  cardsCorrect: completedCards,
+                  cardsIncorrect: actualCardsStudied - completedCards
                 });
                 console.log('[SELF-STUDY] Session ended:', sessionId);
               } catch (error) {

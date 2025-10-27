@@ -59,6 +59,8 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
   const [completedCharacters, setCompletedCharacters] = useState(0); // Number of characters fully completed
   const [successfulAnswers, setSuccessfulAnswers] = useState(0); // Number of questions answered correctly (for progress bar)
   const [totalRequiredAnswers, setTotalRequiredAnswers] = useState(0); // Total answers needed (cards * 2)
+  const [firstTimeErrors, setFirstTimeErrors] = useState(0); // Count of questions answered incorrectly on first attempt
+  const [seenQuestions, setSeenQuestions] = useState<Set<string>>(new Set()); // Track which questions we've seen
   const [showExitConfirmation, setShowExitConfirmation] = useState(false); // Show exit confirmation modal
   const [isExiting, setIsExiting] = useState(false); // Track if user is exiting study
   const [sessionId, setSessionId] = useState<number | null>(null); // Session ID for recording
@@ -95,11 +97,22 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     if (sessionComplete && sessionId && !isExiting && !sessionEnded) {
       const endSession = async () => {
         try {
+          // Use actual cards studied (correct + incorrect), not total cards loaded
+          const actualCardsStudied = stats.cardsCorrect + stats.cardsIncorrect;
+
+          // New accuracy calculation: (2 * cards - errors) / (2 * cards)
+          const questionsTotal = actualCardsStudied * 2; // Each card has 2 questions
+          const questionsCorrect = questionsTotal - firstTimeErrors;
+          const questionsIncorrect = firstTimeErrors;
+
+          console.log('[SRS] Session stats - Cards:', actualCardsStudied, 'First-time errors:', firstTimeErrors);
+          console.log('[SRS] Accuracy:', questionsCorrect, '/', questionsTotal, '=', Math.round((questionsCorrect / questionsTotal) * 100) + '%');
+
           await invoke('end_session', {
             sessionId,
-            cardsStudied: totalCharacters,
-            cardsCorrect: stats.cardsCorrect,
-            cardsIncorrect: stats.cardsIncorrect
+            cardsStudied: actualCardsStudied,
+            cardsCorrect: questionsCorrect,
+            cardsIncorrect: questionsIncorrect
           });
           console.log('[SRS] Session naturally completed and ended:', sessionId);
           setSessionEnded(true); // Mark as ended to prevent duplicate calls
@@ -109,7 +122,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       };
       endSession();
     }
-  }, [sessionComplete, sessionId, isExiting, sessionEnded, stats, totalCharacters]);
+  }, [sessionComplete, sessionId, isExiting, sessionEnded, stats, firstTimeErrors]);
 
   // Fisher-Yates shuffle algorithm
   const shuffleArray = <T,>(array: T[]): T[] => {
@@ -280,6 +293,21 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       return; // Don't update question status or character progress yet
     }
 
+    // Track first-time errors for accuracy calculation
+    const questionId = currentQuestion.id;
+    const isFirstTimeSeeingQuestion = !seenQuestions.has(questionId);
+
+    if (isFirstTimeSeeingQuestion) {
+      // Mark this question as seen
+      setSeenQuestions(prev => new Set(prev).add(questionId));
+
+      // If incorrect on first attempt, increment error counter
+      if (!correct) {
+        setFirstTimeErrors(prev => prev + 1);
+        console.log('[SRS] First-time error for question:', questionId);
+      }
+    }
+
     // Update question status
     const updatedQuestions = [...questions];
     updatedQuestions[currentQuestionIndex].answeredCorrectly = correct;
@@ -325,6 +353,9 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
     console.log('[SRS] Moving to next question. Current:', currentQuestionIndex, 'Total:', questions.length);
 
     // Track incorrect answers at the card level
+    // Also track the updated questions array for session completion check
+    let updatedQuestionsArray = questions;
+
     if (!isCorrect) {
       const progress = characterProgress.get(currentQuestion.character_id);
       if (progress && !progress.hadIncorrectAnswer) {
@@ -343,6 +374,7 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       const updatedQuestions = [...questions];
       const incorrectQuestion = { ...currentQuestion, answeredCorrectly: null };
       updatedQuestions.push(incorrectQuestion);
+      updatedQuestionsArray = updatedQuestions; // Store for session completion check
       setQuestions(updatedQuestions);
       console.log('[SRS] Added incorrect question back to queue. Total questions:', updatedQuestions.length);
 
@@ -410,8 +442,8 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       }
     }
 
-    // Check if session complete
-    if (nextIndex >= questions.length) {
+    // Check if session complete - use updatedQuestionsArray which includes any re-queued incorrect questions
+    if (nextIndex >= updatedQuestionsArray.length) {
       console.log('[SRS] Session complete!');
 
       // Process all characters for initial study mode
@@ -559,11 +591,21 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
       // End session recording
       if (sessionId && !sessionEnded) {
         try {
+          // Use actual cards studied (correct + incorrect), not total cards loaded
+          const actualCardsStudied = stats.cardsCorrect + stats.cardsIncorrect;
+
+          // New accuracy calculation: (2 * cards - errors) / (2 * cards)
+          const questionsTotal = actualCardsStudied * 2; // Each card has 2 questions
+          const questionsCorrect = questionsTotal - firstTimeErrors;
+          const questionsIncorrect = firstTimeErrors;
+
+          console.log('[SRS] Exit - Cards:', actualCardsStudied, 'First-time errors:', firstTimeErrors);
+
           await invoke('end_session', {
             sessionId,
-            cardsStudied: totalCharacters,
-            cardsCorrect: stats.cardsCorrect,
-            cardsIncorrect: stats.cardsIncorrect
+            cardsStudied: actualCardsStudied,
+            cardsCorrect: questionsCorrect,
+            cardsIncorrect: questionsIncorrect
           });
           console.log('[SRS] Session ended:', sessionId);
           setSessionEnded(true); // Mark as ended to prevent duplicate calls
@@ -595,6 +637,11 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
 
   // Session complete
   if (sessionComplete) {
+    const actualCardsStudied = stats.cardsCorrect + stats.cardsIncorrect;
+    const questionsTotal = actualCardsStudied * 2;
+    const questionsCorrect = questionsTotal - firstTimeErrors;
+    const accuracy = questionsTotal > 0 ? Math.round((questionsCorrect / questionsTotal) * 100) : 0;
+
     return (
       <div className="srs-container">
         <div className="session-complete">
@@ -602,25 +649,27 @@ function SpacedRepetition({ onComplete, isInitialStudy = false, initialStudyChar
           <h2>Session Complete!</h2>
           <div className="stats-summary">
             <div className="stat-item">
-              <div className="stat-number">{totalCharacters}</div>
+              <div className="stat-number">{actualCardsStudied}</div>
               <div className="stat-label">Cards Reviewed</div>
             </div>
             <div className="stat-item">
-              <div className="stat-number correct">{stats.cardsCorrect}</div>
-              <div className="stat-label">Correct</div>
+              <div className="stat-number correct">{questionsCorrect} / {questionsTotal}</div>
+              <div className="stat-label">Questions Correct</div>
             </div>
             <div className="stat-item">
-              <div className="stat-number incorrect">{stats.cardsIncorrect}</div>
-              <div className="stat-label">Incorrect</div>
+              <div className="stat-number">{accuracy}%</div>
+              <div className="stat-label">Accuracy</div>
             </div>
           </div>
           <p className="complete-message">
-            {totalCharacters === 0
+            {actualCardsStudied === 0
               ? "No cards due for review. Great job staying on top of your studies!"
+              : isInitialStudy
+              ? "Great work! Continue learning more characters."
               : "Great work! Your next review session will be ready when cards become due."}
           </p>
           <button className="btn-primary" onClick={onComplete}>
-            Return to Dashboard
+            {isInitialStudy ? "Continue" : "Return to Dashboard"}
           </button>
         </div>
       </div>

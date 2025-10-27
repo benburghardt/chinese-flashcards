@@ -517,6 +517,7 @@ pub fn get_recent_sessions(db: State<DbConnection>, limit: usize) -> Result<Vec<
     let mut stmt = conn.prepare(
         "SELECT id, mode, started_at, ended_at, cards_studied, cards_correct, cards_incorrect, duration_seconds
          FROM study_sessions
+         WHERE ended_at IS NOT NULL
          ORDER BY started_at DESC
          LIMIT ?1"
     ).map_err(|e| e.to_string())?;

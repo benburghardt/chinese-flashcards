@@ -135,6 +135,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         let result = conn.execute(
             "INSERT OR IGNORE INTO app_settings (key, value) VALUES
              ('last_unlock_date', ''),
+             ('queue_emptied_date', ''),
              ('initial_unlock_completed', 'false')",
             []
         );
@@ -308,12 +309,25 @@ pub fn get_srs_card_state(conn: &Connection, character_id: i32) -> Result<SrsCar
 
 /// Round a datetime down to the nearest half-hour (0 or 30 minutes)
 pub fn round_down_to_half_hour(dt: DateTime<Utc>) -> DateTime<Utc> {
-    let minute = dt.minute();
-    let rounded_minute = if minute < 30 { 0 } else { 30 };
+    use chrono::Duration;
 
-    dt.with_minute(rounded_minute).unwrap()
-      .with_second(0).unwrap()
-      .with_nanosecond(0).unwrap()
+    let minute = dt.minute();
+    let second = dt.second();
+    let nano = dt.nanosecond();
+
+    // Calculate how many minutes past the last half-hour mark we are
+    let minutes_past_half_hour = if minute < 30 {
+        minute  // We're between :00 and :30, so subtract back to :00
+    } else {
+        minute - 30  // We're between :30 and :60, so subtract back to :30
+    };
+
+    // Calculate total time to subtract (minutes + seconds + nanoseconds)
+    let total_seconds_to_subtract = (minutes_past_half_hour as i64 * 60) + second as i64;
+    let duration_to_subtract = Duration::seconds(total_seconds_to_subtract) + Duration::nanoseconds(nano as i64);
+
+    // Subtract to get to the half-hour mark
+    dt - duration_to_subtract
 }
 
 pub fn record_srs_answer(
@@ -736,6 +750,17 @@ pub fn mark_character_introduced(conn: &Connection, character_id: i32) -> Result
          WHERE character_id = ?1",
         [character_id]
     )?;
+
+    // Check if the queue is now empty after this introduction
+    let ready_to_learn = get_ready_to_learn_count(conn)?;
+    if ready_to_learn == 0 {
+        // Queue just emptied - record the time
+        let now = chrono::Utc::now();
+        let now_sqlite = now.format("%Y-%m-%d %H:%M:%S").to_string();
+        set_setting(conn, "queue_emptied_date", &now_sqlite)?;
+        println!("[DB] Queue emptied at {}", now_sqlite);
+    }
+
     Ok(())
 }
 
@@ -887,10 +912,11 @@ pub fn initialize_new_user_characters(conn: &Connection) -> Result<usize> {
     Ok(count)
 }
 
-/// Unlock next batch of characters (10) if conditions are met
+/// Unlock next batch of characters (100) if conditions are met
 /// Returns: (number_unlocked, can_unlock_more)
+/// Unlock conditions: max(20 days after last unlock, 2 days after queue emptied)
 pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
-    use chrono::{DateTime, Utc, Duration};
+    use chrono::{DateTime, Utc, Duration, NaiveDateTime};
 
     // Check if initial unlock is done
     let initial_unlock_completed = get_setting(conn, "initial_unlock_completed")
@@ -899,7 +925,7 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
     if initial_unlock_completed != "true" {
         // Initialize new user
         let count = initialize_new_user_characters(conn)?;
-        return Ok((count, false)); // Don't unlock more until 2 days after intro
+        return Ok((count, false)); // Don't unlock more until conditions met
     }
 
     // Check if ready-to-learn queue is empty
@@ -909,39 +935,81 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
         return Ok((0, false));
     }
 
-    // Check if 2 days have passed since last unlock
+    // Get last unlock date
     let last_unlock_str = get_setting(conn, "last_unlock_date")
         .unwrap_or_else(|_| "".to_string());
 
+    // Get queue emptied date
+    let queue_emptied_str = get_setting(conn, "queue_emptied_date")
+        .unwrap_or_else(|_| "".to_string());
+
+    let now = Utc::now();
+
+    // Calculate earliest unlock time based on both conditions
     let can_unlock = if last_unlock_str.is_empty() {
         // First unlock after initial batch - allow it
         true
     } else {
-        // Parse last unlock date from SQLite datetime format (YYYY-MM-DD HH:MM:SS)
-        use chrono::NaiveDateTime;
-        if let Ok(naive_dt) = NaiveDateTime::parse_from_str(&last_unlock_str, "%Y-%m-%d %H:%M:%S") {
-            let last_unlock = DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc);
-            let now = Utc::now();
-            let elapsed = now.signed_duration_since(last_unlock);
+        // Parse last unlock date (YYYY-MM-DD HH:MM:SS)
+        let last_unlock_result = NaiveDateTime::parse_from_str(&last_unlock_str, "%Y-%m-%d %H:%M:%S")
+            .map(|naive_dt| DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
 
-            println!("[DB] Last unlock was {} hours ago", elapsed.num_hours());
-
-            // Must wait 2 days (48 hours)
-            elapsed >= Duration::hours(48)
+        let queue_emptied_result = if !queue_emptied_str.is_empty() {
+            NaiveDateTime::parse_from_str(&queue_emptied_str, "%Y-%m-%d %H:M:%S")
+                .map(|naive_dt| DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc))
+                .ok()
         } else {
-            // Invalid date format, allow unlock
-            println!("[DB] Invalid last_unlock_date format: {}", last_unlock_str);
-            true
+            None
+        };
+
+        match last_unlock_result {
+            Ok(last_unlock) => {
+                // Condition 1: 20 days (480 hours) after last unlock
+                let hours_since_unlock = now.signed_duration_since(last_unlock).num_hours();
+                let condition1_met = hours_since_unlock >= 480;
+
+                println!("[DB] Last unlock was {} hours ago (need 480 for unlock)", hours_since_unlock);
+
+                // Condition 2: 2 days (48 hours) after queue emptied
+                let condition2_met = if let Some(queue_emptied) = queue_emptied_result {
+                    let hours_since_queue_empty = now.signed_duration_since(queue_emptied).num_hours();
+                    println!("[DB] Queue emptied {} hours ago (need 48 for unlock)", hours_since_queue_empty);
+                    hours_since_queue_empty >= 48
+                } else {
+                    println!("[DB] No queue_emptied_date recorded");
+                    false
+                };
+
+                // Can unlock if BOTH conditions are met: max(20 days, 2 days after empty)
+                let can_unlock = condition1_met && condition2_met;
+
+                if !can_unlock {
+                    if !condition1_met {
+                        println!("[DB] Cannot unlock: need to wait {} more hours since last unlock",
+                                 480 - hours_since_unlock);
+                    }
+                    if !condition2_met && queue_emptied_result.is_some() {
+                        let hours_since_empty = now.signed_duration_since(queue_emptied_result.unwrap()).num_hours();
+                        println!("[DB] Cannot unlock: need to wait {} more hours since queue emptied",
+                                 48 - hours_since_empty);
+                    }
+                }
+
+                can_unlock
+            }
+            Err(_) => {
+                println!("[DB] Invalid last_unlock_date format: {}", last_unlock_str);
+                true // Allow unlock if date is invalid
+            }
         }
     };
 
     if !can_unlock {
-        println!("[DB] Haven't waited 2 days since last unlock yet");
         return Ok((0, false));
     }
 
-    // Unlock next 10 characters
-    println!("[DB] Unlocking next 10 characters");
+    // Unlock next 100 characters
+    println!("[DB] Unlocking next 100 characters");
 
     let mut stmt = conn.prepare(
         "SELECT c.id
@@ -952,7 +1020,7 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
                WHERE p.character_id = c.id
            )
          ORDER BY c.frequency_rank ASC
-         LIMIT 10"
+         LIMIT 100"
     )?;
 
     let character_ids: Vec<i32> = stmt.query_map([], |row| row.get(0))?
@@ -976,7 +1044,6 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
     }
 
     // Update last unlock date (use SQLite datetime format)
-    let now = Utc::now();
     let now_sqlite = now.format("%Y-%m-%d %H:%M:%S").to_string();
     set_setting(conn, "last_unlock_date", &now_sqlite)?;
 
@@ -986,8 +1053,9 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
 
 /// Get time until next unlock is available (in hours)
 /// Returns None if queue is not empty or characters can be unlocked now
+/// Uses max(20 days after last unlock, 2 days after queue emptied) logic
 pub fn get_hours_until_next_unlock(conn: &Connection) -> Result<Option<i64>> {
-    use chrono::{DateTime, Utc};
+    use chrono::{DateTime, Utc, NaiveDateTime};
 
     // Check if ready-to-learn queue is empty
     let ready_to_learn = get_ready_to_learn_count(conn)?;
@@ -999,22 +1067,53 @@ pub fn get_hours_until_next_unlock(conn: &Connection) -> Result<Option<i64>> {
     let last_unlock_str = get_setting(conn, "last_unlock_date")
         .unwrap_or_else(|_| "".to_string());
 
+    // Check queue emptied date
+    let queue_emptied_str = get_setting(conn, "queue_emptied_date")
+        .unwrap_or_else(|_| "".to_string());
+
     if last_unlock_str.is_empty() {
         return Ok(Some(0)); // Can unlock now
     }
 
+    let now = Utc::now();
+
     // Parse from SQLite datetime format (YYYY-MM-DD HH:MM:SS)
-    use chrono::NaiveDateTime;
     if let Ok(naive_dt) = NaiveDateTime::parse_from_str(&last_unlock_str, "%Y-%m-%d %H:%M:%S") {
         let last_unlock = DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc);
-        let now = Utc::now();
-        let elapsed = now.signed_duration_since(last_unlock);
-        let hours_elapsed = elapsed.num_hours();
+        let hours_since_unlock = now.signed_duration_since(last_unlock).num_hours();
 
-        if hours_elapsed >= 48 {
+        // Condition 1: 20 days (480 hours) after last unlock
+        let hours_until_condition1 = if hours_since_unlock >= 480 {
+            0
+        } else {
+            480 - hours_since_unlock
+        };
+
+        // Condition 2: 2 days (48 hours) after queue emptied
+        let hours_until_condition2 = if !queue_emptied_str.is_empty() {
+            if let Ok(naive_dt) = NaiveDateTime::parse_from_str(&queue_emptied_str, "%Y-%m-%d %H:%M:%S") {
+                let queue_emptied = DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc);
+                let hours_since_empty = now.signed_duration_since(queue_emptied).num_hours();
+
+                if hours_since_empty >= 48 {
+                    0
+                } else {
+                    48 - hours_since_empty
+                }
+            } else {
+                0 // Invalid date, condition met
+            }
+        } else {
+            i64::MAX // No queue_emptied_date, this condition not met
+        };
+
+        // Need BOTH conditions met, so return the maximum wait time
+        let hours_remaining = std::cmp::max(hours_until_condition1, hours_until_condition2);
+
+        if hours_remaining <= 0 {
             Ok(Some(0)) // Can unlock now
         } else {
-            Ok(Some(48 - hours_elapsed)) // Hours remaining
+            Ok(Some(hours_remaining))
         }
     } else {
         Ok(Some(0)) // Invalid date, can unlock now
