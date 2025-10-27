@@ -27,8 +27,8 @@ export default function StrokeOrderDisplay({
   const [strokeData, setStrokeData] = useState<StrokeData | null>(null);
   const [svgContent, setSvgContent] = useState<string>("");
   const [currentStroke, setCurrentStroke] = useState<number>(0);
-  const [isPlaying, setIsPlaying] = useState(autoPlay);
-  const [speed, setSpeed] = useState<number>(1.0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [speed, setSpeed] = useState<number>(1.5);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
 
@@ -46,12 +46,7 @@ export default function StrokeOrderDisplay({
     };
   }, [characterId]);
 
-  // Handle autoPlay
-  useEffect(() => {
-    if (autoPlay && strokeData && svgContent) {
-      setIsPlaying(true);
-    }
-  }, [autoPlay, strokeData, svgContent]);
+  // Always start paused - removed autoPlay behavior
 
   const loadStrokeData = async () => {
     setLoading(true);
@@ -89,16 +84,69 @@ export default function StrokeOrderDisplay({
     const svg = container.querySelector("svg");
     if (!svg) return;
 
+    // Apply Make Me a Hanzi coordinate transform
+    const g = svg.querySelector("g");
+    if (g) {
+      g.setAttribute("transform", "scale(1, -1) translate(0, -900)");
+    }
+
     // Find all stroke paths
     const paths = Array.from(svg.querySelectorAll("path")) as SVGPathElement[];
     strokePathsRef.current = paths;
 
-    // Initially hide all strokes
-    paths.forEach((path) => {
-      path.style.opacity = "0";
-      path.style.strokeDasharray = path.getTotalLength().toString();
-      path.style.strokeDashoffset = path.getTotalLength().toString();
+    // Create masks for progressive reveal animation
+    const defs = svg.querySelector("defs") || svg.insertBefore(
+      document.createElementNS("http://www.w3.org/2000/svg", "defs"),
+      svg.firstChild
+    );
+
+    paths.forEach((path, index) => {
+      // Get median data
+      const medianData = path.getAttribute("data-median");
+      if (!medianData) return;
+
+      // Parse median points
+      const points = medianData.split(" ").map(point => {
+        const [x, y] = point.split(",").map(Number);
+        return { x, y };
+      });
+
+      // Create polyline path from median points for animation
+      const pathData = points.map((p, i) =>
+        `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+      ).join(' ');
+
+      // Create mask
+      const mask = document.createElementNS("http://www.w3.org/2000/svg", "mask");
+      const maskId = `stroke-mask-${index}`;
+      mask.setAttribute("id", maskId);
+
+      // Create animated path in the mask (white stroke reveals, black hides)
+      const maskPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      maskPath.setAttribute("d", pathData);
+      maskPath.setAttribute("stroke", "white");
+      maskPath.setAttribute("stroke-width", "120");
+      maskPath.setAttribute("stroke-linecap", "round");
+      maskPath.setAttribute("stroke-linejoin", "round");
+      maskPath.setAttribute("fill", "none");
+      maskPath.setAttribute("class", "mask-anim-path");
+      maskPath.setAttribute("data-stroke-index", index.toString());
+
+      const length = maskPath.getTotalLength();
+      maskPath.style.strokeDasharray = length.toString();
+      maskPath.style.strokeDashoffset = length.toString();
+
+      mask.appendChild(maskPath);
+      defs.appendChild(mask);
+
+      // Apply mask to fill path and make it visible
+      path.setAttribute("mask", `url(#${maskId})`);
+      path.style.opacity = "1";
     });
+
+    // Store mask animation paths
+    const maskPaths = Array.from(svg.querySelectorAll(".mask-anim-path")) as SVGPathElement[];
+    strokePathsRef.current = maskPaths;
 
     setCurrentStroke(0);
   }, [svgContent]);
@@ -118,16 +166,28 @@ export default function StrokeOrderDisplay({
       const progress = Math.min(elapsed / strokeDuration, 1);
 
       if (strokeIndex < paths.length) {
-        const path = paths[strokeIndex];
-        const length = path.getTotalLength();
+        const maskPath = paths[strokeIndex];
+        const length = maskPath.getTotalLength();
 
-        // Make current stroke visible and animate
-        path.style.opacity = "1";
-        path.style.strokeDashoffset = (length * (1 - progress)).toString();
+        // Animate mask path to progressively reveal fill
+        maskPath.style.strokeDashoffset = (length * (1 - progress)).toString();
 
         if (progress < 1) {
           animationRef.current = requestAnimationFrame(animate);
         } else {
+          // Animation complete - remove mask to show full fill
+          const strokeIndexAttr = maskPath.getAttribute("data-stroke-index");
+          if (strokeIndexAttr !== null && svgContainerRef.current) {
+            const svg = svgContainerRef.current.querySelector("svg");
+            const fillPaths = svg?.querySelectorAll("g > path[data-median]");
+            if (fillPaths) {
+              const fillPath = fillPaths[parseInt(strokeIndexAttr)] as SVGPathElement;
+              if (fillPath) {
+                fillPath.removeAttribute("mask");
+              }
+            }
+          }
+
           // Move to next stroke
           strokeIndex++;
           setCurrentStroke(strokeIndex);
@@ -166,11 +226,24 @@ export default function StrokeOrderDisplay({
   }, []);
 
   const handleRestart = useCallback(() => {
-    // Reset all strokes
-    strokePathsRef.current.forEach((path) => {
-      path.style.opacity = "0";
-      const length = path.getTotalLength();
-      path.style.strokeDashoffset = length.toString();
+    if (!svgContainerRef.current) return;
+
+    const svg = svgContainerRef.current.querySelector("svg");
+    if (!svg) return;
+
+    // Reset mask animation paths
+    strokePathsRef.current.forEach((maskPath, index) => {
+      const length = maskPath.getTotalLength();
+      maskPath.style.strokeDashoffset = length.toString();
+
+      // Re-apply mask to fill path
+      const fillPaths = svg.querySelectorAll("g > path[data-median]");
+      if (fillPaths) {
+        const fillPath = fillPaths[index] as SVGPathElement;
+        if (fillPath) {
+          fillPath.setAttribute("mask", `url(#stroke-mask-${index})`);
+        }
+      }
     });
 
     setCurrentStroke(0);

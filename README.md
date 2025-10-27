@@ -20,11 +20,12 @@ A desktop application for learning Mandarin and Cantonese Chinese with integrate
 - **Character Unlocking:** Automatic unlock of 100 new characters every 20 days
 - **Mastery System:** Graduate characters after 9 correct reviews
 
-### Phase 2: Enhanced Learning Features (Planned)
-- Stroke order animations
-- Etymology and radical information
-- Advanced study modes
-- Progress tracking and statistics
+### Phase 2: Enhanced Learning Features (✅ In Progress)
+- ✅ **Stroke Order Animations:** Beautifully animated stroke-by-stroke writing demonstrations for 6,800+ characters
+- ✅ **Radical Information:** Character radicals and decomposition data
+- ⏳ Etymology information
+- ⏳ Advanced study modes
+- ⏳ Enhanced progress tracking and statistics
 
 ### Phase 3: Cantonese Expansion (Planned)
 - Cantonese pronunciation (Jyutping)
@@ -81,7 +82,7 @@ For Windows specifically:
 
 3. **Download datasets** (Required for first-time setup)
 
-   The application automatically builds the database when you run it, but you need to download the source datasets first:
+   The application automatically builds the database and stroke order data on first run, but you need to download the source datasets first:
 
    ```bash
    cd data-processing
@@ -89,12 +90,20 @@ For Windows specifically:
    cd ..
    ```
 
+   This will automatically download:
+   - CC-CEDICT dictionary (~4 MB)
+   - Make Me a Hanzi stroke order data (~30 MB)
+
    **Note:** SUBTLEX-CH requires manual download:
    1. Visit: https://www.ugent.be/pp/experimentele-psychologie/en/research/documents/subtlexch
    2. Download both files: `SUBTLEX-CH-CHR.zip` and `SUBTLEX-CH-WF_PoS.zip`
    3. Extract to `datasets/SUBTLEX-CH/` directory
 
-   The database will be automatically built when you run `npm run tauri:dev` for the first time.
+   **What happens on first run:**
+   - Database automatically built from source datasets (~120,000 entries)
+   - ~6,800 SVG stroke order files generated
+   - Takes about 1 minute on first launch
+   - Subsequent launches are instant
 
 4. **Verify setup**
    ```bash
@@ -113,9 +122,12 @@ npm run tauri:dev
 # Build production bundle
 npm run tauri:build
 
-# Rebuild database (if data sources change)
+# Manually rebuild database and stroke order data (if data sources change)
 cd data-processing
 cargo run --bin build-database
+# This generates:
+# - src-tauri/resources/chinese.db
+# - src-tauri/resources/strokes/*.svg (6,800+ files)
 ```
 
 ### Project Structure

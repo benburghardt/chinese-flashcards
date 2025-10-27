@@ -17,8 +17,12 @@ cargo run --bin download-datasets
 - Downloads CC-CEDICT dictionary (~4 MB compressed)
 - Extracts to `datasets/cedict_ts.u8`
 - Downloads Make Me a Hanzi stroke data (~30 MB)
+  - `datasets/makemeahanzi/dictionary.txt` - Character decomposition & etymology
+  - `datasets/makemeahanzi/graphics.txt` - SVG stroke paths and medians
 - Displays instructions for SUBTLEX-CH manual download
 - Shows license attribution notices
+
+**Note:** These datasets are NOT committed to the repository and must be downloaded locally.
 
 **Output:**
 ```
@@ -91,12 +95,20 @@ cargo run --bin build-database
 **Output:**
 ```
 src-tauri/resources/
-├── chinese.db              # Complete SQLite database
-└── strokes/                # SVG stroke order files
-    ├── U+4E00.svg         # Character: 一
+├── chinese.db              # Complete SQLite database (117k+ entries)
+└── strokes/                # SVG stroke order files (auto-generated)
+    ├── U+4E00.svg         # Character: 一 (filled paths + median data)
     ├── U+4E8C.svg         # Character: 二
-    └── ... (6803 files)
+    └── ... (6,803 files total)
 ```
+
+**SVG File Format:**
+Each SVG contains:
+- Filled stroke paths (the actual character strokes)
+- `data-median` attributes with centerline coordinates for animation
+- Make Me a Hanzi coordinate transform applied
+
+**Note:** The `resources/` directory is generated and NOT committed to git. It will be created automatically on first run if datasets are available.
 
 ## Dependencies
 

@@ -356,17 +356,30 @@ pub fn apply_definition_overrides(
     Ok(())
 }
 
-/// Generate SVG file from stroke data
-fn generate_svg(_character: &str, strokes: &[String]) -> String {
+/// Generate SVG file from stroke data with medians
+fn generate_svg(_character: &str, strokes: &[String], medians: &[Vec<Vec<f32>>]) -> String {
     let mut svg = String::from(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <g stroke="black" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="black" stroke-linecap="round" stroke-linejoin="round">
 "#,
     );
 
-    for (i, stroke) in strokes.iter().enumerate() {
-        svg.push_str(&format!("    <path id=\"stroke-{}\" d=\"{}\" />\n", i + 1, stroke));
+    // Add filled stroke paths with median data as attribute
+    for (i, (stroke, median)) in strokes.iter().zip(medians.iter()).enumerate() {
+        // Convert median points to comma-separated string
+        let median_str = median
+            .iter()
+            .map(|point| format!("{},{}", point[0], point[1]))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        svg.push_str(&format!(
+            "    <path id=\"stroke-{}\" d=\"{}\" data-median=\"{}\" />\n",
+            i + 1,
+            stroke,
+            median_str
+        ));
     }
 
     svg.push_str(
@@ -416,8 +429,8 @@ pub fn populate_stroke_data(
 
     for (id, character) in characters {
         if let Some(entry) = mmah_data.get(&character) {
-            // Generate SVG file
-            let svg_content = generate_svg(&character, &entry.strokes);
+            // Generate SVG file with median data
+            let svg_content = generate_svg(&character, &entry.strokes, &entry.medians);
 
             // Use Unicode codepoint hex for filename to avoid filesystem issues
             let filename = character

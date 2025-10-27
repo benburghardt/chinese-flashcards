@@ -139,10 +139,11 @@ https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
 - ✅ If you just use the graphics (without modifying them), your application can use any license
 
 ### Our Usage
-- Dictionary data used for character decomposition and etymology
-- Graphics data (SVG paths) used for stroke order animations
-- SVG files displayed in writing practice mode
-- **We are using the graphics without modification** (no LGPL obligations on our code)
+- Dictionary data used for character decomposition, etymology, and radical information
+- Graphics data (stroke paths and medians) automatically generated into ~6,800 SVG files during build
+- SVG files used for animated stroke order demonstrations in the introduction screen
+- Each stroke path is rendered with its median centerline for smooth animation
+- **We are using the graphics without modification** - only reformatting into individual SVG files (no LGPL obligations on our code)
 
 ### Attribution Required
 ```

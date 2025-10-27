@@ -34,7 +34,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "resources/chinese.db"
+      "resources/**"
     ]
   }
 }

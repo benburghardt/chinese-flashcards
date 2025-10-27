@@ -1319,6 +1319,36 @@ fn build_database_if_needed() -> std::result::Result<PathBuf, Box<dyn std::error
     println!("[DB BUILD] Creating SQLite database...");
     db_builder::create_database(enriched, output_path.to_str().unwrap())?;
 
+    // Generate stroke order data
+    println!("[DB BUILD] Generating stroke order data...");
+    use data_processing::parsers::makemeahanzi;
+
+    let mmah_dict_path = datasets_dir.join("makemeahanzi").join("dictionary.txt");
+    let mmah_graphics_path = datasets_dir.join("makemeahanzi").join("graphics.txt");
+
+    if mmah_dict_path.exists() && mmah_graphics_path.exists() {
+        println!("[DB BUILD] Parsing Make Me a Hanzi data...");
+        let dictionary = makemeahanzi::parse_dictionary_file(mmah_dict_path.to_str().unwrap())?;
+        let graphics = makemeahanzi::parse_graphics_file(mmah_graphics_path.to_str().unwrap())?;
+        let mmah_data = makemeahanzi::merge_data(dictionary, graphics);
+        println!("[DB BUILD] Loaded {} stroke entries", mmah_data.len());
+
+        // Create strokes directory
+        let strokes_dir = project_root.join("resources").join("strokes");
+        println!("[DB BUILD] Creating strokes directory at {:?}", strokes_dir);
+
+        // Generate stroke SVG files and update database
+        db_builder::populate_stroke_data(
+            output_path.to_str().unwrap(),
+            mmah_data,
+            strokes_dir.to_str().unwrap(),
+        )?;
+        println!("[DB BUILD] Stroke data generated successfully!");
+    } else {
+        println!("[DB BUILD] Warning: Make Me a Hanzi data not found. Stroke order will not be available.");
+        println!("[DB BUILD]   Expected at: {:?}", datasets_dir.join("makemeahanzi"));
+    }
+
     println!("[DB BUILD] Database created successfully!");
 
     Ok(output_path)

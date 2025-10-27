@@ -15,6 +15,9 @@ datasets/
 *.db-wal
 data-processing/downloads/
 
+# Generated resources (auto-generated on first run)
+src-tauri/resources/
+
 # Extracted data files
 cedict*.txt
 cedict*.gz
