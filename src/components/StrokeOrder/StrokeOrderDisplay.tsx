@@ -20,7 +20,7 @@ interface StrokeOrderDisplayProps {
 
 export default function StrokeOrderDisplay({
   characterId,
-  autoPlay = false,
+  autoPlay: _autoPlay = false,
   showControls = true,
   className = "",
 }: StrokeOrderDisplayProps) {

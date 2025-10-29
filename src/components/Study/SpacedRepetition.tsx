@@ -407,6 +407,29 @@ function SpacedRepetition({
           ...prev,
           cardsIncorrect: prev.cardsIncorrect + 1,
         }));
+
+        // For regular review sessions (not initial study), submit incorrect answer immediately
+        // This ensures the SRS algorithm reduces the interval
+        if (!isInitialStudy) {
+          try {
+            console.log(
+              "[SRS] First incorrect answer for character. Submitting with correct=false:",
+              currentQuestion.character_id
+            );
+            await invoke("submit_srs_answer", {
+              characterId: currentQuestion.character_id,
+              correct: false,
+            });
+            // Mark as submitted so we don't submit again when eventually correct
+            progress.submitted = true;
+            setCharacterProgress(
+              new Map(characterProgress.set(currentQuestion.character_id, progress))
+            );
+            console.log("[SRS] Incorrect answer submitted successfully");
+          } catch (error) {
+            console.error("[SRS] Error submitting incorrect answer:", error);
+          }
+        }
       }
 
       // If incorrect, add this question back to the end of the queue
@@ -519,13 +542,20 @@ function SpacedRepetition({
   const processInitialStudyCompletion = async () => {
     if (!isInitialStudy) return;
 
-    const completedCharactersList: number[] = [];
+    const correctCharactersList: number[] = [];
+    const incorrectCharactersList: number[] = [];
     const incompleteCharactersList: number[] = [];
 
     characterProgress.forEach((progress) => {
-      if (progress.submitted || (progress.definitionCorrect && progress.pinyinCorrect)) {
-        // Fully completed - already submitted during session
-        completedCharactersList.push(progress.character_id);
+      if (progress.definitionCorrect && progress.pinyinCorrect) {
+        // Fully completed
+        if (progress.hadIncorrectAnswer) {
+          // Had at least one incorrect answer during the session
+          incorrectCharactersList.push(progress.character_id);
+        } else {
+          // All answers correct on first try
+          correctCharactersList.push(progress.character_id);
+        }
       } else {
         // Incomplete (not answered at all, or only partially answered)
         incompleteCharactersList.push(progress.character_id);
@@ -534,30 +564,54 @@ function SpacedRepetition({
 
     console.log(
       "[SRS] Initial study completion:",
-      completedCharactersList.length,
-      "completed,",
+      correctCharactersList.length,
+      "correct (no errors),",
+      incorrectCharactersList.length,
+      "correct after errors,",
       incompleteCharactersList.length,
       "incomplete"
     );
 
-    // Mark completed characters with 1-hour interval (if not already submitted)
-    const notYetSubmitted = completedCharactersList.filter((id) => {
-      const progress = characterProgress.get(id);
-      return progress && !progress.submitted;
-    });
+    // Submit each character individually based on their performance
+    // Characters with no errors: submit with correct=true (progress to next interval)
+    if (correctCharactersList.length > 0) {
+      console.log(
+        "[SRS] Submitting",
+        correctCharactersList.length,
+        "characters with no errors (correct=true)..."
+      );
 
-    if (notYetSubmitted.length > 0) {
-      try {
-        await invoke("complete_initial_srs_session", {
-          characterIds: notYetSubmitted,
-        });
-        console.log(
-          "[SRS] Marked",
-          notYetSubmitted.length,
-          "completed characters (1-hour interval)"
-        );
-      } catch (error) {
-        console.error("[SRS] Error marking completed characters:", error);
+      for (const characterId of correctCharactersList) {
+        try {
+          await invoke("submit_srs_answer", {
+            characterId,
+            correct: true,
+          });
+          console.log("[SRS] Submitted correct character:", characterId);
+        } catch (error) {
+          console.error("[SRS] Error submitting correct character:", characterId, error);
+        }
+      }
+    }
+
+    // Characters with errors: submit with correct=false (stay at current interval or rollback)
+    if (incorrectCharactersList.length > 0) {
+      console.log(
+        "[SRS] Submitting",
+        incorrectCharactersList.length,
+        "characters that had errors (correct=false)..."
+      );
+
+      for (const characterId of incorrectCharactersList) {
+        try {
+          await invoke("submit_srs_answer", {
+            characterId,
+            correct: false,
+          });
+          console.log("[SRS] Submitted incorrect character:", characterId);
+        } catch (error) {
+          console.error("[SRS] Error submitting incorrect character:", characterId, error);
+        }
       }
     }
 

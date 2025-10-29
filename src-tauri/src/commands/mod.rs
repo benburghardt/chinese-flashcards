@@ -139,7 +139,8 @@ pub fn get_unlocked_characters_batch(
 ) -> Result<Vec<Character>, String> {
     let conn = db.0.lock().unwrap();
 
-    // Get characters that have been unlocked but not yet introduced
+    // Get items (characters and words) that have been unlocked but not yet introduced
+    // Sorted by introduction_rank to ensure proper learning order (words after their components)
     let mut stmt = conn
         .prepare(
             "SELECT c.id, c.character, c.simplified, c.traditional,
@@ -147,12 +148,12 @@ pub fn get_unlocked_characters_batch(
          FROM characters c
          INNER JOIN user_progress p ON c.id = p.character_id
          WHERE p.introduced = 0
-         ORDER BY c.frequency_rank ASC
+         ORDER BY c.introduction_rank ASC
          LIMIT ?1",
         )
         .map_err(|e| e.to_string())?;
 
-    let characters = stmt
+    let items = stmt
         .query_map([batch_size], |row| {
             Ok(Character {
                 id: row.get(0)?,
@@ -169,7 +170,7 @@ pub fn get_unlocked_characters_batch(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    Ok(characters)
+    Ok(items)
 }
 
 #[tauri::command]

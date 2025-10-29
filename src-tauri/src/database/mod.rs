@@ -898,7 +898,7 @@ pub fn get_introduced_count(conn: &Connection) -> Result<usize> {
     Ok(count)
 }
 
-/// Initialize new user with first 30 characters
+/// Initialize new user with first 100 items (characters and words mixed by introduction order)
 pub fn initialize_new_user_characters(conn: &Connection) -> Result<usize> {
     // Check if already initialized
     let initial_unlock_completed =
@@ -909,41 +909,42 @@ pub fn initialize_new_user_characters(conn: &Connection) -> Result<usize> {
         return Ok(0);
     }
 
-    println!("[DB] Initializing new user with first 30 characters");
+    println!("[DB] Initializing new user with first 100 items (characters and words)");
 
-    // Get first 30 characters by frequency that aren't in user_progress
+    // Get first 100 items (characters + words) by introduction_rank
+    // introduction_rank ensures words appear after their component characters
     let mut stmt = conn.prepare(
         "SELECT c.id
          FROM characters c
-         WHERE c.is_word = 0
-           AND NOT EXISTS (
+         WHERE NOT EXISTS (
                SELECT 1 FROM user_progress p
                WHERE p.character_id = c.id
            )
-         ORDER BY c.frequency_rank ASC
+           AND c.introduction_rank IS NOT NULL
+         ORDER BY c.introduction_rank ASC
          LIMIT 100",
     )?;
 
-    let character_ids: Vec<i32> = stmt
+    let item_ids: Vec<i32> = stmt
         .query_map([], |row| row.get(0))?
         .collect::<Result<Vec<i32>>>()?;
 
-    let count = character_ids.len();
+    let count = item_ids.len();
 
-    // Insert all 30 into user_progress with introduced = 0
-    for character_id in character_ids {
+    // Insert all items into user_progress with introduced = 0
+    for item_id in item_ids {
         conn.execute(
             "INSERT INTO user_progress
              (character_id, current_interval_days, previous_interval_days, next_review_date, introduced)
              VALUES (?1, 0.0417, 0.0417, datetime('now'), 0)",
-            [character_id]
+            [item_id]
         )?;
     }
 
     // Mark initial unlock as completed
     set_setting(conn, "initial_unlock_completed", "true")?;
 
-    println!("[DB] Unlocked {} initial characters", count);
+    println!("[DB] Unlocked {} initial items (characters and words)", count);
     Ok(count)
 }
 
@@ -1058,39 +1059,39 @@ pub fn check_and_unlock_characters(conn: &Connection) -> Result<(usize, bool)> {
         return Ok((0, false));
     }
 
-    // Unlock next 100 characters
-    println!("[DB] Unlocking next 100 characters");
+    // Unlock next 100 items (characters and words in introduction order)
+    println!("[DB] Unlocking next 100 items (characters and words)");
 
     let mut stmt = conn.prepare(
         "SELECT c.id
          FROM characters c
-         WHERE c.is_word = 0
-           AND NOT EXISTS (
+         WHERE NOT EXISTS (
                SELECT 1 FROM user_progress p
                WHERE p.character_id = c.id
            )
-         ORDER BY c.frequency_rank ASC
+           AND c.introduction_rank IS NOT NULL
+         ORDER BY c.introduction_rank ASC
          LIMIT 100",
     )?;
 
-    let character_ids: Vec<i32> = stmt
+    let item_ids: Vec<i32> = stmt
         .query_map([], |row| row.get(0))?
         .collect::<Result<Vec<i32>>>()?;
 
-    let count = character_ids.len();
+    let count = item_ids.len();
 
     if count == 0 {
-        println!("[DB] No more characters to unlock!");
+        println!("[DB] No more items to unlock!");
         return Ok((0, false));
     }
 
     // Insert into user_progress
-    for character_id in character_ids {
+    for item_id in item_ids {
         conn.execute(
             "INSERT INTO user_progress
              (character_id, current_interval_days, previous_interval_days, next_review_date, introduced)
              VALUES (?1, 0.0417, 0.0417, datetime('now'), 0)",
-            [character_id]
+            [item_id]
         )?;
     }
 
