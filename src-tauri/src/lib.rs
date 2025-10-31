@@ -35,6 +35,7 @@ pub fn run() {
             commands::get_recent_sessions,
             commands::start_session,
             commands::end_session,
+            commands::search_characters,
             commands::browse_characters,
             commands::get_total_characters_count,
             commands::browse_introduction_order,
@@ -43,6 +44,8 @@ pub fn run() {
             commands::get_database_debug_info,
             commands::get_character_stroke_data,
             commands::read_stroke_svg,
+            commands::get_writing_practice_characters,
+            commands::record_writing_practice_session,
         ])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())

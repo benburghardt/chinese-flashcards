@@ -1,0 +1,101 @@
+.drawing-canvas-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.drawing-canvas {
+  border: 2px solid #2c3e50;
+  border-radius: 8px;
+  background: white;
+  cursor: crosshair;
+  touch-action: none; /* Prevent default touch behaviors like scrolling */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.drawing-canvas:active {
+  cursor: crosshair;
+}
+
+.drawing-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.drawing-controls button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.btn-undo {
+  background: #3498db;
+  color: white;
+}
+
+.btn-undo:hover:not(:disabled) {
+  background: #2980b9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+}
+
+.btn-clear {
+  background: #e74c3c;
+  color: white;
+}
+
+.btn-clear:hover:not(:disabled) {
+  background: #c0392b;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+}
+
+.drawing-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.drawing-controls button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.stroke-count {
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-weight: 500;
+  color: #2c3e50;
+  border: 1px solid #e0e0e0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .drawing-canvas-container {
+    width: 100%;
+  }
+
+  .drawing-controls {
+    width: 100%;
+  }
+
+  .drawing-controls button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .stroke-count {
+    flex: 1;
+    text-align: center;
+  }
+}

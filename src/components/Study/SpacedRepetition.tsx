@@ -5,6 +5,7 @@ import {
   convertToneNumbersToMarks,
   hasCorrectSyllablesButWrongTones,
 } from "../../utils/answerVerification";
+import StrokeOrderDisplay from "../StrokeOrder/StrokeOrderDisplay";
 import "./SpacedRepetition.css";
 
 interface DueCard {
@@ -14,6 +15,7 @@ interface DueCard {
   definition: string;
   current_interval: number;
   times_reviewed: number;
+  is_word: boolean;
 }
 
 type QuestionType = "definition" | "pinyin";
@@ -26,6 +28,7 @@ interface Question {
   definition: string;
   questionType: QuestionType;
   answeredCorrectly: boolean | null; // null = not answered, true/false = result
+  is_word: boolean;
 }
 
 interface CharacterProgress {
@@ -229,6 +232,7 @@ function SpacedRepetition({
           definition: card.definition,
           questionType: "definition",
           answeredCorrectly: null,
+          is_word: card.is_word,
         });
 
         // Pinyin question
@@ -240,6 +244,7 @@ function SpacedRepetition({
           definition: card.definition,
           questionType: "pinyin",
           answeredCorrectly: null,
+          is_word: card.is_word,
         });
       });
 
@@ -963,6 +968,16 @@ function SpacedRepetition({
                     <span className="value">{currentQuestion.definition}</span>
                   </div>
                 </div>
+                {/* Stroke Order section - only show for single characters */}
+                {!currentQuestion.is_word && (
+                  <div className="stroke-order-feedback-section">
+                    <StrokeOrderDisplay
+                      characterId={currentQuestion.character_id}
+                      autoPlay={true}
+                      showControls={true}
+                    />
+                  </div>
+                )}
               </>
             )}
             {!wrongTonesOnly && (

@@ -360,7 +360,7 @@ pub fn get_characters_for_initial_study(
     for char_id in character_ids {
         let card: Result<DueCard, rusqlite::Error> = conn.query_row(
             "SELECT c.id, c.character, c.mandarin_pinyin, c.definition,
-                    p.current_interval_days, p.times_reviewed
+                    p.current_interval_days, p.times_reviewed, c.is_word
              FROM characters c
              JOIN user_progress p ON c.id = p.character_id
              WHERE c.id = ?1",
@@ -373,6 +373,7 @@ pub fn get_characters_for_initial_study(
                     definition: row.get(3)?,
                     current_interval: row.get(4)?,
                     times_reviewed: row.get(5)?,
+                    is_word: row.get(6)?,
                 })
             },
         );
@@ -649,6 +650,44 @@ pub struct CharacterWithProgress {
 }
 
 #[tauri::command]
+pub fn search_characters(
+    db: State<DbConnection>,
+    query: String,
+    limit: usize,
+) -> Result<Vec<Character>, String> {
+    let conn = db.0.lock().unwrap();
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, character, simplified, traditional, mandarin_pinyin,
+                definition, frequency_rank, is_word
+         FROM characters
+         WHERE character = ?1
+         LIMIT ?2",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let characters = stmt
+        .query_map([&query, &limit.to_string()], |row| {
+            Ok(Character {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                simplified: row.get(2)?,
+                traditional: row.get(3)?,
+                mandarin_pinyin: row.get(4)?,
+                definition: row.get(5)?,
+                frequency_rank: row.get(6)?,
+                is_word: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(characters)
+}
+
+#[tauri::command]
 pub fn browse_characters(
     db: State<DbConnection>,
     offset: usize,
@@ -892,6 +931,7 @@ pub fn get_character_stroke_data(
 pub fn read_stroke_svg(svg_path: String) -> Result<String, String> {
     // Get the resources directory
     let resources_dir = if cfg!(debug_assertions) {
+        // In debug mode, we're running from src-tauri directory
         PathBuf::from("resources")
     } else {
         // In production, Tauri handles this differently
@@ -902,11 +942,104 @@ pub fn read_stroke_svg(svg_path: String) -> Result<String, String> {
     let full_path = resources_dir.join(&svg_path);
 
     println!("[RUST] Reading SVG from: {:?}", full_path);
+    println!("[RUST] Current directory: {:?}", std::env::current_dir());
 
     fs::read_to_string(&full_path).map_err(|e| {
         eprintln!("[RUST] Error reading SVG file {:?}: {}", full_path, e);
         format!("Failed to read SVG file: {}", e)
     })
+}
+
+// === Writing Practice Commands ===
+
+#[derive(serde::Serialize)]
+pub struct PracticeCharacter {
+    pub id: i32,
+    pub character: String,
+    pub simplified: Option<String>,
+    pub traditional: Option<String>,
+    pub mandarin_pinyin: String,
+    pub definition: String,
+    pub stroke_count: i32,
+}
+
+#[tauri::command]
+pub fn get_writing_practice_characters(
+    db: State<DbConnection>,
+    count: usize,
+) -> Result<Vec<PracticeCharacter>, String> {
+    let conn = db.0.lock().unwrap();
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, character, simplified, traditional, mandarin_pinyin,
+                    definition, stroke_count
+             FROM characters
+             WHERE stroke_data_path IS NOT NULL
+               AND stroke_count IS NOT NULL
+               AND is_word = 0
+             ORDER BY frequency_rank ASC
+             LIMIT ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let characters = stmt
+        .query_map([count], |row| {
+            Ok(PracticeCharacter {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                simplified: row.get(2)?,
+                traditional: row.get(3)?,
+                mandarin_pinyin: row.get(4)?,
+                definition: row.get(5)?,
+                stroke_count: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    println!(
+        "[RUST] Loaded {} characters for writing practice",
+        characters.len()
+    );
+
+    Ok(characters)
+}
+
+#[tauri::command]
+pub fn record_writing_practice_session(
+    db: State<DbConnection>,
+    character_ids: Vec<i32>,
+    duration: i32,
+    total_attempts: i32,
+) -> Result<(), String> {
+    let conn = db.0.lock().unwrap();
+
+    println!(
+        "[RUST] Recording writing practice session: {} characters, {} seconds, {} attempts",
+        character_ids.len(),
+        duration,
+        total_attempts
+    );
+
+    // Start a new study session with mode "writing_practice"
+    let session_id = crate::database::start_study_session(&conn, "writing_practice")
+        .map_err(|e| e.to_string())?;
+
+    // End the session with statistics
+    crate::database::end_study_session(
+        &conn,
+        session_id,
+        character_ids.len() as i32,
+        character_ids.len() as i32, // All characters completed in writing practice
+        0,                          // No incorrect cards (retry system instead)
+    )
+    .map_err(|e| e.to_string())?;
+
+    println!("[RUST] Writing practice session recorded successfully");
+
+    Ok(())
 }
 
 // === Review Calendar Commands ===

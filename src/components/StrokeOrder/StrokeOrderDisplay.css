@@ -63,6 +63,13 @@
   stroke: none;
 }
 
+/* Shadow layer - shows complete character outline */
+.stroke-shadow-layer .stroke-shadow {
+  fill: #d0d0d0;
+  opacity: 0.3;
+  stroke: none;
+}
+
 .stroke-order-controls {
   display: flex;
   flex-direction: column;

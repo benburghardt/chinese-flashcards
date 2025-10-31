@@ -20,7 +20,7 @@ interface StrokeOrderDisplayProps {
 
 export default function StrokeOrderDisplay({
   characterId,
-  autoPlay: _autoPlay = false,
+  autoPlay = true,
   showControls = true,
   className = "",
 }: StrokeOrderDisplayProps) {
@@ -33,6 +33,7 @@ export default function StrokeOrderDisplay({
   const [error, setError] = useState<string>("");
 
   const animationRef = useRef<number | null>(null);
+  const loopTimeoutRef = useRef<number | null>(null);
   const strokePathsRef = useRef<SVGPathElement[]>([]);
   const svgContainerRef = useRef<HTMLDivElement>(null);
 
@@ -43,10 +44,11 @@ export default function StrokeOrderDisplay({
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      if (loopTimeoutRef.current) {
+        clearTimeout(loopTimeoutRef.current);
+      }
     };
   }, [characterId]);
-
-  // Always start paused - removed autoPlay behavior
 
   const loadStrokeData = async () => {
     setLoading(true);
@@ -93,6 +95,25 @@ export default function StrokeOrderDisplay({
     // Find all stroke paths
     const paths = Array.from(svg.querySelectorAll("path")) as SVGPathElement[];
     strokePathsRef.current = paths;
+
+    // Create shadow layer - duplicate paths for background outline
+    const shadowGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    shadowGroup.setAttribute("class", "stroke-shadow-layer");
+    shadowGroup.setAttribute("transform", "scale(1, -1) translate(0, -900)");
+
+    paths.forEach((path) => {
+      const shadowPath = path.cloneNode(true) as SVGPathElement;
+      shadowPath.removeAttribute("mask");
+      shadowPath.removeAttribute("data-median"); // Remove to avoid selector conflicts
+      shadowPath.setAttribute("class", "stroke-shadow");
+      shadowGroup.appendChild(shadowPath);
+    });
+
+    // Insert shadow group as first child of SVG (behind everything)
+    const mainGroup = svg.querySelector("g");
+    if (mainGroup && mainGroup.parentNode) {
+      mainGroup.parentNode.insertBefore(shadowGroup, mainGroup);
+    }
 
     // Create masks for progressive reveal animation
     const defs = svg.querySelector("defs") || svg.insertBefore(
@@ -151,6 +172,45 @@ export default function StrokeOrderDisplay({
     setCurrentStroke(0);
   }, [svgContent]);
 
+  // Auto-play when SVG is loaded
+  useEffect(() => {
+    if (autoPlay && strokePathsRef.current.length > 0 && !loading) {
+      setIsPlaying(true);
+    }
+  }, [svgContent, autoPlay, loading]);
+
+  // Restart animation helper
+  const restartAnimation = useCallback(() => {
+    if (!svgContainerRef.current) return;
+
+    // Clear any pending loop timeout
+    if (loopTimeoutRef.current) {
+      clearTimeout(loopTimeoutRef.current);
+      loopTimeoutRef.current = null;
+    }
+
+    const svg = svgContainerRef.current.querySelector("svg");
+    if (!svg) return;
+
+    // Reset mask animation paths
+    strokePathsRef.current.forEach((maskPath, index) => {
+      const length = maskPath.getTotalLength();
+      maskPath.style.strokeDashoffset = length.toString();
+
+      // Re-apply mask to fill path
+      const fillPaths = svg.querySelectorAll("g > path[data-median]");
+      if (fillPaths) {
+        const fillPath = fillPaths[index] as SVGPathElement;
+        if (fillPath) {
+          fillPath.setAttribute("mask", `url(#stroke-mask-${index})`);
+        }
+      }
+    });
+
+    setCurrentStroke(0);
+    setIsPlaying(true);
+  }, []);
+
   // Animation logic
   useEffect(() => {
     if (!isPlaying || strokePathsRef.current.length === 0) return;
@@ -196,8 +256,11 @@ export default function StrokeOrderDisplay({
           if (strokeIndex < paths.length) {
             animationRef.current = requestAnimationFrame(animate);
           } else {
-            // Animation complete
+            // Animation complete - wait 1 second then restart
             setIsPlaying(false);
+            loopTimeoutRef.current = window.setTimeout(() => {
+              restartAnimation();
+            }, 1000);
           }
         }
       }
@@ -209,46 +272,32 @@ export default function StrokeOrderDisplay({
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      // Don't clear loopTimeoutRef here - it would cancel the auto-restart
+      // Only clear it on manual pause/restart or component unmount
     };
-  }, [isPlaying, currentStroke, speed]);
+  }, [isPlaying, currentStroke, speed, restartAnimation]);
 
   const handlePlay = useCallback(() => {
     if (currentStroke >= strokePathsRef.current.length) {
       // Restart if at the end
-      handleRestart();
+      restartAnimation();
     } else {
       setIsPlaying(true);
     }
-  }, [currentStroke]);
+  }, [currentStroke, restartAnimation]);
 
   const handlePause = useCallback(() => {
     setIsPlaying(false);
+    // Clear any pending loop timeout when manually paused
+    if (loopTimeoutRef.current) {
+      clearTimeout(loopTimeoutRef.current);
+      loopTimeoutRef.current = null;
+    }
   }, []);
 
   const handleRestart = useCallback(() => {
-    if (!svgContainerRef.current) return;
-
-    const svg = svgContainerRef.current.querySelector("svg");
-    if (!svg) return;
-
-    // Reset mask animation paths
-    strokePathsRef.current.forEach((maskPath, index) => {
-      const length = maskPath.getTotalLength();
-      maskPath.style.strokeDashoffset = length.toString();
-
-      // Re-apply mask to fill path
-      const fillPaths = svg.querySelectorAll("g > path[data-median]");
-      if (fillPaths) {
-        const fillPath = fillPaths[index] as SVGPathElement;
-        if (fillPath) {
-          fillPath.setAttribute("mask", `url(#stroke-mask-${index})`);
-        }
-      }
-    });
-
-    setCurrentStroke(0);
-    setIsPlaying(true);
-  }, []);
+    restartAnimation();
+  }, [restartAnimation]);
 
   const handleSpeedChange = useCallback((newSpeed: number) => {
     setSpeed(newSpeed);

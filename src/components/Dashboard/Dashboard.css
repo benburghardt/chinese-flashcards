@@ -596,3 +596,9 @@
     gap: 6px;
   }
 }
+
+/* Demo badge styling */
+.option-badge.demo-badge {
+  background: #3498db;
+  color: white;
+}

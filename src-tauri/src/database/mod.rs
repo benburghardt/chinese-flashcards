@@ -260,6 +260,7 @@ pub struct DueCard {
     pub definition: String,
     pub current_interval: f32,
     pub times_reviewed: i32,
+    pub is_word: bool,
 }
 
 pub fn get_due_cards(conn: &Connection) -> Result<Vec<DueCard>> {
@@ -279,7 +280,7 @@ pub fn get_due_cards(conn: &Connection) -> Result<Vec<DueCard>> {
 
     let mut stmt = conn.prepare(
         "SELECT c.id, c.character, c.mandarin_pinyin, c.definition,
-                p.current_interval_days, p.times_reviewed
+                p.current_interval_days, p.times_reviewed, c.is_word
          FROM characters c
          JOIN user_progress p ON c.id = p.character_id
          WHERE p.introduced = 1
@@ -296,6 +297,7 @@ pub fn get_due_cards(conn: &Connection) -> Result<Vec<DueCard>> {
             definition: row.get(3)?,
             current_interval: row.get(4)?,
             times_reviewed: row.get(5)?,
+            is_word: row.get(6)?,
         })
     })?;
 
@@ -805,7 +807,7 @@ pub fn mark_character_introduced(conn: &Connection, character_id: i32) -> Result
 pub fn get_self_study_cards(conn: &Connection, limit: usize) -> Result<Vec<DueCard>> {
     let mut stmt = conn.prepare(
         "SELECT c.id, c.character, c.mandarin_pinyin, c.definition,
-                p.current_interval_days, p.times_reviewed
+                p.current_interval_days, p.times_reviewed, c.is_word
          FROM characters c
          JOIN user_progress p ON c.id = p.character_id
          WHERE p.next_review_date > datetime('now')
@@ -827,6 +829,7 @@ pub fn get_self_study_cards(conn: &Connection, limit: usize) -> Result<Vec<DueCa
             definition: row.get(3)?,
             current_interval: row.get(4)?,
             times_reviewed: row.get(5)?,
+            is_word: row.get(6)?,
         })
     })?;
 

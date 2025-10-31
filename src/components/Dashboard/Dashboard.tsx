@@ -31,6 +31,9 @@ interface DashboardProps {
   onStartSrsSession: () => void;
   onStartSelfStudy: () => void;
   onBrowseDictionary: () => void;
+  onStartWritingPracticeDemo?: () => void;
+  onStartWritingPracticeVerificationDemo?: () => void;
+  onStartWritingPracticeMode?: () => void;
 }
 
 function Dashboard({
@@ -38,6 +41,9 @@ function Dashboard({
   onStartSrsSession,
   onStartSelfStudy,
   onBrowseDictionary,
+  onStartWritingPracticeDemo,
+  onStartWritingPracticeVerificationDemo,
+  onStartWritingPracticeMode,
 }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [unlockStatus, setUnlockStatus] = useState<{
@@ -198,6 +204,29 @@ function Dashboard({
             <span className="option-icon">📕</span>
             <span className="option-label">Dictionary</span>
           </button>
+
+          {onStartWritingPracticeMode && (
+            <button className="option-button" onClick={onStartWritingPracticeMode}>
+              <span className="option-icon">✍️</span>
+              <span className="option-label">Writing Practice</span>
+            </button>
+          )}
+
+          {onStartWritingPracticeDemo && (
+            <button className="option-button" onClick={onStartWritingPracticeDemo}>
+              <span className="option-icon">📝</span>
+              <span className="option-label">Drawing Demo</span>
+              <span className="option-badge demo-badge">Demo</span>
+            </button>
+          )}
+
+          {onStartWritingPracticeVerificationDemo && (
+            <button className="option-button" onClick={onStartWritingPracticeVerificationDemo}>
+              <span className="option-icon">✅</span>
+              <span className="option-label">Stroke Verification</span>
+              <span className="option-badge demo-badge">Demo</span>
+            </button>
+          )}
 
           <button className="option-button" disabled>
             <span className="option-icon">⚙️</span>

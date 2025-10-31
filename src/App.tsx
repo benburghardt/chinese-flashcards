@@ -5,6 +5,9 @@ import IntroductionScreen from "./components/Introduction/IntroductionScreen";
 import SpacedRepetition from "./components/Study/SpacedRepetition";
 import SelfStudy from "./components/Study/SelfStudy";
 import Dictionary from "./components/Dictionary/Dictionary";
+import WritingPracticeDemo from "./components/WritingPractice/WritingPracticeDemo";
+import WritingPracticeVerificationDemo from "./components/WritingPractice/WritingPracticeVerificationDemo";
+import WritingPracticeMode from "./components/WritingPractice/WritingPracticeMode";
 import "./App.css";
 
 interface Character {
@@ -25,7 +28,10 @@ type ViewMode =
   | "mini-srs"
   | "srs-session"
   | "self-study"
-  | "dictionary";
+  | "dictionary"
+  | "writing-practice-demo"
+  | "writing-practice-verification-demo"
+  | "writing-practice-mode";
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
@@ -70,6 +76,30 @@ function App() {
   };
 
   const handleDictionaryClose = () => {
+    setViewMode("dashboard");
+  };
+
+  const handleStartWritingPracticeDemo = () => {
+    setViewMode("writing-practice-demo");
+  };
+
+  const handleWritingPracticeDemoClose = () => {
+    setViewMode("dashboard");
+  };
+
+  const handleStartWritingPracticeVerificationDemo = () => {
+    setViewMode("writing-practice-verification-demo");
+  };
+
+  const handleWritingPracticeVerificationDemoClose = () => {
+    setViewMode("dashboard");
+  };
+
+  const handleStartWritingPracticeMode = () => {
+    setViewMode("writing-practice-mode");
+  };
+
+  const handleWritingPracticeModeClose = () => {
     setViewMode("dashboard");
   };
 
@@ -269,6 +299,39 @@ function App() {
     );
   }
 
+  // Show Writing Practice Demo
+  if (viewMode === "writing-practice-demo") {
+    return (
+      <div className="app-container">
+        <div className="back-button-container">
+          <button className="btn-back" onClick={handleWritingPracticeDemoClose}>
+            ← Back to Dashboard
+          </button>
+        </div>
+        <WritingPracticeDemo />
+      </div>
+    );
+  }
+
+  // Show Writing Practice Verification Demo
+  if (viewMode === "writing-practice-verification-demo") {
+    return (
+      <div className="app-container">
+        <div className="back-button-container">
+          <button className="btn-back" onClick={handleWritingPracticeVerificationDemoClose}>
+            ← Back to Dashboard
+          </button>
+        </div>
+        <WritingPracticeVerificationDemo />
+      </div>
+    );
+  }
+
+  // Show Writing Practice Mode (full study session)
+  if (viewMode === "writing-practice-mode") {
+    return <WritingPracticeMode />;
+  }
+
   // Show Dashboard (default view)
   if (viewMode === "dashboard") {
     return (
@@ -277,6 +340,9 @@ function App() {
         onStartSrsSession={handleStartSrsSession}
         onStartSelfStudy={handleStartSelfStudy}
         onBrowseDictionary={handleBrowseDictionary}
+        onStartWritingPracticeDemo={handleStartWritingPracticeDemo}
+        onStartWritingPracticeVerificationDemo={handleStartWritingPracticeVerificationDemo}
+        onStartWritingPracticeMode={handleStartWritingPracticeMode}
       />
     );
   }

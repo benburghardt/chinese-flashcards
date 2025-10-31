@@ -706,3 +706,17 @@
     gap: 10px;
   }
 }
+
+/* Stroke Order Feedback Section */
+.stroke-order-feedback-section {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.stroke-order-feedback-section .stroke-order-display {
+  box-shadow: none;
+  background: transparent;
+}
