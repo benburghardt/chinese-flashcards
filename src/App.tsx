@@ -8,6 +8,7 @@ import Dictionary from "./components/Dictionary/Dictionary";
 import WritingPracticeDemo from "./components/WritingPractice/WritingPracticeDemo";
 import WritingPracticeVerificationDemo from "./components/WritingPractice/WritingPracticeVerificationDemo";
 import WritingPracticeMode from "./components/WritingPractice/WritingPracticeMode";
+import SpeechRecognitionTest from "./components/TTS/SpeechRecognitionTest";
 import "./App.css";
 
 interface Character {
@@ -31,7 +32,8 @@ type ViewMode =
   | "dictionary"
   | "writing-practice-demo"
   | "writing-practice-verification-demo"
-  | "writing-practice-mode";
+  | "writing-practice-mode"
+  | "speech-recognition-test";
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
@@ -101,6 +103,10 @@ function App() {
 
   const handleWritingPracticeModeClose = () => {
     setViewMode("dashboard");
+  };
+
+  const handleStartSpeechRecognitionTest = () => {
+    setViewMode("speech-recognition-test");
   };
 
   const handleIntroductionComplete = () => {
@@ -332,6 +338,33 @@ function App() {
     return <WritingPracticeMode />;
   }
 
+  // Show Speech Recognition Test
+  if (viewMode === "speech-recognition-test") {
+    return (
+      <div style={{ position: 'relative' }}>
+        <button
+          onClick={() => setViewMode("dashboard")}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            padding: '10px 20px',
+            background: '#dc2626',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            zIndex: 10,
+          }}
+        >
+          Back to Dashboard
+        </button>
+        <SpeechRecognitionTest />
+      </div>
+    );
+  }
+
   // Show Dashboard (default view)
   if (viewMode === "dashboard") {
     return (
@@ -343,6 +376,7 @@ function App() {
         onStartWritingPracticeDemo={handleStartWritingPracticeDemo}
         onStartWritingPracticeVerificationDemo={handleStartWritingPracticeVerificationDemo}
         onStartWritingPracticeMode={handleStartWritingPracticeMode}
+        onStartSpeechRecognitionTest={handleStartSpeechRecognitionTest}
       />
     );
   }

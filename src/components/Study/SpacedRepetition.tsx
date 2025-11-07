@@ -6,6 +6,7 @@ import {
   hasCorrectSyllablesButWrongTones,
 } from "../../utils/answerVerification";
 import StrokeOrderDisplay from "../StrokeOrder/StrokeOrderDisplay";
+import { useSpeech } from "../../hooks/useSpeech";
 import "./SpacedRepetition.css";
 
 interface DueCard {
@@ -80,6 +81,12 @@ function SpacedRepetition({
   const [sessionEnded, setSessionEnded] = useState(false); // Track if session has been ended
   const [isRetryAttempt, setIsRetryAttempt] = useState(false); // Track if user is retrying after wrong tones
   const [wrongTonesOnly, setWrongTonesOnly] = useState(false); // Track if user had correct syllables but wrong tones
+
+  // Text-to-speech hook
+  const { speak, speaking, supported: ttsSupported, error: ttsError } = useSpeech({
+    lang: 'zh-CN',
+    rate: 1.0,
+  });
 
   // Load due cards on mount
   useEffect(() => {
@@ -284,6 +291,13 @@ function SpacedRepetition({
     } else {
       // For definition questions, use value as-is
       setUserAnswer(value);
+    }
+  };
+
+  const handlePronunciation = () => {
+    const currentQuestion = getCurrentQuestion();
+    if (ttsSupported && currentQuestion) {
+      speak(currentQuestion.character);
     }
   };
 
@@ -968,6 +982,47 @@ function SpacedRepetition({
                     <span className="value">{currentQuestion.definition}</span>
                   </div>
                 </div>
+                {/* TTS Pronunciation button - only show when answer is incorrect */}
+                {ttsSupported && (
+                  <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                    <button
+                      onClick={handlePronunciation}
+                      disabled={speaking}
+                      title="Play pronunciation"
+                      style={{
+                        padding: '12px 24px',
+                        background: speaking ? '#9333ea' : '#a855f7',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: speaking ? 'not-allowed' : 'pointer',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s',
+                        opacity: speaking ? 0.7 : 1,
+                      }}
+                    >
+                      <span style={{ fontSize: '20px' }}>{speaking ? '🔊' : '🔈'}</span>
+                      <span>Listen to Pronunciation</span>
+                    </button>
+                  </div>
+                )}
+                {ttsError && (
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '8px 12px',
+                    background: '#fef2f2',
+                    color: '#991b1b',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    textAlign: 'center',
+                  }}>
+                    {ttsError}
+                  </div>
+                )}
                 {/* Stroke Order section - only show for single characters */}
                 {!currentQuestion.is_word && (
                   <div className="stroke-order-feedback-section">

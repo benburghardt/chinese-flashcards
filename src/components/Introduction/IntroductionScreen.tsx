@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { convertToneNumbersToMarks } from "../../utils/answerVerification";
 import StrokeOrderDisplay from "../StrokeOrder/StrokeOrderDisplay";
+import { useSpeech } from "../../hooks/useSpeech";
 import "./IntroductionScreen.css";
 
 interface Character {
@@ -39,11 +40,23 @@ function IntroductionScreen({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
+  // Text-to-speech hook - available during learning
+  const { speak, speaking, supported: ttsSupported, error: ttsError } = useSpeech({
+    lang: 'zh-CN',
+    rate: 1.0,
+  });
+
   // Reset loading state when character changes
   useEffect(() => {
     setIsLoading(false);
     setError("");
   }, [character.id]);
+
+  const handlePronunciation = () => {
+    if (ttsSupported) {
+      speak(character.character);
+    }
+  };
 
   const handleNext = async () => {
     setIsLoading(true);
@@ -141,9 +154,44 @@ function IntroductionScreen({
         {/* Pinyin section */}
         <div className="info-card pinyin-card">
           <div className="card-label">Pronunciation</div>
-          <div className="card-content pinyin">
-            {convertToneNumbersToMarks(character.mandarin_pinyin)}
+          <div className="card-content pinyin" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span>{convertToneNumbersToMarks(character.mandarin_pinyin)}</span>
+            {ttsSupported && (
+              <button
+                onClick={handlePronunciation}
+                disabled={speaking}
+                title="Play pronunciation"
+                style={{
+                  padding: '8px 12px',
+                  background: speaking ? '#9333ea' : '#a855f7',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: speaking ? 'not-allowed' : 'pointer',
+                  fontSize: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                  opacity: speaking ? 0.7 : 1,
+                }}
+              >
+                {speaking ? '🔊' : '🔈'}
+              </button>
+            )}
           </div>
+          {ttsError && (
+            <div style={{
+              marginTop: '8px',
+              padding: '8px 12px',
+              background: '#fef2f2',
+              color: '#991b1b',
+              borderRadius: '4px',
+              fontSize: '13px',
+            }}>
+              {ttsError}
+            </div>
+          )}
         </div>
 
         {/* Definition section */}
