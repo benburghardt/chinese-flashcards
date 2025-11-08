@@ -46,6 +46,8 @@ pub fn run() {
             commands::read_stroke_svg,
             commands::get_writing_practice_characters,
             commands::record_writing_practice_session,
+            commands::get_listening_practice_characters,
+            commands::record_listening_practice_session,
         ])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())

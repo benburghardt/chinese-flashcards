@@ -1042,6 +1042,99 @@ pub fn record_writing_practice_session(
     Ok(())
 }
 
+// === Listening Practice Commands ===
+
+#[derive(serde::Serialize)]
+pub struct ListeningPracticeCharacter {
+    pub id: i32,
+    pub character: String,
+    pub simplified: Option<String>,
+    pub traditional: Option<String>,
+    pub mandarin_pinyin: String,
+    pub definition: String,
+    pub is_word: bool,
+}
+
+#[tauri::command]
+pub fn get_listening_practice_characters(
+    db: State<DbConnection>,
+    count: usize,
+) -> Result<Vec<ListeningPracticeCharacter>, String> {
+    let conn = db.0.lock().unwrap();
+
+    // Get characters that the user has learned (introduced = 1)
+    // Prefer higher frequency characters for listening practice
+    let mut stmt = conn
+        .prepare(
+            "SELECT c.id, c.character, c.simplified, c.traditional,
+                    c.mandarin_pinyin, c.definition, c.is_word
+             FROM characters c
+             INNER JOIN user_progress up ON c.id = up.character_id
+             WHERE up.introduced = 1
+             ORDER BY c.frequency_rank ASC
+             LIMIT ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let characters = stmt
+        .query_map([count], |row| {
+            Ok(ListeningPracticeCharacter {
+                id: row.get(0)?,
+                character: row.get(1)?,
+                simplified: row.get(2)?,
+                traditional: row.get(3)?,
+                mandarin_pinyin: row.get(4)?,
+                definition: row.get(5)?,
+                is_word: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    println!(
+        "[RUST] Loaded {} characters for listening practice",
+        characters.len()
+    );
+
+    Ok(characters)
+}
+
+#[tauri::command]
+pub fn record_listening_practice_session(
+    db: State<DbConnection>,
+    character_ids: Vec<i32>,
+    duration: i32,
+    total_attempts: i32,
+) -> Result<(), String> {
+    let conn = db.0.lock().unwrap();
+
+    println!(
+        "[RUST] Recording listening practice session: {} characters, {} seconds, {} attempts",
+        character_ids.len(),
+        duration,
+        total_attempts
+    );
+
+    // Start a new study session with mode "listening_practice"
+    let session_id = crate::database::start_study_session(&conn, "listening_practice")
+        .map_err(|e| e.to_string())?;
+
+    // End the session with statistics
+    crate::database::end_study_session(
+        &conn,
+        session_id,
+        character_ids.len() as i32,
+        character_ids.len() as i32, // All characters completed in listening practice
+        0,                          // No incorrect cards (retry system instead)
+    )
+    .map_err(|e| e.to_string())?;
+
+    println!("[RUST] Listening practice session recorded successfully");
+
+    Ok(())
+}
+
 // === Review Calendar Commands ===
 
 #[derive(serde::Serialize)]

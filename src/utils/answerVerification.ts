@@ -330,20 +330,45 @@ export function convertToneMarksToNumbers(pinyin: string): string {
       // Regular character (consonant or unaccented vowel)
       const lowerChar = char.toLowerCase();
 
-      // Check if we're starting a new syllable (consonant after vowels)
-      if (
-        currentSyllable &&
-        vowels.has(currentSyllable[currentSyllable.length - 1]) &&
-        consonants.has(lowerChar)
-      ) {
-        // Special cases for consonants that can be part of the same syllable:
-        // - 'ng' and 'n' at end of syllable
-        // - 'r' after 'e' (the special "er" rhotic syllable)
-        const isPartOfSameSyllable =
-          lowerChar === "n" || lowerChar === "g" || (lowerChar === "r" && currentSyllable === "e");
+      // Check if we're starting a new syllable
+      if (currentSyllable) {
+        const lastChar = currentSyllable[currentSyllable.length - 1];
 
-        if (!isPartOfSameSyllable) {
-          finishSyllable();
+        // Case 1: Consonant after vowel (potential new syllable or final consonant)
+        if (vowels.has(lastChar) && consonants.has(lowerChar)) {
+          // Special cases for consonants that CAN be part of the same syllable:
+          // - 'n' ONLY if not followed by a vowel (if followed by vowel, it starts new syllable)
+          // - 'g' ONLY after 'n' (forming 'ng')
+          // - 'r' after 'e' (the special "er" rhotic syllable)
+
+          let isPartOfSameSyllable = false;
+
+          if (lowerChar === "n") {
+            // Check if next char is a vowel - if so, 'n' starts new syllable
+            const nextChar = i + 1 < input.length ? input[i + 1].toLowerCase() : "";
+            if (nextChar && vowels.has(nextChar)) {
+              // 'n' followed by vowel = start of new syllable (like "ni")
+              isPartOfSameSyllable = false;
+            } else {
+              // 'n' at end or before consonant = final consonant
+              isPartOfSameSyllable = true;
+            }
+          } else if (lowerChar === "g" && lastChar === "n") {
+            isPartOfSameSyllable = true;
+          } else if (lowerChar === "r" && currentSyllable === "e") {
+            isPartOfSameSyllable = true;
+          }
+
+          if (!isPartOfSameSyllable) {
+            finishSyllable();
+          }
+        }
+        // Case 2: Vowel after consonant (new syllable if we already have vowels)
+        else if (consonants.has(lastChar) && vowels.has(lowerChar)) {
+          const hasVowels = [...currentSyllable].some(c => vowels.has(c));
+          if (hasVowels) {
+            finishSyllable();
+          }
         }
       }
 
@@ -363,19 +388,79 @@ export function convertToneMarksToNumbers(pinyin: string): string {
  * - Converts to lowercase
  * - Trims whitespace
  * - Converts tone marks to tone numbers
+ * - Adds tone 5 to syllables without tones
  * - Removes spaces between syllables
  */
 export function normalizePinyin(pinyin: string): string {
   let normalized = pinyin.trim().toLowerCase();
 
-  // Convert tone marks to numbers
+  console.log("[normalizePinyin] Input:", pinyin);
+
+  // Convert tone marks to numbers FIRST (this handles accented characters)
   normalized = convertToneMarksToNumbers(normalized);
+  console.log("[normalizePinyin] After convertToneMarksToNumbers:", normalized);
+
+  // Now add tone 5 to any syllables that don't have a tone number
+  // This handles cases where users type "yige" but database has "yi1 ge5"
+  // Split into potential syllables and add tone 5 if missing
+  normalized = addMissingToneFives(normalized);
+  console.log("[normalizePinyin] After addMissingToneFives:", normalized);
 
   // Remove spaces between syllables for flexible matching
-  // But preserve the string structure
   normalized = normalized.replace(/\s+/g, "");
+  console.log("[normalizePinyin] Final (spaces removed):", normalized);
 
   return normalized;
+}
+
+/**
+ * Adds tone 5 (neutral tone) to syllables that don't have a tone number
+ * This allows "yige" to match "yi1ge5" and handles syllables with or without spaces
+ *
+ * Strategy: Use regex to find syllable boundaries based on tone numbers.
+ * A tone number marks the end of a syllable. Add tone 5 to syllables without one.
+ */
+function addMissingToneFives(pinyin: string): string {
+  // Match syllables: optional consonants + vowels + optional final consonants + optional tone
+  // Syllable pattern: [consonants][vowels][optional n/g/ng/r][optional tone number]
+  const syllablePattern = /([bcdfghjklmnpqrstwxyz]*)([aeiouüv]+)([ngrh]*)([1-5]?)/gi;
+
+  let result = '';
+  let lastIndex = 0;
+  let match;
+
+  while ((match = syllablePattern.exec(pinyin)) !== null) {
+    const [fullMatch, consonants, vowels, finalConsonants, tone] = match;
+
+    // Skip empty matches (e.g., spaces)
+    if (!vowels) {
+      continue;
+    }
+
+    // Add any characters between last match and this one (e.g., spaces)
+    if (match.index > lastIndex) {
+      result += pinyin.slice(lastIndex, match.index);
+    }
+
+    // Build the syllable
+    const syllable = consonants + vowels + finalConsonants;
+
+    // Add tone 5 if no tone present
+    if (tone) {
+      result += syllable + tone;
+    } else {
+      result += syllable + '5';
+    }
+
+    lastIndex = match.index + fullMatch.length;
+  }
+
+  // Add any remaining characters
+  if (lastIndex < pinyin.length) {
+    result += pinyin.slice(lastIndex);
+  }
+
+  return result;
 }
 
 /**
