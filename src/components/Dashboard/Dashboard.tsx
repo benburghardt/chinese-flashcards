@@ -36,6 +36,7 @@ interface DashboardProps {
   onStartWritingPracticeMode?: () => void;
   onStartSpeechRecognitionTest?: () => void;
   onStartListeningPracticeMode?: () => void;
+  onStartSpeakingPracticeMode?: () => void;
 }
 
 function Dashboard({
@@ -48,6 +49,7 @@ function Dashboard({
   onStartWritingPracticeMode,
   onStartSpeechRecognitionTest,
   onStartListeningPracticeMode,
+  onStartSpeakingPracticeMode,
 }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [unlockStatus, setUnlockStatus] = useState<{
@@ -220,6 +222,13 @@ function Dashboard({
             <button className="option-button" onClick={onStartListeningPracticeMode}>
               <span className="option-icon">🎧</span>
               <span className="option-label">Listening Practice</span>
+            </button>
+          )}
+
+          {onStartSpeakingPracticeMode && (
+            <button className="option-button" onClick={onStartSpeakingPracticeMode}>
+              <span className="option-icon">🎤</span>
+              <span className="option-label">Speaking Practice</span>
             </button>
           )}
 

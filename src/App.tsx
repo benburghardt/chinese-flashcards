@@ -10,6 +10,7 @@ import WritingPracticeVerificationDemo from "./components/WritingPractice/Writin
 import WritingPracticeMode from "./components/WritingPractice/WritingPracticeMode";
 import SpeechRecognitionTest from "./components/TTS/SpeechRecognitionTest";
 import ListeningPracticeMode from "./components/ListeningPractice/ListeningPracticeMode";
+import SpeakingPracticeMode from "./components/SpeakingPractice/SpeakingPracticeMode";
 import "./App.css";
 
 interface Character {
@@ -35,7 +36,8 @@ type ViewMode =
   | "writing-practice-verification-demo"
   | "writing-practice-mode"
   | "speech-recognition-test"
-  | "listening-practice-mode";
+  | "listening-practice-mode"
+  | "speaking-practice-mode";
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
@@ -113,6 +115,10 @@ function App() {
 
   const handleStartListeningPracticeMode = () => {
     setViewMode("listening-practice-mode");
+  };
+
+  const handleStartSpeakingPracticeMode = () => {
+    setViewMode("speaking-practice-mode");
   };
 
   const handleIntroductionComplete = () => {
@@ -376,6 +382,11 @@ function App() {
     return <ListeningPracticeMode />;
   }
 
+  // Show Speaking Practice Mode
+  if (viewMode === "speaking-practice-mode") {
+    return <SpeakingPracticeMode />;
+  }
+
   // Show Dashboard (default view)
   if (viewMode === "dashboard") {
     return (
@@ -389,6 +400,7 @@ function App() {
         onStartWritingPracticeMode={handleStartWritingPracticeMode}
         onStartSpeechRecognitionTest={handleStartSpeechRecognitionTest}
         onStartListeningPracticeMode={handleStartListeningPracticeMode}
+        onStartSpeakingPracticeMode={handleStartSpeakingPracticeMode}
       />
     );
   }
