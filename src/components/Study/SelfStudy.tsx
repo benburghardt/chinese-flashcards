@@ -49,7 +49,6 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   const [totalQuestions, setTotalQuestions] = useState(0); // Total questions asked
   const [completedCards, setCompletedCards] = useState(0);
   const [sessionId, setSessionId] = useState<number | null>(null);
-  const [isRetryAttempt, setIsRetryAttempt] = useState(false); // Track if user is retrying after wrong tones
   const [wrongTonesOnly, setWrongTonesOnly] = useState(false); // Track if user had correct syllables but wrong tones
 
   // Track which cards have been answered correctly (both questions)
@@ -65,10 +64,8 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
   useEffect(() => {
     const handleGlobalKeyPress = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
-        if (showFeedback && wrongTonesOnly) {
-          // For wrong tones, Enter key triggers retry
-          handleRetry();
-        } else if (showFeedback) {
+        if (showFeedback) {
+          // After feedback (including wrong tones), move to next
           handleNext();
         } else if (!submitting && userAnswer.trim()) {
           handleSubmit();
@@ -197,7 +194,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
 
     // For pinyin questions, check if syllables are correct but tones are wrong
     let wrongTones = false;
-    if (currentQuestion.questionType === "pinyin" && !correct && !isRetryAttempt) {
+    if (currentQuestion.questionType === "pinyin" && !correct) {
       wrongTones = hasCorrectSyllablesButWrongTones(userAnswer, correctAnswer);
       console.log("[SELF-STUDY] Wrong tones only:", wrongTones);
     }
@@ -207,11 +204,20 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     setShowFeedback(true);
     setSubmitting(true);
 
-    // If wrong tones only, give user a second chance - don't record yet
+    // If wrong tones only: neutral outcome (not correct, not incorrect)
+    // Add back to queue and move to next - user will see it again later
     if (wrongTones) {
-      setIsRetryAttempt(true);
+      console.log("[SELF-STUDY] Wrong tones only - adding back to queue for later practice");
+
+      // Add question back to queue (same as incorrect, but don't mark as incorrect)
+      const updatedQuestions = [...questions];
+      const retryQuestion = { ...currentQuestion, answeredCorrectly: null };
+      updatedQuestions.push(retryQuestion);
+      setQuestions(updatedQuestions);
+
+      console.log("[SELF-STUDY] Wrong tones question added back to queue. Will see again later.");
       setSubmitting(false);
-      return; // Don't update stats or record practice yet
+      return; // Don't update progress or stats - this is neutral
     }
 
     // Record practice in database (only if not a retry with wrong tones)
@@ -258,17 +264,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       setIncorrectAnswers((prev) => prev + 1);
     }
 
-    // Reset retry state for next question
-    setIsRetryAttempt(false);
     setSubmitting(false);
-  };
-
-  const handleRetry = () => {
-    // User is retrying after wrong tones - clear feedback and let them try again
-    setShowFeedback(false);
-    setUserAnswer("");
-    setWrongTonesOnly(false);
-    // Keep isRetryAttempt = true so we know this is the second attempt
   };
 
   const handleNext = () => {
@@ -278,8 +274,8 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
     // Track the updated questions array for session completion check
     let updatedQuestionsArray = questions;
 
-    // If incorrect, add question back to the end
-    if (!isCorrect) {
+    // If incorrect, add question back to the end (but not if it was only wrong tones - already in queue)
+    if (!isCorrect && !wrongTonesOnly) {
       const updatedQuestions = [...questions];
       const incorrectQuestion = { ...currentQuestion, answeredCorrectly: null };
       updatedQuestions.push(incorrectQuestion);
@@ -314,6 +310,7 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
       setCurrentQuestionIndex(nextIndex);
       setUserAnswer("");
       setShowFeedback(false);
+      setWrongTonesOnly(false); // Reset for next question
     }
   };
 
@@ -449,11 +446,13 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
 
       {/* Question Card */}
       <div className={`question-card question-type-${currentQuestion.questionType}`}>
-        <div className="practice-badge">📖 Self-Study Practice</div>
-        <div className="question-label">
-          {currentQuestion.questionType === "definition"
-            ? "📖 What does this mean?"
-            : "🔊 How do you pronounce this?"}
+        <div className="question-header">
+          <div className="question-label">
+            {currentQuestion.questionType === "definition"
+              ? "📖 What does this mean?"
+              : "🔊 How do you pronounce this?"}
+          </div>
+          <div className="practice-badge">📖 Self-Study Practice</div>
         </div>
 
         <div className="character-display-large">{currentQuestion.character}</div>
@@ -501,10 +500,14 @@ function SelfStudy({ onComplete }: SelfStudyProps) {
                     <strong>Close!</strong> You have the right syllables, but the tones are
                     incorrect.
                   </p>
-                  <p>Try again and pay attention to the tone marks!</p>
+                  <p>You'll see this character again later. Pay attention to the tone marks!</p>
                 </div>
-                <button className="btn-retry" onClick={handleRetry}>
-                  Try Again
+                <div className="correct-answer">
+                  <strong>Correct answer:</strong>{" "}
+                  {convertToneNumbersToMarks(currentQuestion.pinyin)}
+                </div>
+                <button className="btn-next" onClick={handleNext}>
+                  Next →
                 </button>
               </>
             )}

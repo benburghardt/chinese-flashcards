@@ -79,7 +79,6 @@ function SpacedRepetition({
   const [isExiting, setIsExiting] = useState(false); // Track if user is exiting study
   const [sessionId, setSessionId] = useState<number | null>(null); // Session ID for recording
   const [sessionEnded, setSessionEnded] = useState(false); // Track if session has been ended
-  const [isRetryAttempt, setIsRetryAttempt] = useState(false); // Track if user is retrying after wrong tones
   const [wrongTonesOnly, setWrongTonesOnly] = useState(false); // Track if user had correct syllables but wrong tones
 
   // Text-to-speech hook
@@ -97,10 +96,8 @@ function SpacedRepetition({
   useEffect(() => {
     const handleGlobalKeyPress = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
-        if (showFeedback && wrongTonesOnly) {
-          // For wrong tones, Enter key triggers retry
-          handleRetry();
-        } else if (showFeedback) {
+        if (showFeedback) {
+          // After feedback (including wrong tones), move to next
           handleNext();
         } else if (!submitting && userAnswer.trim()) {
           handleSubmit();
@@ -326,7 +323,7 @@ function SpacedRepetition({
 
     // For pinyin questions, check if syllables are correct but tones are wrong
     let wrongTones = false;
-    if (currentQuestion.questionType === "pinyin" && !correct && !isRetryAttempt) {
+    if (currentQuestion.questionType === "pinyin" && !correct) {
       wrongTones = hasCorrectSyllablesButWrongTones(userAnswer, correctAnswer);
       console.log("[VERIFY] Wrong tones only:", wrongTones);
     }
@@ -336,11 +333,20 @@ function SpacedRepetition({
     setShowFeedback(true);
     setSubmitting(true);
 
-    // If wrong tones only, give user a second chance - don't update progress yet
+    // If wrong tones only: neutral outcome (not correct, not incorrect)
+    // Add back to queue and move to next - user will see it again later
     if (wrongTones) {
-      setIsRetryAttempt(true);
+      console.log("[SRS] Wrong tones only - adding back to queue for later practice");
+
+      // Add question back to queue (same as incorrect, but don't mark as incorrect)
+      const updatedQuestions = [...questions];
+      const retryQuestion = { ...currentQuestion, answeredCorrectly: null };
+      updatedQuestions.push(retryQuestion);
+      setQuestions(updatedQuestions);
+
+      console.log("[SRS] Wrong tones question added back to queue. Will see again later.");
       setSubmitting(false);
-      return; // Don't update question status or character progress yet
+      return; // Don't update progress or stats - this is neutral
     }
 
     // Track first-time errors for accuracy calculation
@@ -384,17 +390,7 @@ function SpacedRepetition({
       }
     }
 
-    // Reset retry state for next question
-    setIsRetryAttempt(false);
     setSubmitting(false);
-  };
-
-  const handleRetry = () => {
-    // User is retrying after wrong tones - clear feedback and let them try again
-    setShowFeedback(false);
-    setUserAnswer("");
-    setWrongTonesOnly(false);
-    // Keep isRetryAttempt = true so we know this is the second attempt
   };
 
   const handleNext = async () => {
@@ -412,7 +408,8 @@ function SpacedRepetition({
     // Also track the updated questions array for session completion check
     let updatedQuestionsArray = questions;
 
-    if (!isCorrect) {
+    // Don't process as incorrect if it was only wrong tones (neutral outcome)
+    if (!isCorrect && !wrongTonesOnly) {
       const progress = characterProgress.get(currentQuestion.character_id);
       if (progress && !progress.hadIncorrectAnswer) {
         // First time this card has been answered incorrectly
@@ -545,6 +542,7 @@ function SpacedRepetition({
       setCurrentQuestionIndex(nextIndex);
       setUserAnswer("");
       setShowFeedback(false);
+      setWrongTonesOnly(false); // Reset for next question
       console.log("[SRS] Moving to question", nextIndex);
     }
   };
@@ -901,10 +899,12 @@ function SpacedRepetition({
 
       {/* Question Card */}
       <div className={`question-card question-type-${currentQuestion.questionType}`}>
-        <div className="question-label">
-          {currentQuestion.questionType === "definition"
-            ? "📖 What does this mean?"
-            : "🔊 How do you pronounce this?"}
+        <div className="question-header">
+          <div className="question-label">
+            {currentQuestion.questionType === "definition"
+              ? "📖 What does this mean?"
+              : "🔊 How do you pronounce this?"}
+          </div>
         </div>
 
         <div className="character-display-large">{currentQuestion.character}</div>
@@ -948,10 +948,14 @@ function SpacedRepetition({
                     <strong>Close!</strong> You have the right syllables, but the tones are
                     incorrect.
                   </p>
-                  <p>Try again and pay attention to the tone marks!</p>
+                  <p>You'll see this character again later. Pay attention to the tone marks!</p>
                 </div>
-                <button className="btn-retry" onClick={handleRetry}>
-                  Try Again
+                <div className="correct-answer">
+                  <strong>Correct answer:</strong>{" "}
+                  {convertToneNumbersToMarks(currentQuestion.pinyin)}
+                </div>
+                <button className="btn-next" onClick={handleNext}>
+                  Next →
                 </button>
               </>
             )}
