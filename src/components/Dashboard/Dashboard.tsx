@@ -37,6 +37,7 @@ interface DashboardProps {
   onStartSpeechRecognitionTest?: () => void;
   onStartListeningPracticeMode?: () => void;
   onStartSpeakingPracticeMode?: () => void;
+  onOpenSettings?: () => void;
 }
 
 function Dashboard({
@@ -50,6 +51,7 @@ function Dashboard({
   onStartSpeechRecognitionTest,
   onStartListeningPracticeMode,
   onStartSpeakingPracticeMode,
+  onOpenSettings,
 }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [unlockStatus, setUnlockStatus] = useState<{
@@ -256,11 +258,12 @@ function Dashboard({
             </button>
           )}
 
-          <button className="option-button" disabled>
-            <span className="option-icon">⚙️</span>
-            <span className="option-label">Settings</span>
-            <span className="option-badge">Coming Soon</span>
-          </button>
+          {onOpenSettings && (
+            <button className="option-button" onClick={onOpenSettings}>
+              <span className="option-icon">⚙️</span>
+              <span className="option-label">Settings</span>
+            </button>
+          )}
         </div>
       </div>
 

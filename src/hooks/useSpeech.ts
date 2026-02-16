@@ -5,6 +5,7 @@ interface UseSpeechOptions {
   rate?: number;
   pitch?: number;
   volume?: number;
+  voiceURI?: string | null; // Voice to use (null = browser default)
 }
 
 interface UseSpeechReturn {
@@ -31,6 +32,7 @@ export function useSpeech(options: UseSpeechOptions = {}): UseSpeechReturn {
     rate: initialRate = 1.0,
     pitch = 1.0,
     volume = 1.0,
+    voiceURI = null,
   } = options;
 
   const [speaking, setSpeaking] = useState(false);
@@ -118,7 +120,19 @@ export function useSpeech(options: UseSpeechOptions = {}): UseSpeechReturn {
       utterance.pitch = pitch;
       utterance.volume = volume;
 
-      console.log('[TTS] Utterance config:', { lang, rate, pitch, volume });
+      // Set voice if specified
+      if (voiceURI) {
+        const voices = window.speechSynthesis.getVoices();
+        const selectedVoice = voices.find(v => v.voiceURI === voiceURI);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          console.log('[TTS] Using selected voice:', selectedVoice.name);
+        } else {
+          console.warn('[TTS] Selected voice not found:', voiceURI);
+        }
+      }
+
+      console.log('[TTS] Utterance config:', { lang, rate, pitch, volume, voiceURI });
 
       // Set up event handlers
       utterance.onstart = () => {
@@ -188,7 +202,7 @@ export function useSpeech(options: UseSpeechOptions = {}): UseSpeechReturn {
       setError(`Failed to speak: ${errorMessage}`);
       console.error('Speech synthesis exception:', err);
     }
-  }, [supported, lang, rate, pitch, volume]);
+  }, [supported, lang, rate, pitch, volume, voiceURI]);
 
   const cancel = useCallback(() => {
     if (supported && window.speechSynthesis) {

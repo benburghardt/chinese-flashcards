@@ -4,6 +4,7 @@ import { useSpeech } from "../../hooks/useSpeech";
 import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 import { hanziToPinyin, comparePinyin, isChineseText } from "../../utils/pinyinConverter";
 import { convertToneNumbersToMarks } from "../../utils/answerVerification";
+import { useSettings } from "../../contexts/SettingsContext";
 import "./SpeakingPracticeMode.css";
 
 interface PracticeCharacter {
@@ -36,10 +37,14 @@ export default function SpeakingPracticeMode() {
   const [hasShownPrompt, setHasShownPrompt] = useState(false);
   const [poorRecognition, setPoorRecognition] = useState(false);
 
+  // Get settings for TTS
+  const { selectedVoice, speechRate } = useSettings();
+
   // Text-to-speech hook (for playing example pronunciation)
   const { speak, speaking, supported: ttsSupported } = useSpeech({
     lang: 'zh-CN',
-    rate: 0.9,
+    rate: speechRate,
+    voiceURI: selectedVoice,
   });
 
   // Speech recognition hook (for capturing user's speech)

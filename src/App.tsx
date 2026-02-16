@@ -11,6 +11,8 @@ import WritingPracticeMode from "./components/WritingPractice/WritingPracticeMod
 import SpeechRecognitionTest from "./components/TTS/SpeechRecognitionTest";
 import ListeningPracticeMode from "./components/ListeningPractice/ListeningPracticeMode";
 import SpeakingPracticeMode from "./components/SpeakingPractice/SpeakingPracticeMode";
+import Settings from "./components/Settings/Settings";
+import { SettingsProvider } from "./contexts/SettingsContext";
 import "./App.css";
 
 interface Character {
@@ -37,7 +39,8 @@ type ViewMode =
   | "writing-practice-mode"
   | "speech-recognition-test"
   | "listening-practice-mode"
-  | "speaking-practice-mode";
+  | "speaking-practice-mode"
+  | "settings";
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
@@ -119,6 +122,14 @@ function App() {
 
   const handleStartSpeakingPracticeMode = () => {
     setViewMode("speaking-practice-mode");
+  };
+
+  const handleOpenSettings = () => {
+    setViewMode("settings");
+  };
+
+  const handleCloseSettings = () => {
+    setViewMode("dashboard");
   };
 
   const handleIntroductionComplete = () => {
@@ -387,6 +398,11 @@ function App() {
     return <SpeakingPracticeMode />;
   }
 
+  // Show Settings
+  if (viewMode === "settings") {
+    return <Settings onClose={handleCloseSettings} />;
+  }
+
   // Show Dashboard (default view)
   if (viewMode === "dashboard") {
     return (
@@ -401,6 +417,7 @@ function App() {
         onStartSpeechRecognitionTest={handleStartSpeechRecognitionTest}
         onStartListeningPracticeMode={handleStartListeningPracticeMode}
         onStartSpeakingPracticeMode={handleStartSpeakingPracticeMode}
+        onOpenSettings={handleOpenSettings}
       />
     );
   }
@@ -409,4 +426,13 @@ function App() {
   return null;
 }
 
-export default App;
+// Wrap App with SettingsProvider
+function AppWithProviders() {
+  return (
+    <SettingsProvider>
+      <App />
+    </SettingsProvider>
+  );
+}
+
+export default AppWithProviders;
