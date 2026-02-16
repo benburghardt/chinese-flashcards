@@ -203,6 +203,18 @@ pub fn populate_component_characters(db_path: &str) -> Result<(), Box<dyn std::e
 }
 
 /// Calculate and populate introduction_rank for all characters and words
+///
+/// Uses a single-pass scoring algorithm that:
+/// - Mixes characters and words from the beginning
+/// - Ensures words appear after their component characters
+/// - Heavily penalizes or excludes rare/unknown words
+///
+/// Scoring:
+/// - Characters: score = frequency_rank (lower = more common = earlier)
+/// - Common words (freq < 10,000): score = max_component_freq + (freq × 0.5)
+/// - Medium words (10k-50k): score = max_component_freq + (freq × 2.0)
+/// - Rare words (> 50k): score = max_component_freq + (freq × 10.0)
+/// - No frequency data (999,999): score = 10,000,000 (excluded)
 pub fn populate_introduction_ranks(db_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut conn = Connection::open(db_path)?;
 
@@ -210,91 +222,175 @@ pub fn populate_introduction_ranks(db_path: &str) -> Result<(), Box<dyn std::err
     struct ScoredItem {
         id: i32,
         score: f64,
+        is_word: bool,
+        character: String,
+        freq_rank: i32,
     }
 
-    // Calculate score for each character/word
-    let scored_items: Vec<ScoredItem> = {
-        let mut stmt = conn
-            .prepare("SELECT id, frequency_rank, is_word, component_characters FROM characters")?;
+    println!("  Calculating scores for all characters and words...");
 
-        let items: Vec<(i32, i32, bool, Option<String>)> = stmt
+    // Get all items (characters and words)
+    let items: Vec<(i32, i32, bool, Option<String>, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, frequency_rank, is_word, component_characters, character FROM characters"
+        )?;
+
+        let result = stmt
             .query_map([], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
             })?
             .collect::<Result<Vec<_>>>()?;
 
-        println!("  Calculating scores for {} items...", items.len());
+        result
+    }; // stmt dropped here
 
-        let mut scored = Vec::new();
+    println!("    Found {} total items", items.len());
 
-        for (id, freq_rank, is_word, component_chars) in items {
-            let score = if is_word {
-                // Word scoring: max(component_ranks) + (word_rank × 0.01)
-                if let Some(components) = component_chars {
-                    let comp_ids: Vec<i32> = components
-                        .split(',')
-                        .filter_map(|s| s.trim().parse().ok())
-                        .collect();
+    let mut scored_items = Vec::new();
 
-                    if !comp_ids.is_empty() {
-                        let mut max_component_rank = 0;
-                        for comp_id in comp_ids {
-                            if let Ok(rank) = conn.query_row(
+    for (id, freq_rank, is_word, component_chars, character) in items {
+        let score = if is_word {
+            // WORD SCORING
+            // Words must appear after their component characters
+            // Rare words are heavily penalized or excluded
+
+            // Check for character repetition words (一一, 个个, 人人, etc.)
+            // These are often incorrectly ranked as common in frequency data
+            let is_repetition_word = character.chars().count() == 2
+                && character.chars().nth(0) == character.chars().nth(1);
+
+            if is_repetition_word {
+                // Character repetition words excluded (data quality issue)
+                10_000_000.0
+            } else if freq_rank >= 999999 {
+                // No frequency data - exclude by putting at the very end
+                10_000_000.0
+            } else if let Some(components) = component_chars {
+                let comp_ids: Vec<i32> = components
+                    .split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
+
+                if comp_ids.is_empty() {
+                    // No valid components - exclude
+                    10_000_000.0
+                } else {
+                    // Find max component frequency rank
+                    let max_component_freq = comp_ids
+                        .iter()
+                        .filter_map(|comp_id| {
+                            conn.query_row(
                                 "SELECT frequency_rank FROM characters WHERE id = ?1",
                                 [comp_id],
                                 |row| row.get::<_, i32>(0),
-                            ) {
-                                max_component_rank = max_component_rank.max(rank);
-                            }
-                        }
-                        max_component_rank as f64 + (freq_rank as f64 * 0.01)
+                            )
+                            .ok()
+                        })
+                        .max()
+                        .unwrap_or(0);
+
+                    // Minimum threshold: words should only appear after first 30 characters
+                    // This ensures students have a foundation before learning compound words
+                    const MIN_CHARS_BEFORE_WORDS: f64 = 30.0;
+                    let base_score = max_component_freq.max(MIN_CHARS_BEFORE_WORDS as i32) as f64;
+
+                    // Tiered penalty based on word rarity
+                    let freq_penalty = if freq_rank > 50000 {
+                        // Very rare words: heavy penalty
+                        freq_rank as f64 * 10.0
+                    } else if freq_rank > 10000 {
+                        // Medium frequency: moderate penalty
+                        freq_rank as f64 * 2.0
                     } else {
-                        // No components found
-                        100000.0 + freq_rank as f64
-                    }
-                } else {
-                    // No components found
-                    100000.0 + freq_rank as f64
+                        // Common words: light penalty (can appear early!)
+                        freq_rank as f64 * 0.5
+                    };
+
+                    base_score + freq_penalty
                 }
             } else {
-                // Character scoring: just use frequency rank
-                freq_rank as f64
-            };
+                // No component data - exclude
+                10_000_000.0
+            }
+        } else {
+            // CHARACTER SCORING
+            // Simple: just use frequency rank
+            freq_rank as f64
+        };
 
-            scored.push(ScoredItem { id, score });
-        }
+        scored_items.push(ScoredItem {
+            id,
+            score,
+            is_word,
+            character,
+            freq_rank,
+        });
+    }
 
-        scored
-    };
-
-    // Sort by score to determine rank
-    let mut sorted_items = scored_items;
-    sorted_items.sort_by(|a, b| {
+    // Sort all items by score
+    scored_items.sort_by(|a, b| {
         a.score
             .partial_cmp(&b.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
+    // Assign introduction ranks
     println!("  Assigning introduction ranks...");
 
-    // Update database with ranks
     let tx = conn.transaction()?;
-
     {
-        let mut update_stmt =
-            tx.prepare("UPDATE characters SET introduction_rank = ?1 WHERE id = ?2")?;
+        let mut update_stmt = tx.prepare(
+            "UPDATE characters SET introduction_rank = ?1 WHERE id = ?2"
+        )?;
 
-        for (rank, item) in sorted_items.iter().enumerate() {
+        for (rank, item) in scored_items.iter().enumerate() {
             update_stmt.execute(rusqlite::params![rank + 1, item.id])?;
         }
-    } // update_stmt dropped here
-
+    }
     tx.commit()?;
 
-    println!(
-        "  ✓ Assigned introduction ranks to {} items",
-        sorted_items.len()
-    );
+    // Count characters and words
+    let char_count = scored_items.iter().filter(|x| !x.is_word).count();
+    let word_count = scored_items.iter().filter(|x| x.is_word).count();
+
+    println!("    ✓ Ranked {} characters", char_count);
+    println!("    ✓ Ranked {} words", word_count);
+
+    // Show example rankings (first 100 to see character/word mixing)
+    println!("\n  Example introduction order (first 100):");
+    let examples: Vec<_> = scored_items.iter().take(100).collect();
+
+    for (i, item) in examples.iter().enumerate() {
+        let type_str = if item.is_word { "WORD" } else { "char" };
+        println!(
+            "    #{:3}: {} - freq: {} [{}] (score: {:.1})",
+            i + 1,
+            item.character,
+            item.freq_rank,
+            type_str,
+            item.score
+        );
+    }
+
+    // Count how many words appear in first 50
+    let words_in_first_50 = scored_items.iter().take(50).filter(|x| x.is_word).count();
+    let words_in_first_100 = scored_items.iter().take(100).filter(|x| x.is_word).count();
+
+    println!("\n  ✓ Words in first 50 items: {}", words_in_first_50);
+    println!("  ✓ Words in first 100 items: {}", words_in_first_100);
+    println!("  ✓ Total items ranked: {}", scored_items.len());
+
+    // Check where 一一 ended up
+    if let Some((rank, item)) = scored_items.iter().enumerate().find(|(_, x)| x.character == "一一") {
+        println!("\n  📊 一一 (yīyī) position: #{} (freq: {}, score: {:.0})",
+                 rank + 1, item.freq_rank, item.score);
+    }
 
     Ok(())
 }

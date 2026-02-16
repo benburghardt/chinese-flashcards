@@ -82,12 +82,18 @@ pub fn initialize_database() -> Result<DbConnection> {
     // Run migrations
     run_migrations(&conn)?;
 
-    // Generate definition review CSV if it doesn't exist
+    // AUTO-WORKFLOW: Definition Updates
+    // Step 1: Generate definition review CSV if it doesn't exist
     if let Err(e) = generate_definition_review_if_needed() {
         println!("[DB] Warning: Could not generate definition review: {}", e);
     }
 
-    // Apply definition overrides from definition_overrides.json
+    // Step 2: Check CSV for user updates and apply them to JSON
+    if let Err(e) = check_and_apply_csv_updates() {
+        println!("[DB] Warning: Could not check CSV updates: {}", e);
+    }
+
+    // Step 3: Apply definition overrides from JSON to database
     apply_definition_overrides(&conn)?;
 
     // Initialize new user with first 30 characters if this is a new database
@@ -1663,6 +1669,115 @@ fn generate_definition_review_if_needed() -> std::result::Result<(), Box<dyn std
     }
 
     println!("[DB] Generated definition review file at {:?}", review_path);
+
+    Ok(())
+}
+
+/// Check definition_review.csv for user updates and apply them to definition_overrides.json
+/// This is called automatically on app startup to sync user edits
+fn check_and_apply_csv_updates() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let csv_path = if cfg!(debug_assertions) {
+        PathBuf::from("../definition_review.csv")
+    } else {
+        PathBuf::from("definition_review.csv")
+    };
+
+    let json_path = if cfg!(debug_assertions) {
+        PathBuf::from("../definition_overrides.json")
+    } else {
+        PathBuf::from("definition_overrides.json")
+    };
+
+    // Skip if CSV doesn't exist
+    if !csv_path.exists() {
+        return Ok(());
+    }
+
+    println!("[DB] Checking definition_review.csv for updates...");
+
+    #[derive(serde::Serialize, serde::Deserialize, Clone)]
+    struct DefinitionOverride {
+        character_id: i32,
+        character: String,
+        pinyin: String,
+        original_definition: String,
+        updated_definition: String,
+        reason: String,
+        updated_at: String,
+    }
+
+    // Read existing overrides from JSON
+    let mut existing_overrides: HashMap<i32, DefinitionOverride> = if json_path.exists() {
+        let file_content = fs::read_to_string(&json_path)?;
+        let overrides: Vec<DefinitionOverride> = serde_json::from_str(&file_content)
+            .unwrap_or_else(|_| Vec::new());
+        overrides.into_iter().map(|o| (o.character_id, o)).collect()
+    } else {
+        HashMap::new()
+    };
+
+    // Read CSV for new/updated entries
+    let mut reader = csv::ReaderBuilder::new()
+        .flexible(true)
+        .from_path(&csv_path)?;
+
+    let mut new_overrides = 0;
+    let mut skipped = 0;
+
+    for result in reader.records() {
+        let record = result?;
+
+        // CSV columns: ID, Character, Pinyin, Type, Frequency Rank, Current Definition, Flags, Updated Definition
+        let id: i32 = record.get(0).unwrap_or("").parse().unwrap_or(0);
+        let character = record.get(1).unwrap_or("").to_string();
+        let pinyin = record.get(2).unwrap_or("").to_string();
+        let current_def = record.get(5).unwrap_or("").to_string();
+        let flags = record.get(6).unwrap_or("").to_string();
+        let updated_def = record.get(7).unwrap_or("").trim().to_string();
+
+        // Skip if no update provided or same as current
+        if updated_def.is_empty() || updated_def == current_def {
+            skipped += 1;
+            continue;
+        }
+
+        // Skip if this override already exists with the same definition
+        if let Some(existing) = existing_overrides.get(&id) {
+            if existing.updated_definition == updated_def {
+                skipped += 1;
+                continue;
+            }
+        }
+
+        // Add/update override
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        let override_entry = DefinitionOverride {
+            character_id: id,
+            character: character.clone(),
+            pinyin,
+            original_definition: current_def,
+            updated_definition: updated_def.clone(),
+            reason: flags,
+            updated_at: timestamp,
+        };
+
+        existing_overrides.insert(id, override_entry);
+        new_overrides += 1;
+
+        println!("  [NEW] {} → {}", character, &updated_def[..updated_def.len().min(50)]);
+    }
+
+    if new_overrides > 0 {
+        // Write back to JSON
+        let all_overrides: Vec<DefinitionOverride> = existing_overrides.into_values().collect();
+        let json = serde_json::to_string_pretty(&all_overrides)?;
+        fs::write(&json_path, json)?;
+
+        println!("[DB] Applied {} new definition updates to JSON", new_overrides);
+        println!("[DB] Total overrides tracked: {}", all_overrides.len());
+    } else {
+        println!("[DB] No new definition updates found in CSV");
+    }
 
     Ok(())
 }

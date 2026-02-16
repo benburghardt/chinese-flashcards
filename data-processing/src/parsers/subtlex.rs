@@ -36,8 +36,8 @@ fn parse_subtlex_file(
         .build(file);
     let reader = BufReader::new(decoder);
 
-    let mut data = HashMap::new();
-    let mut rank = 1;
+    // First pass: collect all items with their counts
+    let mut items_with_counts: Vec<(String, i32)> = Vec::new();
     let mut lines_skipped = 0;
 
     for line in reader.lines() {
@@ -66,27 +66,44 @@ fn parse_subtlex_file(
         let item = parts[0].trim().to_string();
         let count = parts[1].trim().parse::<i32>().unwrap_or(0);
 
-        // Skip empty items
-        if item.is_empty() {
+        // Skip empty items or items with zero count
+        if item.is_empty() || count == 0 {
             continue;
         }
 
+        items_with_counts.push((item, count));
+    }
+
+    // Second pass: Sort by count (descending - higher count = more frequent = lower rank)
+    items_with_counts.sort_by(|a, b| b.1.cmp(&a.1));
+
+    // Third pass: Assign frequency ranks based on sorted order
+    let mut data = HashMap::new();
+    for (rank, (item, count)) in items_with_counts.iter().enumerate() {
         let freq_data = FrequencyData {
             item: item.clone(),
-            frequency_rank: rank,
-            count,
+            frequency_rank: (rank + 1) as i32, // Rank starts at 1
+            count: *count,
             is_word,
         };
 
-        data.insert(item, freq_data);
-        rank += 1;
+        data.insert(item.clone(), freq_data);
     }
 
     println!(
-        "Parsed {} {} from SUBTLEX-CH",
+        "Parsed {} {} from SUBTLEX-CH (sorted by frequency)",
         data.len(),
         if is_word { "words" } else { "characters" }
     );
+
+    // Show top 10 for verification
+    let mut sorted_items: Vec<_> = data.values().collect();
+    sorted_items.sort_by_key(|x| x.frequency_rank);
+    println!("  Top 10 most frequent:");
+    for item in sorted_items.iter().take(10) {
+        println!("    #{}: {} (count: {})", item.frequency_rank, item.item, item.count);
+    }
+
     Ok(data)
 }
 
